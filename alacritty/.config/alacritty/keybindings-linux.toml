@@ -1,0 +1,60 @@
+# ~/.config/alacritty/keybindings-linux.toml
+# Linux-specific keybindings: Super/Alt key → tmux shortcuts
+#
+# On Linux, the "Command" modifier doesn't exist.
+# We use Super (Windows key) for tmux navigation — keeps it from
+# colliding with Emacs Ctrl/Alt bindings.
+#
+# IMPORTANT: These assume tmux prefix = Ctrl+A  (\u0001)
+# Change \u0001 if you use a different prefix.
+
+[keyboard]
+bindings = [
+  # ── tmux: windows ─────────────────────────────────────────────────────────
+  { key = "T",    mods = "Super",       chars = "\u0001c"  },   # Super+T  → new window
+  { key = "W",    mods = "Super",       chars = "\u0001&"  },   # Super+W  → close window
+  { key = "R",    mods = "Super",       chars = "\u0001,"  },   # Super+R  → rename window
+
+  # Switch windows by number
+  { key = "Key1", mods = "Super", chars = "\u00011" },
+  { key = "Key2", mods = "Super", chars = "\u00012" },
+  { key = "Key3", mods = "Super", chars = "\u00013" },
+  { key = "Key4", mods = "Super", chars = "\u00014" },
+  { key = "Key5", mods = "Super", chars = "\u00015" },
+  { key = "Key6", mods = "Super", chars = "\u00016" },
+  { key = "Key7", mods = "Super", chars = "\u00017" },
+  { key = "Key8", mods = "Super", chars = "\u00018" },
+  { key = "Key9", mods = "Super", chars = "\u00019" },
+
+  # ── tmux: pane navigation ─────────────────────────────────────────────────
+  { key = "H", mods = "Super", chars = "\u0001\u001b[D" },
+  { key = "J", mods = "Super", chars = "\u0001\u001b[B" },
+  { key = "K", mods = "Super", chars = "\u0001\u001b[A" },
+  { key = "L", mods = "Super", chars = "\u0001\u001b[C" },
+
+  # ── tmux: splits ──────────────────────────────────────────────────────────
+  { key = "D", mods = "Super",       chars = "\u0001\""  },
+  { key = "D", mods = "Super|Shift", chars = "\u0001%"   },
+
+  # ── tmux: zoom ────────────────────────────────────────────────────────────
+  { key = "Z", mods = "Super", chars = "\u0001z" },
+
+  # ── tmux: sessions ────────────────────────────────────────────────────────
+  { key = "S", mods = "Super", chars = "\u0001s" },
+
+  # ── tmux: copy/paste mode ─────────────────────────────────────────────────
+  { key = "Comma",  mods = "Super", chars = "\u0001[" },
+  { key = "Period", mods = "Super", chars = "\u0001]" },
+
+  # ── Clipboard ─────────────────────────────────────────────────────────────
+  { key = "C", mods = "Control|Shift", action = "Copy"  },
+  { key = "V", mods = "Control|Shift", action = "Paste" },
+
+  # ── Font size ─────────────────────────────────────────────────────────────
+  { key = "Equals", mods = "Control", action = "IncreaseFontSize" },
+  { key = "Minus",  mods = "Control", action = "DecreaseFontSize" },
+  { key = "Key0",   mods = "Control", action = "ResetFontSize"    },
+
+  # ── New instance ──────────────────────────────────────────────────────────
+  { key = "N", mods = "Super|Shift", action = "SpawnNewInstance" },
+]

@@ -1,0 +1,63 @@
+# ~/.config/alacritty/keybindings-macos.toml
+# macOS-specific keybindings: Cmd key → tmux shortcuts
+#
+# IMPORTANT: These assume tmux prefix = Ctrl+A  (\u0001)
+# If you use Ctrl+B (default), change \u0001 → \u0002
+# If you use Ctrl+F,           change \u0001 → \u0006
+#
+# These bindings let you drive tmux with natural Mac shortcuts
+# (Cmd+T for new tab, Cmd+1-9 for windows, Cmd+hjkl for panes)
+# without fighting with Emacs Ctrl bindings.
+
+[keyboard]
+bindings = [
+  # ── tmux: windows (like browser/editor tabs) ──────────────────────────────
+  { key = "T",    mods = "Command",       chars = "\u00001c" },  # Cmd+T  → new window
+  { key = "W",    mods = "Command",       chars = "\u0001&"  },  # Cmd+W  → close window
+  { key = "R",    mods = "Command",       chars = "\u0001,"  },  # Cmd+R  → rename window
+
+  # Switch windows by number — Cmd+1 through Cmd+9
+  { key = "Key1", mods = "Command", chars = "\u00011" },
+  { key = "Key2", mods = "Command", chars = "\u00012" },
+  { key = "Key3", mods = "Command", chars = "\u00013" },
+  { key = "Key4", mods = "Command", chars = "\u00014" },
+  { key = "Key5", mods = "Command", chars = "\u00015" },
+  { key = "Key6", mods = "Command", chars = "\u00016" },
+  { key = "Key7", mods = "Command", chars = "\u00017" },
+  { key = "Key8", mods = "Command", chars = "\u00018" },
+  { key = "Key9", mods = "Command", chars = "\u00019" },
+
+  # ── tmux: pane navigation (Cmd+hjkl — Vim/Emacs-friendly) ─────────────────
+  # These send prefix + arrow so tmux-vim-navigator or plain bindings work
+  { key = "H", mods = "Command", chars = "\u0001\u001b[D" },   # Cmd+H → pane left
+  { key = "J", mods = "Command", chars = "\u0001\u001b[B" },   # Cmd+J → pane down
+  { key = "K", mods = "Command", chars = "\u0001\u001b[A" },   # Cmd+K → pane up
+  { key = "L", mods = "Command", chars = "\u0001\u001b[C" },   # Cmd+L → pane right
+
+  # ── tmux: splits ──────────────────────────────────────────────────────────
+  { key = "D", mods = "Command",       chars = "\u0001\""  },  # Cmd+D       → split horizontal
+  { key = "D", mods = "Command|Shift", chars = "\u0001%"   },  # Cmd+Shift+D → split vertical
+
+  # ── tmux: zoom current pane (focus mode — great on the main center screen) ─
+  { key = "Z", mods = "Command", chars = "\u0001z" },           # Cmd+Z → zoom/unzoom pane
+
+  # ── tmux: sessions ────────────────────────────────────────────────────────
+  { key = "S", mods = "Command", chars = "\u0001s" },           # Cmd+S → session picker
+  { key = "N", mods = "Command", chars = "\u0001$" },           # Cmd+N → rename session
+
+  # ── tmux: scroll / copy mode ──────────────────────────────────────────────
+  { key = "Comma",  mods = "Command", chars = "\u0001[" },      # Cmd+, → enter copy/scroll mode
+  { key = "Period", mods = "Command", chars = "\u0001]" },      # Cmd+. → paste from tmux buffer
+
+  # ── Font size (macOS conventions) ─────────────────────────────────────────
+  { key = "Equals", mods = "Command", action = "IncreaseFontSize" },
+  { key = "Minus",  mods = "Command", action = "DecreaseFontSize" },
+  { key = "Key0",   mods = "Command", action = "ResetFontSize"    },
+
+  # ── Clipboard (macOS conventions) ─────────────────────────────────────────
+  { key = "C", mods = "Command", action = "Copy"  },
+  { key = "V", mods = "Command", action = "Paste" },
+
+  # ── New Alacritty window (different from tmux window) ─────────────────────
+  { key = "N", mods = "Command|Shift", action = "SpawnNewInstance" },
+]

@@ -1,0 +1,32 @@
+# MCPHost Configuration File
+# All command-line flags can be configured here
+
+# MCP Servers configuration
+# Add your MCP servers here
+# Example:
+# mcpServers:
+#   filesystem:
+#     command: npx
+#     args: ["@modelcontextprotocol/server-filesystem", "/path/to/allowed/files"]
+#   sqlite:
+#     command: uvx
+#     args: ["mcp-server-sqlite", "--db-path", "/tmp/example.db"]
+
+mcpServers:
+
+# Application settings (all optional)
+# model: "anthropic:claude-sonnet-4-20250514"  # Default model to use
+# max-steps: 20                                # Maximum agent steps (0 for unlimited)
+# debug: false                                 # Enable debug logging
+# system-prompt: "/path/to/system-prompt.txt" # System prompt text file
+
+# Model generation parameters (all optional)
+# max-tokens: 4096                             # Maximum tokens in response
+# temperature: 0.7                             # Randomness (0.0-1.0)
+# top-p: 0.95                                  # Nucleus sampling (0.0-1.0)
+# top-k: 40                                    # Top K sampling
+# stop-sequences: ["Human:", "Assistant:"]     # Custom stop sequences
+
+# API Configuration (can also use environment variables)
+# provider-api-key: "your-api-key"         # API key for OpenAI, Anthropic, or Google
+# provider-url: "https://api.openai.com/v1" # Base URL for OpenAI, Anthropic, or Ollama

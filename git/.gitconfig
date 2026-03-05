@@ -1,0 +1,15 @@
+[user]
+	email = gherlein@herlein.com
+	name = Greg Herlein
+[core]
+	editor = emacs
+[alias]
+	squash-all = "!f(){ git reset $(git commit-tree HEAD^{tree} -m \"${1:-🎉 First commit}\");};f"
+[filter "lfs"]
+	process = git-lfs filter-process
+	required = true
+	clean = git-lfs clean -- %f
+	smudge = git-lfs smudge -- %f
+
+[url "ssh://git@github.com/"]
+    insteadOf = https://github.com/

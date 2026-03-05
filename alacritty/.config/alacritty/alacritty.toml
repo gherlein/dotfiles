@@ -1,0 +1,432 @@
+# ~/.config/alacritty/alacritty.toml
+# Optimized for: Claude Code, Emacs/mg, Zed, Makefiles, 3-screen dev setup
+# Works on macOS and Linux (TOML format, requires Alacritty 0.13+)
+#
+# File structure:
+#   alacritty.toml          ← this file (import others)
+#   themes/catppuccin-mocha.toml
+#   keybindings-macos.toml  ← macOS-specific (Cmd key tmux bindings)
+#   keybindings-linux.toml  ← Linux-specific (Super key tmux bindings)
+#
+# To switch platform-specific keybindings, comment/uncomment the import below.
+
+# Install Nerd Font for icons and ligatures (strongly recommended)
+# WHY: Nerd Fonts add thousands of icons (git status, file types, arrows) used
+# by modern shell prompts (starship, powerlevel10k), tmux status bars, and IDE
+# terminals. Without them, you'll see boxes or missing characters. JetBrains Mono
+# is clean, highly readable, and great for code. Install before first launch
+# brew install font-jetbrains-mono-nerd-font              # macOS
+# sudo apt install fonts-jetbrains-mono   # Debian/Ubuntu - no icons, but readable
+
+# ─────────────────────────────────────────────────────────────────────────────
+# IMPORTS
+# ─────────────────────────────────────────────────────────────────────────────
+# WHY: Splits config into modular files for themes and platform-specific bindings
+# This keeps the main config clean and makes it easy to switch themes or port
+# between macOS and Linux without editing dozens of lines. Import order matters:
+# later imports override earlier ones
+
+[general]
+import = [
+  # Theme: Catppuccin Mocha dark theme (matches tmux config)
+  # WHY: Consistent theming across terminal, tmux, and editors reduces cognitive
+  # load. Catppuccin Mocha is designed for long coding sessions with carefully
+  # chosen contrast ratios. Swap for tokyo-night or dracula if you prefer
+  "~/.config/alacritty/themes/catppuccin-mocha.toml",
+  #"~/.config/alacritty/themes/tokyo-night.toml",
+  #"~/.config/alacritty/themes/catppuccin_mocha.toml"
+  #"~/.config/alacritty/themes/dracula.toml"
+
+  # Platform-specific keybindings: uncomment ONE based on your OS
+  # WHY: macOS uses Cmd key, Linux uses Super key. These files contain tmux
+  # integration bindings (Cmd/Super+hjkl for pane nav, Cmd/Super+Z for zoom, etc)
+  # Keeping them separate means you can sync this config across machines and just
+  # comment/uncomment one line per platform
+  "~/.config/alacritty/keybindings-macos.toml",
+  # "~/.config/alacritty/keybindings-linux.toml",
+]
+
+# Live reload: changes take effect immediately when you save this file
+# WHY: You can tweak colors, fonts, or bindings and see changes instantly without
+# closing your terminals or losing session state. Essential for experimenting with
+# themes or debugging keybindings. Alacritty watches this file and all imports
+live_config_reload = true
+
+# ─────────────────────────────────────────────────────────────────────────────
+# ENVIRONMENT
+# ─────────────────────────────────────────────────────────────────────────────
+# WHY: Environment variables set here are passed to all shells and programs
+# launched from Alacritty. These two variables tell applications what color
+# capabilities your terminal has, enabling rich syntax highlighting and themes
+
+[env]
+# Set terminal type to xterm-256color (256-color palette)
+# WHY: Most modern CLIs expect 256-color support for themes and syntax highlighting.
+# Without this, you get limited 16-color mode (TERM=xterm) which makes themes look
+# washed out. Required by: Vim color schemes, tmux, ls colors, git diff, and any
+# CLI tool with colored output. xterm-256color is widely supported and compatible
+TERM = "xterm-256color"
+
+# Tell applications that 24-bit true color (16.7 million colors) is available
+# WHY: Some apps check COLORTERM to decide whether to use 24-bit color for gradients,
+# accurate theme colors, and smooth color transitions. Without this, they fall back
+# to 256-color mode even though Alacritty supports true color. Enables full color
+# in: Emacs themes, bat syntax highlighting, delta git diffs, and modern TUIs
+COLORTERM = "truecolor"
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# WINDOW — tuned for 3-monitor setup
+# ─────────────────────────────────────────────────────────────────────────────
+[window]
+
+# Starting window size in character columns and lines
+# WHY: 120 columns fits modern code (80 col code + line numbers + git gutter).
+# 70 lines shows plenty of context without overwhelming. Good default for side
+# monitors in a 3-screen setup where center is for editor, sides for terminals.
+# Alacritty remembers your last window size, so this only matters on first launch
+# or when launching new instances with SpawnNewInstance
+dimensions = { columns = 120, lines = 70 }
+
+# Padding around terminal content (in pixels)
+# WHY: 8px breathing room prevents text from touching window edges, which is
+# easier on the eyes during long sessions. Not too much (wastes space), not too
+# little (feels cramped). Dynamic padding centers content when window size isn't
+# an exact multiple of character cell size (avoids asymmetric gaps on edges)
+padding = { x = 8, y = 8 }
+dynamic_padding = true
+
+# Window decorations (title bar, borders)
+# WHY: "Buttonless" on macOS removes title bar buttons but keeps the bar itself,
+# giving a clean minimalist look while preserving drag-to-move. On Linux, use
+# "Full" (normal title bar) or "None" (no borders, i3wm-style). Commented out
+# here so it uses platform defaults, but uncomment if you want borderless
+# Options: "Full" (title bar + border), "None" (no border), "Transparent", "Buttonless"
+decorations = "Full"    # macOS/Linux - full window chrome with visible border
+
+# Window opacity (0.0 = invisible, 1.0 = opaque)
+# WHY: 0.96 (96% opacity) makes the terminal slightly transparent so you can see
+# overlapping windows behind it. Helps with spatial awareness on multi-monitor
+# setups - you can glimpse the editor or docs behind your terminal. Not so
+# transparent that it's hard to read, just enough to see through
+opacity = 0.96
+
+# Background blur (macOS only, requires opacity < 1.0)
+# WHY: Applies a frosted glass effect to the transparent background. Makes text
+# more readable against busy backgrounds while maintaining the see-through effect.
+# macOS-only feature, silently ignored on Linux (no harm leaving it on)
+blur = true
+
+# Treat Option key as Alt (macOS only)
+# WHY: CRITICAL for Emacs/mg users on macOS. Emacs uses Meta key (Alt on most
+# keyboards) heavily: M-x (run command), M-f (forward word), M-b (back word), etc.
+# By default, macOS uses Option for special characters (Option+e = é). Setting
+# this to "Both" makes both Option keys work as Alt/Meta. Without this, Emacs is
+# nearly unusable on macOS. Ignored on Linux (Option key doesn't exist)
+option_as_alt = "Both"
+
+# Window title shown in title bar and task switcher
+# WHY: Static title "Alacritty" identifies the terminal emulator. Dynamic title
+# (enabled below) updates to show the current running process and directory, so
+# you can distinguish "nvim ~/project" from "make test" from "ssh server" in your
+# window switcher (Cmd+Tab / Alt+Tab). Essential with multiple Alacritty windows
+title = "Alacritty"
+dynamic_title = true
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# FONT
+# ─────────────────────────────────────────────────────────────────────────────
+# WHY USE NERD FONTS: Modern shell prompts (starship, powerlevel10k) and terminal
+# tools use icons to show git status, file types, languages, etc. Without a Nerd
+# Font, you'll see boxes, question marks, or missing characters where icons should
+# be. Nerd Fonts patch in ~10,000 icons from Font Awesome, Devicons, Powerline, etc.
+#
+# JetBrains Mono is excellent for code: tall x-height, clear distinctions between
+# similar characters (0 vs O, 1 vs l vs I), and optional ligatures (->= becomes ⟹)
+#
+# Install: brew install font-jetbrains-mono-nerd-font   (macOS)
+#          sudo apt install fonts-jetbrains-mono         (Debian/Ubuntu, no icons)
+#          → or grab any *Nerd Font* from https://www.nerdfonts.com/
+#
+# Fallbacks if you don't want a Nerd Font (no icons, but readable):
+#   macOS:  "Menlo" / "SF Mono"
+#   Linux:  "DejaVu Sans Mono" / "Liberation Mono"
+
+[font]
+# Base font size in points
+# WHY: 14pt is comfortable for 1080p monitors at normal viewing distance. Bump to
+# 15-16 for Retina/4K displays or if you sit far from your screen. You can also
+# adjust on the fly with Ctrl+Plus/Minus for presentations or pair programming
+size = 14.0
+
+# Normal weight font (default for most text)
+[font.normal]
+family = "JetBrainsMono Nerd Font"
+style  = "Regular"
+
+# Bold font (used for headers, prompts, emphasis)
+# WHY: Using the true bold variant (not synthetic/fake bold) looks better and is
+# more readable. Alacritty will render bold text with this font
+[font.bold]
+family = "JetBrainsMono Nerd Font"
+style  = "Bold"
+
+# Italic font (used for comments, strings, emphasis)
+# WHY: Real italic glyphs (not slanted regular) have distinct letterforms designed
+# for readability. Good syntax highlighting uses italics for keywords or comments
+[font.italic]
+family = "JetBrainsMono Nerd Font"
+style  = "Italic"
+
+# Bold italic font (used for emphasized code comments, markdown bold+italic)
+[font.bold_italic]
+family = "JetBrainsMono Nerd Font"
+style  = "Bold Italic"
+
+# Fine-tune character positioning (vertical offset in pixels)
+# WHY: Some fonts render slightly off-center in their cells. Adjusting y by +1
+# moves characters down 1px, tightening line spacing slightly. Fits more lines on
+# screen without feeling cramped. x=0 means no horizontal adjustment (centered)
+[font.offset]
+x = 0
+y = 1
+
+# Fine-tune individual glyph rendering (rarely needed)
+# WHY: If specific characters look misaligned (icons, ligatures), adjust here.
+# Usually left at 0,0. Only tweak if you see rendering issues with specific glyphs
+[font.glyph_offset]
+x = 0
+y = 0
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# SCROLLING
+# ─────────────────────────────────────────────────────────────────────────────
+[scrolling]
+
+# Maximum number of lines to keep in scrollback buffer
+# WHY: When running long builds (make, cargo, npm), test suites, or reviewing
+# Claude Code diffs, you need to scroll back through thousands of lines to find
+# errors or compare output. Default scrollback is often 10k lines, which gets
+# truncated quickly. 50k lines holds ~30 minutes of continuous output. Essential
+# for debugging failed builds without re-running them. Alacritty's hard cap is
+# 100,000 lines. Matches tmux config (50k) for consistency
+history  = 50000
+
+# Lines scrolled per mouse wheel notch or trackpad gesture
+# WHY: Default is 1 line per notch, which feels sluggish when scrolling through
+# build output. Multiplier of 3 means each scroll moves 3 lines, making navigation
+# snappier without being too jumpy. Adjust to 5-6 if you want faster scrolling,
+# or 1-2 for finer control when reading dense logs
+multiplier = 3
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# CURSOR
+# ─────────────────────────────────────────────────────────────────────────────
+[cursor]
+
+# Cursor shape and blinking behavior in normal mode
+# WHY: Block cursor is most visible and traditional for terminals. Blinking helps
+# you locate the cursor quickly after looking away (essential on 3-monitor setups
+# where your eyes move between screens constantly). Alternatives: "Underline" or
+# "Beam" (vertical bar, like VS Code insert mode)
+style = { shape = "Block", blinking = "On" }
+
+# Cursor appearance in vi mode (Ctrl+Shift+Space)
+# WHY: When you enter vi mode for keyboard-driven selection/copying, blinking stops
+# so the cursor doesn't distract you while navigating. Still a block so it's visible
+# against any background. Distinguishes "normal mode" (blinking) from "vi mode" (solid)
+vi_mode_style = { shape = "Block", blinking = "Off" }
+
+# Blink speed in milliseconds (500ms = half second on, half second off)
+# WHY: 500ms is a good balance - fast enough to catch your eye when you look at the
+# screen, slow enough not to be distracting or annoying during extended use. Faster
+# (200-300ms) feels jittery, slower (800ms+) makes it hard to relocate the cursor
+blink_interval  = 500
+
+# How long cursor blinks before stopping (0 = never stop)
+# WHY: Some terminals stop blinking after inactivity to save power or reduce
+# distraction. 0 means it blinks forever, which is useful for quickly finding
+# your cursor after switching between 3 screens or returning from another app
+blink_timeout   = 0
+
+# Show hollow cursor when Alacritty window loses focus
+# WHY: CRITICAL for multi-monitor setups. When you focus a different screen or app,
+# Alacritty's cursor becomes hollow (outline only) so you can instantly see which
+# terminal is active vs inactive. Prevents typing into the wrong window. Great for
+# knowing which of your 3 screens has focus at a glance
+unfocused_hollow = true
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# SELECTION
+# ─────────────────────────────────────────────────────────────────────────────
+[selection]
+
+# Characters that act as word boundaries when double-clicking to select
+# WHY: Double-click to select a word is muscle memory, but what counts as a "word"?
+# This list defines boundaries so double-clicking "build-app" selects the whole thing,
+# not just "build". Tuned for common patterns:
+#   - Makefile targets:  "build-linux" (hyphen NOT a boundary)
+#   - File paths:        "/home/user" (slash IS a boundary, select one segment)
+#   - Code identifiers:  "myFunction_v2" (underscore NOT a boundary)
+#   - Delimiters:        quotes, parens, brackets ARE boundaries
+# Result: double-click code/paths/targets to select intelligently without over-selecting
+semantic_escape_chars = ",│`|:\"' ()[]{}<>\t"
+
+# Automatically copy selection to system clipboard when mouse button is released
+# WHY: X11 "primary selection" behavior - super ergonomic. Drag to select text,
+# release mouse, it's already on your clipboard ready to paste (Cmd/Ctrl+V). No
+# need to press Ctrl+Shift+C after selecting. One less keystroke, huge time saver
+# when copying log lines, error messages, or file paths hundreds of times a day.
+# Mimics X11 terminal behavior that power users love
+save_to_clipboard = true
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# TERMINAL
+# ─────────────────────────────────────────────────────────────────────────────
+[terminal]
+
+# Enable OSC 52 clipboard protocol for reading and writing
+# WHY: OSC 52 is a terminal escape sequence that lets applications access your
+# system clipboard directly. CRITICAL for:
+#   1. Claude Code: Lets Claude copy text to your clipboard programmatically
+#   2. Remote SSH: Copy text from Vim/Emacs on a remote server to your local clipboard
+#   3. tmux: Copy inside tmux and paste outside (works with tmux's set-clipboard on)
+#   4. Vim/Neovim: Clipboard integration without X11 or external tools
+# Without this, copying inside nested environments (tmux on SSH on Claude Code)
+# requires manual selection with mouse. With OSC 52, yank in Vim → clipboard.
+# "CopyPaste" enables both read and write. Use "OnlyCopy" for write-only (more secure)
+osc52 = "CopyPaste"
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# MOUSE
+# ─────────────────────────────────────────────────────────────────────────────
+[mouse]
+
+# Hide mouse cursor while typing, show it when mouse moves
+# WHY: Mouse cursor floating over your code is distracting. When you start typing,
+# it disappears automatically so you can focus on text. When you move the mouse,
+# it reappears. Cleaner visual experience, especially during long coding sessions.
+# No more cursor hovering over the character you're trying to read
+hide_when_typing = true
+
+# Right-click expands selection (selects more text)
+# WHY: Right-click extends your current selection to include more context. Useful
+# for quickly selecting multi-line blocks: click start, right-click end. Not as
+# commonly used as left-click-drag, but handy for precise multi-line selection
+# without dragging. Can also be used to adjust selection boundaries after initial
+# selection. Alternative: some people bind right-click to paste (X11 middle-click
+# behavior), but that's in the platform keybindings files
+[[mouse.bindings]]
+mouse  = "Right"
+action = "ExpandSelection"
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# HINTS — clickable patterns in terminal output
+# ─────────────────────────────────────────────────────────────────────────────
+# WHY: Hint mode overlays labels (like a, b, c) on URLs, file paths, or custom
+# patterns in terminal output. Press the label to trigger an action (open URL,
+# run make target, etc). Faster than mouse clicking or manually copying text
+
+# URL hints: Ctrl+Shift+U activates hint mode for URLs
+# WHY: When terminal output contains URLs (build logs, test results, docs), hint
+# mode labels each URL. Press Ctrl+Shift+U, type the label (a/b/c), and the URL
+# opens in your default browser. Also works with hyperlinks (OSC 8 protocol).
+# Much faster than selecting URL with mouse and copying to browser. Great for
+# opening CI build links, docs, or error report URLs directly from terminal output
+[[hints.enabled]]
+command         = { program = "open" }   # macOS; use "xdg-open" on Linux
+hyperlinks      = true                   # support OSC 8 hyperlinks
+post_processing = true                   # process URL escaping/encoding
+persist         = false                  # exit hint mode after one action
+mouse           = { enabled = true, mods = "None" }  # click hints directly
+binding         = { key = "U", mods = "Control|Shift" }
+
+# Makefile target hints: Ctrl+Shift+M labels targets, press label to run make
+# WHY: When viewing a Makefile or make output, this labels every target (build:,
+# test:, clean:). Press Ctrl+Shift+M, type the label, and it runs make <target>
+# in that terminal. Saves you from typing "make build-linux-arm64" when you can
+# just press Ctrl+Shift+M then the label. HUGE time saver for projects with many
+# make targets. Works in Makefile previews or when looking at make help output
+# Regex matches: "build:", "test-e2e:", "deploy-prod:" (word before colon)
+[[hints.enabled]]
+regex   = "[A-Za-z0-9_-]+(?=:)"
+command = { program = "sh", args = ["-c", "make ${ALACRITTY_HINT}"] }
+binding = { key = "M", mods = "Control|Shift" }
+mouse   = { enabled = false }  # keyboard-only, prevents accidental clicks
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# KEYBOARD — base bindings (platform bindings are in imported files)
+# ─────────────────────────────────────────────────────────────────────────────
+# WHY: Base keybindings work on all platforms (macOS, Linux, Windows). Platform-
+# specific bindings (Cmd+hjkl on macOS, Super+hjkl on Linux) are in separate
+# imported files. This keeps cross-platform bindings in one place
+
+[keyboard]
+bindings = [
+  # ── Clipboard ─────────────────────────────────────────────────────────────
+  # Copy/paste with Ctrl+Shift+C/V (works on all platforms)
+  # WHY: Standard terminal copy/paste shortcut. Ctrl+C is used for SIGINT (kill
+  # process), so terminal emulators use Ctrl+Shift+C for copy. Ctrl+Shift+V for
+  # paste. Muscle memory for anyone using terminals. Pairs with save_to_clipboard
+  # (select with mouse automatically copies, but these let you copy from vim/tmux)
+  { key = "C", mods = "Control|Shift", action = "Copy"  },
+  { key = "V", mods = "Control|Shift", action = "Paste" },
+
+  # ── Font size — handy when presenting on a large monitor ──────────────────
+  # Ctrl+Plus to increase, Ctrl+Minus to decrease, Ctrl+0 to reset
+  # WHY: When screen sharing or presenting, you want font big enough for audience
+  # to read. Zoom in with Ctrl+=, zoom out with Ctrl+-, reset with Ctrl+0. Works
+  # on the fly without restarting or editing config. Also useful when switching
+  # between laptop screen and external 4K monitor. Same shortcuts as browsers
+  { key = "Equals",   mods = "Control", action = "IncreaseFontSize" },
+  { key = "Minus",    mods = "Control", action = "DecreaseFontSize" },
+  { key = "Key0",     mods = "Control", action = "ResetFontSize"    },
+
+  # ── Scrollback ────────────────────────────────────────────────────────────
+  # Shift+PageUp/Down, Shift+Home/End to navigate scrollback
+  # WHY: When reviewing long build output or logs, you need to scroll. Shift+PageUp
+  # scrolls up one page, Shift+PageDown scrolls down. Shift+Home jumps to top of
+  # scrollback (oldest), Shift+End jumps to bottom (most recent / live output).
+  # Works outside tmux - inside tmux, use prefix+[ for copy mode. Plain PageUp/Down
+  # without Shift is reserved for applications (less, man, vim)
+  { key = "PageUp",   mods = "Shift",   action = "ScrollPageUp"   },
+  { key = "PageDown", mods = "Shift",   action = "ScrollPageDown" },
+  { key = "Home",     mods = "Shift",   action = "ScrollToTop"    },
+  { key = "End",      mods = "Shift",   action = "ScrollToBottom" },
+
+  # ── Vi mode (navigate/copy without mouse) ─────────────────────────────────
+  # Ctrl+Shift+Space enters vi mode, then use hjkl to navigate, v to select, y to yank
+  # WHY: Vi mode lets you navigate scrollback and select text using Vim keybindings
+  # without touching the mouse. Essential for keyboard-only workflows. Enter vi mode,
+  # use hjkl to move, w/b for words, gg/G for top/bottom, / to search, v to start
+  # visual selection, y to copy. Like tmux copy mode but built into Alacritty. Great
+  # when you need to copy error messages or stack traces quickly without scrolling
+  { key = "Space", mods = "Control|Shift", action = "ToggleViMode" },
+
+  # ── New Alacritty window in current working directory ─────────────────────
+  # Ctrl+Shift+Enter spawns new window, Ctrl+Shift+N also spawns new window
+  # WHY: Opens a new Alacritty window in the same directory as the current shell.
+  # Faster than opening Alacritty from launcher (which starts in ~) and cd-ing.
+  # Useful when you want parallel terminals in the same project directory. Two
+  # bindings for same action - use whichever is more comfortable
+  { key = "Return", mods = "Control|Shift", action = "SpawnNewInstance" },
+  { key = "N", mods = "Control|Shift", action = "SpawnNewInstance"},
+
+  # ── Claude Code: Shift+Enter inserts newline (multiline prompts) ──────────
+  # CRITICAL fix for Claude Code inside tmux inside Alacritty
+  # WHY: Claude Code uses Shift+Enter for multi-line input (like Slack, Discord).
+  # Without this binding, Shift+Enter sends a plain Enter, submitting your prompt
+  # before you finish typing. This binding sends the CSI u sequence that tmux and
+  # Claude Code recognize as Shift+Enter, allowing you to write multi-line prompts.
+  # See: https://blog.bobuhiro11.net/en/2026/02-27-shift-enter.html
+  # The \u001b[13;2u escape sequence encodes Shift+Enter in the "fixterms" format
+  { key = "Return", mods = "Shift", chars = "\u001b[13;2u" },
+]

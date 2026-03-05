@@ -1,0 +1,9 @@
+[submodule "src/brightsign-playground/bs-make-setup-packages/gopurple"]
+	path = src/brightsign-playground/bs-make-setup-packages/gopurple
+	url = git@github.com:BrightSign-Playground/gopurple.git
+[submodule "src/brightsign-playground/bs-check-screen/libs/library"]
+	path = src/brightsign-playground/bs-check-screen/libs/library
+	url = git@github.com:BrightSign-Playground/gopurple.git
+[submodule "herlein/src/catalyst/prod-like/genai-toolbox-testing/genai-toolbox"]
+	path = herlein/src/catalyst/prod-like/genai-toolbox-testing/genai-toolbox
+	url = git@github.com:googleapis/genai-toolbox.git
