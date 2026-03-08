@@ -1,7 +1,8 @@
 # Setup fzf
 # ---------
-if [[ ! "$PATH" == */opt/homebrew/opt/fzf/bin* ]]; then
+# Add Homebrew fzf to PATH on macOS if not already present
+if [[ "$(uname -s)" == "Darwin" ]] && [[ ! "$PATH" == */opt/homebrew/opt/fzf/bin* ]]; then
   PATH="${PATH:+${PATH}:}/opt/homebrew/opt/fzf/bin"
 fi
 
-eval "$(fzf --bash)"
+[[ -x "$(command -v fzf)" ]] && eval "$(fzf --bash)"

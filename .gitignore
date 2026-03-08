@@ -1,3 +1,7 @@
+# Environment and secrets
+.env
+.envrc
+
 # Backup files
 *~
 *.bak

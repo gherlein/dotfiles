@@ -74,9 +74,9 @@ list:
 	@echo "Available packages:"
 	@for pkg in $(PACKAGES); do \
 		if [ -d $$pkg ]; then \
-			echo "  ✓ $$pkg"; \
+			echo "  [ok]      $$pkg"; \
 		else \
-			echo "  ✗ $$pkg (missing)"; \
+			echo "  [missing] $$pkg"; \
 		fi \
 	done
 

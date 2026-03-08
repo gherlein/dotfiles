@@ -2,9 +2,9 @@
 	email = gherlein@herlein.com
 	name = Greg Herlein
 [core]
-	editor = emacs
+	editor = mg
 [alias]
-	squash-all = "!f(){ git reset $(git commit-tree HEAD^{tree} -m \"${1:-🎉 First commit}\");};f"
+	squash-all = "!f(){ git reset $(git commit-tree HEAD^{tree} -m \"${1:-Initial commit}\");};f"
 [filter "lfs"]
 	process = git-lfs filter-process
 	required = true

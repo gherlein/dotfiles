@@ -341,7 +341,7 @@ action = "ExpandSelection"
 # Much faster than selecting URL with mouse and copying to browser. Great for
 # opening CI build links, docs, or error report URLs directly from terminal output
 [[hints.enabled]]
-command         = { program = "open" }   # macOS; use "xdg-open" on Linux
+command         = { program = "sh", args = ["-c", "xdg-open \"$1\" 2>/dev/null || open \"$1\"", "--"] }
 hyperlinks      = true                   # support OSC 8 hyperlinks
 post_processing = true                   # process URL escaping/encoding
 persist         = false                  # exit hint mode after one action
