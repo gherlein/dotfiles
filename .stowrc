@@ -1,0 +1,5 @@
+# GNU Stow configuration file
+# This tells stow that the target directory is $HOME
+
+--target=$HOME
+--verbose=1

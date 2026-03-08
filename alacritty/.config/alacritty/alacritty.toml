@@ -86,7 +86,7 @@ COLORTERM = "truecolor"
 # monitors in a 3-screen setup where center is for editor, sides for terminals.
 # Alacritty remembers your last window size, so this only matters on first launch
 # or when launching new instances with SpawnNewInstance
-dimensions = { columns = 120, lines = 70 }
+dimensions = { columns = 120, lines = 60 }
 
 # Padding around terminal content (in pixels)
 # WHY: 8px breathing room prevents text from touching window edges, which is
