@@ -1,5 +1,11 @@
 ;;; init.el --- Greg Herlein's Emacs configuration -*- lexical-binding: t; -*-
 
+;; Ensure native-comp has a writable cache directory
+(when (fboundp 'startup-redirect-eln-cache)
+  (startup-redirect-eln-cache
+   (convert-standard-filename
+    (expand-file-name "var/eln-cache/" user-emacs-directory))))
+
 ;; Fix 1: GC threshold - raise during init, restore after
 (setq gc-cons-threshold (* 50 1000 1000))
 (add-hook 'emacs-startup-hook
@@ -21,6 +27,11 @@
   (global-set-key (kbd "<mouse-4>") 'scroll-down-line)
   (global-set-key (kbd "<mouse-5>") 'scroll-up-line))
 (setq select-enable-clipboard t)
+
+;;; --- System clipboard in terminal (OSC 52) ---
+
+(use-package clipetty
+  :hook (after-init . global-clipetty-mode))
 
 ;;; --- Fix 2: Package management (deduplicated, HTTPS, no Marmalade) ---
 
