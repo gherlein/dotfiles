@@ -6,7 +6,7 @@ PACKAGES_FILE := .stow-packages
 # Read packages from file (one per line, skip empty lines and comments)
 PACKAGES := $(shell [ -f $(PACKAGES_FILE) ] && grep -v '^\#' $(PACKAGES_FILE) | grep -v '^$$' || echo "")
 
-.PHONY: help stow unstow restow list refresh
+.PHONY: help stow unstow restow adopt list refresh
 
 help:
 	@echo "Dotfiles management with GNU Stow"
@@ -15,6 +15,7 @@ help:
 	@echo "  make stow      - Stow all packages"
 	@echo "  make unstow    - Unstow all packages"
 	@echo "  make restow    - Restow all packages (refresh symlinks)"
+	@echo "  make adopt     - Adopt existing files then stow (use on new host with existing configs)"
 	@echo "  make list      - List all packages"
 	@echo "  make refresh   - Regenerate package list from directories"
 	@echo ""
@@ -61,6 +62,22 @@ restow:
 		if [ -d $$pkg ]; then \
 			echo "Restowing $$pkg..."; \
 			stow -R -v $$pkg; \
+		else \
+			echo "Warning: Package $$pkg not found, skipping..."; \
+		fi \
+	done
+
+adopt:
+	@if [ -z "$(PACKAGES)" ]; then \
+		echo "No packages found. Run 'make refresh' first."; \
+		exit 1; \
+	fi
+	@echo "Adopting existing files and stowing all packages..."
+	@echo "Run 'git diff' afterwards to review what was pulled in from this host."
+	@for pkg in $(PACKAGES); do \
+		if [ -d $$pkg ]; then \
+			echo "Adopting $$pkg..."; \
+			stow --adopt -v $$pkg; \
 		else \
 			echo "Warning: Package $$pkg not found, skipping..."; \
 		fi \
