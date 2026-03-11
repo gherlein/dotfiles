@@ -1,11 +1,5 @@
 ;;; init.el --- Greg Herlein's Emacs configuration -*- lexical-binding: t; -*-
 
-;; Ensure native-comp has a writable cache directory
-(when (fboundp 'startup-redirect-eln-cache)
-  (startup-redirect-eln-cache
-   (convert-standard-filename
-    (expand-file-name "var/eln-cache/" user-emacs-directory))))
-
 ;; Raise GC threshold during init, restore after
 (setq gc-cons-threshold (* 50 1000 1000))
 (add-hook 'emacs-startup-hook
