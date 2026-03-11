@@ -429,4 +429,8 @@ bindings = [
   # See: https://blog.bobuhiro11.net/en/2026/02-27-shift-enter.html
   # The \u001b[13;2u escape sequence encodes Shift+Enter in the "fixterms" format
   { key = "Return", mods = "Shift", chars = "\u001b[13;2u" },
+
+
+
+
 ]

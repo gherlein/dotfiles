@@ -1,5 +1,5 @@
 #!/bin/bash
-# Install emacs-new config to ~/.emacs.d
+# Install emacs config to ~/.emacs.d
 # Backs up existing config before overwriting.
 
 set -euo pipefail
@@ -21,13 +21,24 @@ if [ -d "$TARGET_DIR" ]; then
     mv "$TARGET_DIR" "$BACKUP_DIR"
 fi
 
-mkdir -p "$TARGET_DIR/lisp"
+mkdir -p "$TARGET_DIR"
 
 cp "$SCRIPT_DIR/init.el" "$TARGET_DIR/init.el"
-cp "$SCRIPT_DIR/lisp/brightscript-mode.el" "$TARGET_DIR/lisp/brightscript-mode.el"
-cp "$SCRIPT_DIR/lisp/scad-mode.el" "$TARGET_DIR/lisp/scad-mode.el"
 
-echo "Installed to $TARGET_DIR"
+# Install the straight.el lockfile if present, to reproduce exact package versions
+LOCKFILE="$SCRIPT_DIR/straight-versions.el"
+if [ -f "$LOCKFILE" ]; then
+    mkdir -p "$TARGET_DIR/straight/versions"
+    cp "$LOCKFILE" "$TARGET_DIR/straight/versions/default.el"
+    echo "Installed straight.el lockfile — packages will be pinned to recorded versions."
+else
+    echo "No lockfile found — packages will install at latest versions."
+    echo "After first launch, run M-x straight-freeze-versions, then:"
+    echo "  cp ~/.emacs.d/straight/versions/default.el $SCRIPT_DIR/straight-versions.el"
+    echo "  git add $SCRIPT_DIR/straight-versions.el && git commit"
+fi
+
 echo ""
-echo "On first launch, Emacs will install packages from MELPA."
+echo "Installed to $TARGET_DIR"
+echo "On first launch, Emacs will bootstrap straight.el and install all packages."
 echo "Run: emacs"

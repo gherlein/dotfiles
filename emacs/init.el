@@ -6,7 +6,7 @@
    (convert-standard-filename
     (expand-file-name "var/eln-cache/" user-emacs-directory))))
 
-;; Fix 1: GC threshold - raise during init, restore after
+;; Raise GC threshold during init, restore after
 (setq gc-cons-threshold (* 50 1000 1000))
 (add-hook 'emacs-startup-hook
           (lambda ()
@@ -20,6 +20,27 @@
 ;; Suppress "When done with a buffer, type C-x #"
 (setq server-client-instructions nil)
 
+;;; --- straight.el bootstrap ---
+
+(defvar bootstrap-version)
+(let ((bootstrap-file
+       (expand-file-name
+        "straight/repos/straight.el/bootstrap.el"
+        (or (bound-and-true-p straight-base-dir)
+            user-emacs-directory)))
+      (bootstrap-version 7))
+  (unless (file-exists-p bootstrap-file)
+    (with-current-buffer
+        (url-retrieve-synchronously
+         "https://raw.githubusercontent.com/radian-software/straight.el/develop/install.el"
+         'silent 'inhibit-cookies)
+      (goto-char (point-max))
+      (eval-print-last-sexp)))
+  (load bootstrap-file nil 'nomessage))
+
+(straight-use-package 'use-package)
+(setq straight-use-package-by-default t)
+
 ;;; --- Terminal mouse support ---
 
 (unless (display-graphic-p)
@@ -32,22 +53,6 @@
 
 (use-package clipetty
   :hook (after-init . global-clipetty-mode))
-
-;;; --- Fix 2: Package management (deduplicated, HTTPS, no Marmalade) ---
-
-(require 'package)
-(setq package-archives
-      '(("gnu"          . "https://elpa.gnu.org/packages/")
-        ("melpa-stable"  . "https://stable.melpa.org/packages/")
-        ("melpa"         . "https://melpa.org/packages/")))
-(package-initialize)
-
-;; Bootstrap use-package (Fix 7: migrate to use-package)
-(unless (package-installed-p 'use-package)
-  (package-refresh-contents)
-  (package-install 'use-package))
-(require 'use-package)
-(setq use-package-always-ensure t)
 
 ;;; --- Basic UI ---
 
@@ -94,7 +99,7 @@
         ((looking-at "\\s)") (forward-char 1) (backward-list 1))
         (t (self-insert-command (or arg 1)))))
 
-;;; --- Fix 5: Replace auto-complete with company-mode ---
+;;; --- Completion ---
 
 (use-package company
   :hook (after-init . global-company-mode)
@@ -102,19 +107,20 @@
   (setq company-idle-delay 0.2
         company-minimum-prefix-length 2))
 
-;;; --- Fix 6: eglot for LSP (built-in on Emacs 29+, installed otherwise) ---
+;;; --- LSP (eglot is built into Emacs 29+) ---
 
 (use-package eglot
-  :ensure nil
+  :straight nil
   :hook ((go-mode . eglot-ensure)
          (typescript-mode . eglot-ensure)
          (js-mode . eglot-ensure))
   :config
   (setq eglot-autoshutdown t))
 
-;;; --- Go (Fix 3: deduplicated hooks, Fix 6: eglot replaces godef) ---
+;;; --- Go ---
 
 (use-package go-mode
+  :straight (:host github :repo "dominikh/go-mode.el")
   :mode "\\.go\\'"
   :bind (:map go-mode-map
               ("M-." . xref-find-definitions)
@@ -145,12 +151,13 @@
       (re-search-forward "^}")
       (indent-region start (point) nil))))
 
-;;; --- Fix 8: TypeScript gets its own mode ---
+;;; --- TypeScript ---
 
 (use-package typescript-mode
+  :straight (:host github :repo "emacs-typescript/typescript.el")
   :mode "\\.ts\\'")
 
-;;; --- Fix 4: JS uses js2-mode, JSON uses json-mode, TS has its own mode ---
+;;; --- JavaScript / JSON ---
 
 (use-package js2-mode
   :mode "\\.js\\'"
@@ -162,6 +169,7 @@
   :mode "\\.json\\'")
 
 (use-package js2-refactor
+  :straight (:host github :repo "js-emacs/js2-refactor.el")
   :hook (js2-mode . js2-refactor-mode))
 
 ;;; --- Markdown ---
@@ -194,6 +202,7 @@
 ;;; --- Wrap region ---
 
 (use-package wrap-region
+  :straight (:host github :repo "rejeep/wrap-region.el")
   :hook (prog-mode . wrap-region-mode))
 
 ;;; --- Rainbow delimiters ---
@@ -201,20 +210,20 @@
 (use-package rainbow-delimiters
   :hook (prog-mode . rainbow-delimiters-mode))
 
-;;; --- Custom vendored modes (not on MELPA) ---
-;; These live in ~/.emacs.d/lisp/
+;;; --- BrightScript (Roku) ---
 
-(add-to-list 'load-path (expand-file-name "lisp" user-emacs-directory))
+(use-package brightscript-mode
+  :straight (:host github :repo "viseztrance/brightscript-mode")
+  :mode "\\.brs\\'")
 
-;; BrightScript (Roku)
-(autoload 'brightscript-mode "brightscript-mode" "Major mode for BrightScript." t)
-(add-to-list 'auto-mode-alist '("\\.brs\\'" . brightscript-mode))
+;;; --- OpenSCAD ---
 
-;; OpenSCAD
-(autoload 'scad-mode "scad-mode" "Major mode for editing OpenSCAD code." t)
-(add-to-list 'auto-mode-alist '("\\.scad\\'" . scad-mode))
+(use-package scad-mode
+  :straight (:host github :repo "openscad/emacs-scad-mode")
+  :mode "\\.scad\\'")
 
-;; Arduino sketches use c-mode
+;;; --- Arduino ---
+
 (add-to-list 'auto-mode-alist '("\\.ino\\'" . c-mode))
 
 ;;; --- C/C++ style ---
