@@ -1,0 +1,17 @@
+aws-whoami - Display current AWS account, user, ARN, and region identity information.
+build-pdfs - Convert all Markdown files in the current directory to PDF using pandoc.
+claude-whoami - Show the Claude Code organization name from ~/.claude.json.
+fffplay - Play an RTSP video stream with low-latency settings using ffplay.
+gg - Pull, commit, and push all git repos in the current directory (Git Gather).
+gp - Add, commit, and push changes in the current git repo with remote divergence check.
+gtag - Create an annotated git tag and push it to origin.
+localdev - Launch a lightweight localdev podman container with workspace and mount support.
+localdevnet - Launch a lightweight localdev podman container with host networking enabled.
+localfull - Launch a full-featured localfull podman container with Java and multiple Node versions.
+otest - Run a timed test prompt against a local Ollama model.
+poe-management - Compiled Go binary for managing PoE (Power over Ethernet) on network switches.
+poe-status - Compiled Go binary for displaying detailed PoE status from network switches.
+poe-status-simple - Compiled Go binary for displaying simplified PoE status from network switches.
+sshr - Remove a host entry from the SSH known_hosts file.
+switches - Set switch passwords and toggle PoE on all ports of two test switches.
+zeds - Open a remote directory in the Zed editor over SSH.
