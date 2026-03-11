@@ -1,0 +1,9 @@
+export CURRENT_AWS_ACCOUNT=$(aws sts get-caller-identity | jq -r .Account)
+export CURRENT_AWS_USER=$(aws sts get-caller-identity | jq -r .UserId)
+export CURRENT_AWS_ARN=$(aws sts get-caller-identity | jq -r .Arn)
+export CURRENT_AWS_REGION=$(aws ec2 describe-availability-zones --output json | jq -r .AvailabilityZones[0].RegionName)
+
+echo "using account: " $CURRENT_AWS_ACCOUNT
+echo "aws userid:    " $CURRENT_AWS_USER
+echo "aws arn:       " $CURRENT_AWS_ARN
+echo "using region:  " $CURRENT_AWS_REGION

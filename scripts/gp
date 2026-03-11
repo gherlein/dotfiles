@@ -1,0 +1,37 @@
+#!/bin/bash
+
+# Get the current git branch name (works on older git and detached HEAD)
+branch_name=$(git rev-parse --abbrev-ref HEAD 2>/dev/null)
+
+# Check if we're in a git repository
+if [ -z "$branch_name" ] || [ "$branch_name" = "HEAD" ]; then
+    echo "Error: Not in a git repository or no branch checked out"
+    exit 1
+fi
+
+# Get commit message from command line argument or use default
+if [ -z "$1" ]; then
+    commit_message="interim commit"
+else
+    commit_message="$1"
+fi
+
+# Fetch to get up-to-date remote state without merging
+git fetch 2>/dev/null
+
+# Check how many commits the remote is ahead of local
+behind=$(git rev-list --count HEAD..@{u} 2>/dev/null || echo 0)
+
+if [ "$behind" -gt 0 ]; then
+    ahead=$(git rev-list --count @{u}..HEAD 2>/dev/null || echo 0)
+    echo "Error: remote has $behind commit(s) not in your local branch"
+    echo "  local:  $ahead commit(s) ahead of remote"
+    echo "  remote: $behind commit(s) ahead of local"
+    echo "Pull or rebase before pushing."
+    exit 1
+fi
+
+# Execute git commands
+git add .
+git commit -am "$commit_message"
+git push -u

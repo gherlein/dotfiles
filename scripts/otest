@@ -1,0 +1,15 @@
+#!/bin/bash
+
+if [ -z "$1" ]; then
+  echo "Usage: $0 <model-name>"
+  exit 1
+fi
+
+MODEL="$1"
+
+time curl -s http://localhost:11434/api/generate -d @- <<EOF
+{
+  "model": "$MODEL",
+  "prompt": "Explain how a black hole forms in 100 words."
+}
+EOF

@@ -1,0 +1,20 @@
+#!/bin/bash
+
+# Install Montserrat font if not installed
+if ! fc-list | grep -qi montserrat; then
+    echo "Installing Montserrat font..."
+    brew install --cask font-montserrat
+fi
+
+# Build PDFs from all Markdown files
+for file in *.md; do
+    [ -e "$file" ] || continue
+    echo "Converting: $file"
+    pandoc "$file" -o "${file%.md}.pdf" \
+        --pdf-engine=xelatex \
+        -V mainfont="Helvetica Neue" \
+        -V geometry:margin=1in \
+        -V colorlinks=false \
+        2>/dev/null \
+        || echo "Warning: Failed to convert $file"
+done
