@@ -55,7 +55,7 @@ packages=(
     curl                          # HTTP client
     direnv                        # Per-directory environment variables
     emacs                         # Editor
-    ffmpeg                        # Audio/video processing
+    ffmpeg                        # Audio/video processing (includes ffplay)
     fzf                           # Fuzzy finder
     gh                            # GitHub CLI
     git                           # Version control

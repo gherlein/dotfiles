@@ -42,6 +42,7 @@ sudo apt-get install -y \
     direnv \
     emacs-nox \
     expect \
+    ffmpeg \
     git \
     git-lfs \
     gnupg \
