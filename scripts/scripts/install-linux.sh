@@ -153,7 +153,8 @@ fi
 # ---------------------------------------------------------------------------
 
 info "Installing Python ML packages via uv..."
-"$HOME/.cargo/bin/uv" pip install \
+UV=$(command -v uv || echo "$HOME/.local/bin/uv")
+"$UV" pip install \
     torch torchvision torchaudio \
     numpy pandas scikit-learn matplotlib seaborn \
     pillow opencv-python \
