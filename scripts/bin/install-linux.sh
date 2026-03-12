@@ -253,18 +253,7 @@ else
     info "AWS CLI already installed: $(aws --version)"
 fi
 
-# ---------------------------------------------------------------------------
-# Homebrew (Linux)
-# ---------------------------------------------------------------------------
-
-info "Installing Homebrew for Linux..."
-if ! command -v brew &>/dev/null; then
-    /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-    echo 'eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"' >> "$HOME/.bash_profile"
-    eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
-else
-    info "Homebrew already installed."
-fi
+# Homebrew is macOS tooling and not installed on Linux.
 
 # ---------------------------------------------------------------------------
 # Tailscale
@@ -498,7 +487,6 @@ echo "Next steps:"
 echo "  - Add to ~/.bash_profile if not present:"
 echo "      export PATH=\$PATH:/usr/local/go/bin"
 echo "      export PATH=\$PATH:\$HOME/go/bin"
-echo "      eval \"\$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)\""
 echo "  - Log out and back in for Docker group membership"
 echo "  - Log in to Tailscale:   sudo tailscale up"
 echo "  - Join ZeroTier network: sudo zerotier-cli join <network-id>"
