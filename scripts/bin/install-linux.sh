@@ -415,6 +415,15 @@ else
 fi
 
 # ---------------------------------------------------------------------------
+# localdev container environment
+# ---------------------------------------------------------------------------
+
+info "Installing localdev..."
+curl -fsSL https://raw.githubusercontent.com/gherlein/localdev/main/install.sh | bash
+podman pull ghcr.io/gherlein/localdev:latest
+ok "localdev installed."
+
+# ---------------------------------------------------------------------------
 # AMD ROCm / amdgpu (Ryzen AI / workstation GPU — amd64 only)
 # ---------------------------------------------------------------------------
 
