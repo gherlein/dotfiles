@@ -65,6 +65,25 @@ sudo apt-get install -y \
     zip
 
 # ---------------------------------------------------------------------------
+# keychain
+# ---------------------------------------------------------------------------
+
+SSH_KEY="$HOME/.ssh/gherlein"
+
+info "Configuring keychain..."
+mkdir -p "$HOME/.ssh"
+chmod 700 "$HOME/.ssh"
+if [[ -f "$SSH_KEY" ]]; then
+    chmod 600 "$SSH_KEY"
+    keychain "$SSH_KEY"
+    # shellcheck source=/dev/null
+    [[ -f "$HOME/.keychain/$HOSTNAME-sh" ]] && source "$HOME/.keychain/$HOSTNAME-sh"
+    ok "keychain initialized with $SSH_KEY"
+else
+    warn "SSH key $SSH_KEY not found — copy it to this host then run: keychain $SSH_KEY"
+fi
+
+# ---------------------------------------------------------------------------
 # Remove snap (optional - comment out if you want to keep snap)
 # ---------------------------------------------------------------------------
 
