@@ -160,8 +160,16 @@ info "Creating Python venv at $VENV..."
 "$UV" venv "$VENV"
 
 info "Installing Python ML packages into $VENV..."
+if command -v nvidia-smi &>/dev/null && nvidia-smi &>/dev/null; then
+    info "GPU detected — installing CUDA torch."
+    "$UV" pip install --python "$VENV" torch torchvision torchaudio
+else
+    info "No GPU detected — installing CPU-only torch."
+    "$UV" pip install --python "$VENV" \
+        --index-url https://download.pytorch.org/whl/cpu \
+        torch torchvision torchaudio
+fi
 "$UV" pip install --python "$VENV" \
-    torch torchvision torchaudio \
     numpy pandas scikit-learn matplotlib seaborn \
     pillow opencv-python \
     jupyter notebook ipython \
