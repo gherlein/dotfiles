@@ -149,12 +149,17 @@ else
 fi
 
 # ---------------------------------------------------------------------------
-# Python ML stack (via uv)
+# Python ML stack (via uv venv at ~/.venv)
 # ---------------------------------------------------------------------------
 
-info "Installing Python ML packages via uv..."
+VENV="$HOME/.venv"
 UV=$(command -v uv || echo "$HOME/.local/bin/uv")
-"$UV" pip install --system \
+
+info "Creating Python venv at $VENV..."
+"$UV" venv "$VENV"
+
+info "Installing Python ML packages into $VENV..."
+"$UV" pip install --python "$VENV" \
     torch torchvision torchaudio \
     numpy pandas scikit-learn matplotlib seaborn \
     pillow opencv-python \
