@@ -47,6 +47,7 @@ sudo apt-get install -y \
     git-lfs \
     gnupg \
     jq \
+    keychain \
     libstdc++6 \
     lsb-release \
     mg \

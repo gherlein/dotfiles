@@ -31,6 +31,12 @@ stow:
 	@for pkg in $(PACKAGES); do \
 		if [ -d $$pkg ]; then \
 			echo "Stowing $$pkg..."; \
+			stow -n $$pkg 2>&1 | grep 'existing target' \
+				| sed "s|.*existing target \(.*\) since.*|\1|" \
+				| while read target; do \
+					echo "  Removing conflicting file: $$HOME/$$target"; \
+					rm -f "$$HOME/$$target"; \
+				done; \
 			stow -v $$pkg; \
 		else \
 			echo "Warning: Package $$pkg not found, skipping..."; \
