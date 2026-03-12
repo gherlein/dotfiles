@@ -206,12 +206,16 @@ if [[ ! -d "$HOME/.nvm" ]]; then
 fi
 
 export NVM_DIR="$HOME/.nvm"
+
+# nvm scripts use unbound variables internally; suspend -u around them
+set +u
 # shellcheck source=/dev/null
 [[ -s "$NVM_DIR/nvm.sh" ]] && source "$NVM_DIR/nvm.sh"
 
 info "Installing Node.js LTS..."
 nvm install --lts
 nvm use --lts
+set -u
 
 info "Installing global npm packages..."
 npm install -g typescript aws-cdk
