@@ -28,3 +28,4 @@ Thumbs.db
 
 # Local overrides (not tracked)
 .backups/
+emacs/elisp/
