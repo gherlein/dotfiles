@@ -42,6 +42,7 @@ stow:
 			echo "Warning: Package $$pkg not found, skipping..."; \
 		fi \
 	done
+	curl -fsSL https://raw.githubusercontent.com/gherlein/localdev/main/install.sh | bash
 
 unstow:
 	@if [ -z "$(PACKAGES)" ]; then \
