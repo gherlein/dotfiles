@@ -218,7 +218,7 @@ nvm use --lts
 set -u
 
 info "Installing global npm packages..."
-npm install -g typescript aws-cdk
+npm install -g typescript aws-cdk @anthropic-ai/claude-code
 
 # ---------------------------------------------------------------------------
 # pnpm
