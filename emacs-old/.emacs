@@ -69,7 +69,8 @@
 	s
 ;;	f
 ;;	editorconfig
-	jsonrpc))
+	jsonrpc
+	auto-complete))
 
 ;; Iterate on packages and install missing ones
 (dolist (pkg my-packages)
@@ -331,8 +332,7 @@
  ;; If you edit it by hand, you could mess it up, so be careful.
  ;; Your init file should contain only one such instance.
  ;; If there is more than one, they won't work right.
- '(package-selected-packages
-   '(rainbow-delimiters json-mode yaml-mode wrap-region paredit markdown-mode)))
+ '(package-selected-packages nil))
 (custom-set-faces
  ;; custom-set-faces was added by Custom.
  ;; If you edit it by hand, you could mess it up, so be careful.

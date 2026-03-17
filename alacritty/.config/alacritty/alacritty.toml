@@ -212,7 +212,7 @@ y = 0
 # truncated quickly. 50k lines holds ~30 minutes of continuous output. Essential
 # for debugging failed builds without re-running them. Alacritty's hard cap is
 # 100,000 lines. Matches tmux config (50k) for consistency
-history  = 50000
+history  = 100000
 
 # Lines scrolled per mouse wheel notch or trackpad gesture
 # WHY: Default is 1 line per notch, which feels sluggish when scrolling through
@@ -313,7 +313,7 @@ osc52 = "CopyPaste"
 # it disappears automatically so you can focus on text. When you move the mouse,
 # it reappears. Cleaner visual experience, especially during long coding sessions.
 # No more cursor hovering over the character you're trying to read
-hide_when_typing = true
+hide_when_typing = false
 
 # Right-click expands selection (selects more text)
 # WHY: Right-click extends your current selection to include more context. Useful

@@ -436,6 +436,18 @@ else
 fi
 
 # ---------------------------------------------------------------------------
+# Ghostty terminal emulator
+# ---------------------------------------------------------------------------
+
+info "Installing Ghostty..."
+if ! command -v ghostty &>/dev/null; then
+    /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/mkasberg/ghostty-ubuntu/HEAD/install.sh)"
+    ok "Ghostty installed."
+else
+    info "Ghostty already installed."
+fi
+
+# ---------------------------------------------------------------------------
 # localdev container environment
 # ---------------------------------------------------------------------------
 
