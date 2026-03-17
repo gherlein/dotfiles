@@ -27,7 +27,7 @@ info() { echo -e "${BLUE}[i]${NC} $*"; }
 THEME_VARIANT="Dark"          # Dark or Light
 THEME_STYLE="monterey"        # monterey or default (Big Sur)
 DOCK_POSITION="BOTTOM"        # BOTTOM, LEFT, RIGHT
-DOCK_ICON_SIZE=48
+DOCK_ICON_SIZE=32
 WALLPAPER_DIR="$HOME/Pictures/WhiteSur"
 SRC_DIR="$HOME/src"
 
