@@ -79,8 +79,14 @@ focus-follows-mouse = false
 # New window
 keybind = shift+ctrl+n=new_window
 
-# WHY: Create vertical split with new pane at 20% width on the right
-keybind = shift+ctrl+t=new_split:right:0.2
+# WHY: Create vertical split with new pane on the right
+keybind = shift+ctrl+t=new_split:right
+
+# WHY: Resize splits to adjust pane widths/heights
+keybind = shift+ctrl+left=resize_split:left,10
+keybind = shift+ctrl+right=resize_split:right,10
+keybind = shift+ctrl+up=resize_split:up,10
+keybind = shift+ctrl+down=resize_split:down,10
 
 # Quick font size adjustment without touching config
 keybind = shift+ctrl+equal=increase_font_size:1

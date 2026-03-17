@@ -17,6 +17,42 @@ ARCH="$(dpkg --print-architecture)"
 info "Detected architecture: $ARCH"
 
 # ---------------------------------------------------------------------------
+# REMOVE SNAP COMPLETELY - Do this FIRST before installing anything
+# ---------------------------------------------------------------------------
+
+info "Removing ALL snap packages and disabling snap permanently..."
+
+# WHY: Remove all installed snap packages before purging snapd
+if command -v snap &>/dev/null; then
+    info "Removing all installed snap packages..."
+    while read -r snapname _; do
+        if [[ -n "$snapname" && "$snapname" != "Name" ]]; then
+            info "Removing snap package: $snapname"
+            sudo snap remove --purge "$snapname" 2>/dev/null || true
+        fi
+    done < <(snap list 2>/dev/null || true)
+fi
+
+# WHY: Purge snapd and all related packages
+info "Purging snapd and related packages..."
+sudo apt-get purge -y snapd gnome-software-plugin-snap 2>/dev/null || true
+sudo apt-get autoremove -y 2>/dev/null || true
+
+# WHY: Remove all snap directories and cached data
+info "Removing snap directories..."
+sudo rm -rf ~/snap /snap /var/snap /var/lib/snapd /var/cache/snapd 2>/dev/null || true
+
+# WHY: Prevent snapd from ever being reinstalled
+info "Preventing snapd reinstallation..."
+sudo tee /etc/apt/preferences.d/nosnap.pref > /dev/null <<'EOF'
+Package: snapd
+Pin: release a=*
+Pin-Priority: -1
+EOF
+
+ok "Snap completely removed and permanently disabled."
+
+# ---------------------------------------------------------------------------
 # Go version - update this to the latest stable release
 # ---------------------------------------------------------------------------
 
@@ -82,18 +118,6 @@ if [[ -f "$SSH_KEY" ]]; then
 else
     warn "SSH key $SSH_KEY not found — copy it to this host then run: keychain $SSH_KEY"
 fi
-
-# ---------------------------------------------------------------------------
-# Remove snap (optional - comment out if you want to keep snap)
-# ---------------------------------------------------------------------------
-
-info "Removing snapd..."
-sudo snap remove snap-store       2>/dev/null || true
-sudo snap remove gtk-common-themes 2>/dev/null || true
-sudo snap remove gnome-3-34-1804  2>/dev/null || true
-sudo snap remove core18           2>/dev/null || true
-sudo apt-get purge -y snapd       2>/dev/null || true
-sudo rm -rf ~/snap /snap /var/snap /var/lib/snapd 2>/dev/null || true
 
 # ---------------------------------------------------------------------------
 # Go
