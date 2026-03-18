@@ -46,7 +46,7 @@ mouse-hide-while-typing = true
 # ─────────────────────────────────────────────────────────────────────────────
 # WHY: Enables cursor shape changes, prompt marking, and title updates
 shell-integration = detect
-shell-integration-features = cursor,sudo,title
+shell-integration-features = cursor,sudo,title,ssh-terminfo,ssh-env
 
 # ─────────────────────────────────────────────────────────────────────────────
 # SCROLLBACK
@@ -73,14 +73,12 @@ focus-follows-mouse = false
 # ─────────────────────────────────────────────────────────────────────────────
 # KEYBINDINGS
 # ─────────────────────────────────────────────────────────────────────────────
-# WHY: tmux prefix via ctrl+a as an alternative to ctrl+b
-#keybind = ctrl+a>c=new_window
 
 # New window
 keybind = shift+ctrl+n=new_window
 
 # WHY: Create vertical split with new pane on the right
-keybind = shift+ctrl+t=new_split:right
+keybind = shift+ctrl+t=new_split:down
 
 # WHY: Resize splits to adjust pane widths/heights
 keybind = shift+ctrl+left=resize_split:left,10
