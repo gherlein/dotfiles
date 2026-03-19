@@ -40,6 +40,7 @@ cursor-style-blink = false
 # WHY: Middle-click paste is a common X11 workflow; hiding cursor while typing
 # avoids it obscuring the current line
 mouse-hide-while-typing = true
+mouse-middle-click-paste = clipboard
 
 # ─────────────────────────────────────────────────────────────────────────────
 # SHELL INTEGRATION
