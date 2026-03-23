@@ -1,0 +1,32 @@
+#!/usr/bin/env bash
+# Run 'gp' in every git repository under this directory.
+# For non-git directories, offer to initialize and push to GitHub.
+set -uo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+
+for dir in "$SCRIPT_DIR"/*/; do
+    [ -d "$dir" ] || continue
+    label="${dir#"$SCRIPT_DIR"/}"
+    label="${label%/}"
+
+    if [ -d "$dir/.git" ]; then
+        echo ">>> $label (git repo) — running gp"
+        (cd "$dir" && gp) || echo "!!! Failed in $label, continuing..."
+    else
+        echo ">>> $label is NOT a git repo."
+        read -rp "    Create repo and push to GitHub? [y/N] " answer
+        if [[ "$answer" =~ ^[Yy]$ ]]; then
+            (
+                cd "$dir"
+                git init -b main
+                git add .
+                git commit -m "initial commit."
+                gh repo create "$label" --private --source=. --remote=origin --push
+            ) || echo "!!! Failed in $label, continuing..."
+        else
+            echo "    Skipping $label."
+        fi
+    fi
+    echo ""
+done
