@@ -1,0 +1,48 @@
+#!/usr/bin/env bash
+#
+# set-remote-ghossty - Install ghostty terminal info on a remote host
+#
+# Copies the local ghostty terminfo entry to a remote machine via SSH,
+# so that terminal features (color, keys, etc.) work correctly over SSH.
+#
+# Usage: set-remote-ghossty <user@host>
+#
+# Requirements:
+#   - infocmp must be available locally (part of ncurses)
+#   - ssh access to the remote host
+#   - tic must be available on the remote host (part of ncurses)
+
+set -euo pipefail
+
+usage() {
+    echo "Usage: $(basename "$0") <user@host>" >&2
+    echo "" >&2
+    echo "  Installs the ghostty terminfo entry on a remote host." >&2
+    echo "  Requires SSH access and tic installed on the remote host." >&2
+    exit 1
+}
+
+if [[ $# -ne 1 ]]; then
+    usage
+fi
+
+target="$1"
+
+if ! command -v infocmp &>/dev/null; then
+    echo "error: infocmp not found — install ncurses" >&2
+    exit 1
+fi
+
+if ! infocmp -x &>/dev/null; then
+    echo "error: infocmp failed — is a ghostty terminfo entry installed locally?" >&2
+    exit 1
+fi
+
+echo "Installing ghostty terminfo on ${target}..."
+
+if infocmp -x | ssh "$target" -- tic -x -; then
+    echo "Done. You can now SSH to ${target} with TERM=xterm-ghostty."
+else
+    echo "error: failed to install terminfo on ${target}" >&2
+    exit 1
+fi
