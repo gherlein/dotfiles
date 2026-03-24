@@ -48,6 +48,12 @@
 (use-package clipetty
   :hook (after-init . global-clipetty-mode))
 
+;;; --- Theme ---
+
+(setq modus-vivendi-palette-overrides
+      '((bg-main "#1a1a1a")))
+(load-theme 'modus-vivendi t)
+
 ;;; --- Basic UI ---
 
 (setq inhibit-startup-message t)
