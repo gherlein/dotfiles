@@ -2,6 +2,8 @@
 # Ghostty terminal emulator configuration
 # https://ghostty.org/docs/config/reference
 
+shell-integration = none
+
 # ─────────────────────────────────────────────────────────────────────────────
 # FONT
 # ─────────────────────────────────────────────────────────────────────────────
