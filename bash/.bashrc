@@ -9,7 +9,7 @@ HISTCONTROL=ignoredups:erasedups
 HISTSIZE=10000
 HISTFILESIZE=20000
 shopt -s histappend
-PROMPT_COMMAND="history -a"
+PROMPT_COMMAND="${PROMPT_COMMAND:+$PROMPT_COMMAND;}history -a"
 
 # prompt
 if [ $(id -u) -ne 0 ]
@@ -51,3 +51,5 @@ ssh() {
 
 # fzf
 [ -f ~/.fzf.bash ] && source ~/.fzf.bash
+
+. "$HOME/.local/bin/env"

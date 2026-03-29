@@ -471,6 +471,14 @@ else
     info "Ghostty already installed."
 fi
 
+# Set Ghostty as the default terminal for GNOME desktop (right-click → Open Terminal)
+if command -v ghostty &>/dev/null && command -v gsettings &>/dev/null; then
+    info "Setting Ghostty as GNOME default terminal..."
+    gsettings set org.gnome.desktop.default-applications.terminal exec "$(which ghostty)"
+    gsettings set org.gnome.desktop.default-applications.terminal exec-arg ''
+    ok "Ghostty set as GNOME default terminal."
+fi
+
 # ---------------------------------------------------------------------------
 # localdev container environment
 # ---------------------------------------------------------------------------
