@@ -1,0 +1,47 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+REPO_DIR="${1:-.}"
+
+if [[ ! -d "$REPO_DIR" ]]; then
+    echo "Error: '$REPO_DIR' is not a directory" >&2
+    exit 1
+fi
+
+GIT_CONFIG_PATH="$REPO_DIR/.git/config"
+
+if [[ ! -f "$GIT_CONFIG_PATH" ]]; then
+    echo "Error: '$REPO_DIR' is not a git repository" >&2
+    exit 1
+fi
+
+remote_url=$(git -C "$REPO_DIR" config --get remote.origin.url || true)
+
+if [[ -z "$remote_url" ]]; then
+    echo "Error: No remote origin URL found in .git/config" >&2
+    exit 1
+fi
+
+if [[ "$remote_url" =~ ^git@github\.com:(.+)$ ]]; then
+    repo_path="${BASH_REMATCH[1]}"
+    repo_path="${repo_path%.git}"
+    github_url="https://github.com/${repo_path}"
+elif [[ "$remote_url" =~ ^https://github\.com/(.+)$ ]]; then
+    repo_path="${BASH_REMATCH[1]}"
+    repo_path="${repo_path%.git}"
+    github_url="https://github.com/${repo_path}"
+else
+    echo "Error: Remote URL is not a GitHub repository: $remote_url" >&2
+    exit 1
+fi
+
+echo "Opening: $github_url"
+
+if [[ "$OSTYPE" == "darwin"* ]]; then
+    open "$github_url"
+elif [[ "$OSTYPE" == "linux-gnu"* ]]; then
+    xdg-open "$github_url"
+else
+    echo "Error: Unsupported OS type: $OSTYPE" >&2
+    exit 1
+fi
