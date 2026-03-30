@@ -1,0 +1,19 @@
+cache/
+  sessions/
+  history.jsonl
+  projects/
+  plans/
+  tasks/
+  debug/                                                                                  paste-cache/
+  file-history/                                                                           session-env/
+  shell-snapshots/
+  telemetry/
+  todos/
+  backups/
+  backup-*/
+  plugins/
+  *.json~
+  stats-cache.json
+  mcp-needs-auth-cache.json
+  policy-limits.json
+  memory/

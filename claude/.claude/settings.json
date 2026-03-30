@@ -1,0 +1,5 @@
+{
+  "model": "sonnet",
+  "voiceEnabled": true,
+  "skipDangerousModePermissionPrompt": true
+}
