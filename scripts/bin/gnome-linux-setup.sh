@@ -53,6 +53,20 @@ for ext in "${EXTENSIONS[@]}"; do
 done
 
 # ---------------------------------------------------------------------------
+# Virtual desktops: 4 static workspaces with Ctrl+Arrow navigation
+# ---------------------------------------------------------------------------
+
+info "Configuring 4 static virtual desktops..."
+gsettings set org.gnome.mutter dynamic-workspaces false
+gsettings set org.gnome.desktop.wm.preferences num-workspaces 4
+ok "Set 4 static workspaces."
+
+info "Mapping Ctrl+Left/Right to switch workspaces..."
+gsettings set org.gnome.desktop.wm.keybindings switch-to-workspace-left "['<Control>Left']"
+gsettings set org.gnome.desktop.wm.keybindings switch-to-workspace-right "['<Control>Right']"
+ok "Ctrl+Left/Right mapped to workspace navigation."
+
+# ---------------------------------------------------------------------------
 # Done
 # ---------------------------------------------------------------------------
 
