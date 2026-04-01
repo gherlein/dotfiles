@@ -36,6 +36,15 @@ EXTENSIONS=(
     "caffeine@patapon.info"
     "Vitals@CoreCoding.com"
     "auto-move-windows@gnome-shell-extensions.gcampax.github.com"
+    "dash-to-panel@jderose9.github.com"
+)
+
+# ---------------------------------------------------------------------------
+# Extensions to disable
+# ---------------------------------------------------------------------------
+
+DISABLE_EXTENSIONS=(
+    "ubuntu-dock@ubuntu.com"
 )
 
 # ---------------------------------------------------------------------------
@@ -49,6 +58,19 @@ for ext in "${EXTENSIONS[@]}"; do
         ok "Enabled: $ext"
     else
         warn "Failed to install: $ext"
+    fi
+done
+
+# ---------------------------------------------------------------------------
+# Disable unwanted extensions
+# ---------------------------------------------------------------------------
+
+for ext in "${DISABLE_EXTENSIONS[@]}"; do
+    info "Disabling extension: $ext"
+    if gnome-extensions disable "$ext" 2>/dev/null; then
+        ok "Disabled: $ext"
+    else
+        warn "Could not disable: $ext (may not be installed)"
     fi
 done
 
@@ -76,6 +98,11 @@ echo "GNOME extensions installed and enabled."
 echo ""
 echo "Installed extensions:"
 for ext in "${EXTENSIONS[@]}"; do
+    echo "  - $ext"
+done
+echo ""
+echo "Disabled extensions:"
+for ext in "${DISABLE_EXTENSIONS[@]}"; do
     echo "  - $ext"
 done
 echo ""
