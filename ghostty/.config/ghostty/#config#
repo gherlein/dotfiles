@@ -31,7 +31,69 @@ window-padding-color = background
 window-save-state = always
 # WHY: Show native macOS scrollbar for buffer navigation
 window-decoration = true
-window-vsync = false
+helios:~> journalctl -xe | grep -i ghostty
+Apr 03 15:14:14 helios systemd[4786]: app-ghostty-surface-transient-6173.scope: Consumed 5min 33.721s CPU time.
+Apr 03 15:14:19 helios gnome-shell[5261]: DING: info: ghostty version=1.3.1
+Apr 03 15:14:19 helios gnome-shell[5261]: DING: info: ghostty build optimize=ReleaseFast
+Apr 03 15:14:19 helios gnome-shell[5261]: DING: info: reading configuration file path=/home/gherlein/.config/ghostty/config
+Apr 03 15:14:19 helios gnome-shell[5261]: DING: warning(gtk_ghostty_application): setting GDK_DEBUG=gl-disable-gles,gl-no-fractional,vulkan-disable
+Apr 03 15:14:19 helios gnome-shell[5261]: DING: warning(gtk_ghostty_application): setting GDK_DISABLE=color-mgmt
+Apr 03 15:14:19 helios gnome-shell[5261]: DING: info(io_exec): found Ghostty resources dir: /usr/share/ghostty
+Apr 03 15:14:19 helios gnome-shell[5261]: DING: warning(gtk_ghostty_application): unimplemented action=.cell_size
+Apr 03 15:14:20 helios systemd[4786]: Started app-ghostty-surface-transient-24241.scope.
+Apr 03 15:14:20 helios gnome-shell[5261]: DING: warning(gtk_ghostty_application): unimplemented action=.color_change
+Apr 03 15:15:03 helios systemd[4786]: app-ghostty-surface-transient-24241.scope: Consumed 2.321s CPU time.
+Apr 03 15:15:08 helios gnome-shell[5261]: DING: info: ghostty version=1.3.1
+Apr 03 15:15:08 helios gnome-shell[5261]: DING: info: ghostty build optimize=ReleaseFast
+Apr 03 15:15:08 helios gnome-shell[5261]: DING: info: reading configuration file path=/home/gherlein/.config/ghostty/config
+Apr 03 15:15:08 helios gnome-shell[5261]: DING: warning(gtk_ghostty_application): setting GDK_DEBUG=gl-disable-gles,gl-no-fractional,vulkan-disable
+Apr 03 15:15:08 helios gnome-shell[5261]: DING: warning(gtk_ghostty_application): setting GDK_DISABLE=color-mgmt
+Apr 03 15:15:08 helios gnome-shell[5261]: DING: info(io_exec): found Ghostty resources dir: /usr/share/ghostty
+Apr 03 15:15:08 helios gnome-shell[5261]: DING: warning(gtk_ghostty_application): unimplemented action=.cell_size
+Apr 03 15:15:08 helios systemd[4786]: Started app-ghostty-surface-transient-24784.scope.
+Apr 03 15:15:08 helios gnome-shell[5261]: DING: warning(gtk_ghostty_application): unimplemented action=.color_change
+Apr 03 15:15:37 helios gnome-shell[5261]: DING: info(io_exec): found Ghostty resources dir: /usr/share/ghostty
+Apr 03 15:15:37 helios gnome-shell[5261]: DING: warning(gtk_ghostty_application): unimplemented action=.cell_size
+Apr 03 15:15:37 helios systemd[4786]: Started app-ghostty-surface-transient-25185.scope.
+Apr 03 15:15:37 helios gnome-shell[5261]: DING: warning(gtk_ghostty_application): unimplemented action=.color_change
+Apr 03 15:21:51 helios gnome-shell[5261]: DING: warning(gtk_ghostty_application): unimplemented action=.secure_input
+Apr 03 15:21:55 helios gnome-shell[5261]: DING: warning(gtk_ghostty_application): unimplemented action=.secure_input
+Apr 03 15:23:19 helios systemd[4786]: app-ghostty-surface-transient-9881.scope: Consumed 1.552s CPU time.
+Apr 03 15:23:19 helios systemd[4786]: app-ghostty-surface-transient-24784.scope: Consumed 10.147s CPU time.
+Apr 03 15:23:23 helios gnome-shell[5261]: DING: info: ghostty version=1.3.1
+Apr 03 15:23:23 helios gnome-shell[5261]: DING: info: ghostty build optimize=ReleaseFast
+Apr 03 15:23:23 helios gnome-shell[5261]: DING: info: reading configuration file path=/home/gherlein/.config/ghostty/config
+Apr 03 15:23:23 helios gnome-shell[5261]: DING: warning(gtk_ghostty_application): setting GDK_DEBUG=gl-disable-gles,gl-no-fractional,vulkan-disable
+Apr 03 15:23:23 helios gnome-shell[5261]: DING: warning(gtk_ghostty_application): setting GDK_DISABLE=color-mgmt
+Apr 03 15:23:23 helios gnome-shell[5261]: DING: info(io_exec): found Ghostty resources dir: /usr/share/ghostty                                                                      Apr 03 15:23:23 helios gnome-shell[5261]: DING: warning(gtk_ghostty_application): unimplemented action=.cell_size
+Apr 03 15:23:23 helios systemd[4786]: Started app-ghostty-surface-transient-27526.scope.
+Apr 03 15:23:23 helios gnome-shell[5261]: DING: warning(gtk_ghostty_application): unimplemented action=.color_change
+Apr 03 15:25:10 helios gnome-shell[5261]: DING: info: ghostty version=1.3.1               Apr 03 15:25:10 helios gnome-shell[5261]: DING: info: ghostty build optimize=ReleaseFast
+Apr 03 15:25:10 helios gnome-shell[5261]: DING: info: reading configuration file path=/home/gherlein/.config/ghostty/config
+Apr 03 15:25:10 helios gnome-shell[5261]: DING: warning(gtk_ghostty_application): setting GDK_DEBUG=gl-disable-gles,gl-no-fractional,vulkan-disable
+Apr 03 15:25:10 helios gnome-shell[5261]: DING: warning(gtk_ghostty_application): setting GDK_DISABLE=color-mgmt
+Apr 03 15:25:10 helios gnome-shell[5261]: DING: info(io_exec): found Ghostty resources dir: /usr/share/ghostty                                                                      Apr 03 15:25:10 helios gnome-shell[5261]: DING: warning(gtk_ghostty_application): unimplemented action=.cell_size                                                                   Apr 03 15:25:10 helios systemd[4786]: Started app-ghostty-surface-transient-28054.scope.
+Apr 03 15:25:10 helios gnome-shell[5261]: DING: warning(gtk_ghostty_application): unimplemented action=.color_change
+Apr 03 15:25:25 helios gnome-shell[5261]: DING: warning(gtk_ghostty_application): unimplemented action=.secure_input
+Apr 03 15:25:28 helios gnome-shell[5261]: DING: warning(gtk_ghostty_application): unimplemented action=.secure_input
+helios:~> ghostty --version
+                                                               Ghostty 1.3.1
+
+                                                                             Version
+  - version: 1.3.1                                                                          - channel: stable
+Build Config
+  - Zig version   : 0.15.2                                                                  - build mode    : .ReleaseFast
+  - app runtime   : .gtk                                                                    - font engine   : .fontconfig_freetype
+  - renderer      : renderer.generic.Renderer(renderer.OpenGL)                              - libxev        : io_uring
+  - kernel version: 6.17.0-1017-oem
+  - desktop env   : other                                                                   - GTK version   :
+    build         : 4.14.5                                                                    runtime       : 4.14.5
+  - libadwaita    : enabled
+    build         : 1.5.0
+    runtime       : 1.5.0
+  - libX11        : enabled
+  - libwayland    : enabled
+helios:~>
 
 # ─────────────────────────────────────────────────────────────────────────────
 # CURSOR
