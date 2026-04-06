@@ -1,1 +1,1 @@
-mount -t smbfs //gherlein@bs/gherlein /home/gherlein/bs
+sudo mount -t cifs //bs/gherlein /home/gherlein/bs -o username=gherlein,uid=$(id -u gherlein),gid=$(id -g gherlein)

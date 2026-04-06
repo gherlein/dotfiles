@@ -53,3 +53,6 @@ ssh() {
 [ -f ~/.fzf.bash ] && source ~/.fzf.bash
 
 . "$HOME/.local/bin/env"
+
+# opencode
+export PATH=/home/gherlein/.opencode/bin:$PATH

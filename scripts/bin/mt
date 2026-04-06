@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+
+usage() {
+    echo "Usage: mt <filename|folder|.>"
+    echo "  Opens the target in marktext in a new window."
+    echo "  filename  - a specific file to open"
+    echo "  folder    - a folder path to open"
+    echo "  .         - the current directory"
+    exit 1
+}
+
+if [ $# -ne 1 ]; then
+    usage
+fi
+
+if [ ! -e "$1" ]; then
+    echo "Error: '$1' does not exist."
+    usage
+fi
+
+marktext -n "$1" &
