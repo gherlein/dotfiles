@@ -2,9 +2,10 @@
 set -euo pipefail
 
 DEVICE="${1:-}"
+LABEL="${2:-NONE}"
 
 if [[ -z "$DEVICE" ]]; then
-    echo "Usage: $0 <device>  (e.g. /dev/sdb or /dev/mmcblk0)"
+    echo "Usage: $0 <device> [label]  (e.g. /dev/sdb or /dev/mmcblk0)"
     exit 1
 fi
 
@@ -40,8 +41,8 @@ fi
 echo "==> Formatting $PARTITION as FAT32..."
 sudo mkfs.fat -F 32 "$PARTITION"
 
-echo "==> Setting volume label to NONE..."
-sudo fatlabel "$PARTITION" "NONE"
+echo "==> Setting volume label to $LABEL..."
+sudo fatlabel "$PARTITION" "$LABEL"
 
 echo "==> Done."
 lsblk -o NAME,FSTYPE,LABEL,SIZE "$DEVICE"
