@@ -40,7 +40,7 @@ case "$(hostname -s)" in
     ai2)       GHOSTTY_HOST_COLOR='#1f0d0d' ;;  # dark red    - GPU / AI server
     builder)   GHOSTTY_HOST_COLOR='#1f1a0d' ;;  # dark amber  - build server
     jumpbox)   GHOSTTY_HOST_COLOR='#1f0d1a' ;;  # dark rose   - bastion host
-    *)         GHOSTTY_HOST_COLOR='#3d3d3d' ;;  # unknown host - default grey
+    *)         GHOSTTY_HOST_COLOR='#1a1a1a' ;;  # unknown host - default dark grey
 esac
 ghostty_bg "$GHOSTTY_HOST_COLOR"
 
