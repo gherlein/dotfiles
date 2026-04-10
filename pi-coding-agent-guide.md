@@ -1,0 +1,928 @@
+# Pi Coding Agent: Complete Configuration & Customization Guide
+
+> **Canonical source:** [`badlogic/pi-mono/packages/coding-agent`](https://github.com/badlogic/pi-mono/tree/main/packages/coding-agent)  
+> **Official site:** [shittycodingagent.ai](https://shittycodingagent.ai) / [buildwithpi.ai](https://buildwithpi.ai)  
+> **Author:** Mario Zechner — see his design rationale post: [What I learned building an opinionated and minimal coding agent](https://mariozechner.at/posts/2025-11-30-pi-coding-agent/)
+
+---
+
+## Philosophy: Why Pi Is Different
+
+Pi was built by someone frustrated with agents that inject things into context without telling you, have system prompts that change every release, and accumulate features you don't want. The result is intentionally minimal:
+
+- **Four built-in tools**: `read`, `write`, `edit`, `bash`. That's it.
+- **Sub-1000 token system prompt** — leaves maximum context for actual work.
+- **No MCP, no plan mode, no permission popups, no sub-agents, no background bash** — by design, not neglect. Build what you want from extensions.
+- **Aggressive extensibility**: TypeScript extensions, skills, prompt templates, themes. If it's not built in, build it yourself — or ask Pi to build it.
+
+As Armin Ronacher (mitsuhiko) puts it in his [Pi blog post](https://lucumr.pocoo.org/2026/1/31/pi/): *"If you want the agent to do something it doesn't do yet, you don't go and download an extension. You ask the agent to extend itself."*
+
+The key insight from the [Medium anatomy post](https://shivamagarwal7.medium.com/agentic-ai-pi-anatomy-of-a-minimal-coding-agent-powering-openclaw-5ecd4dd6b440): *context is the real bottleneck*. Pi's tiny system prompt leaves room for real work. Progressive disclosure (skills load on-demand) beats front-loading everything.
+
+---
+
+## Installation & Ollama Setup
+
+```bash
+# Via npm
+npm install -g @mariozechner/pi-coding-agent
+
+# Via Ollama (installs, configures ollama provider, launches)
+ollama launch pi
+
+# Configure without launching
+ollama launch pi --config
+
+# Specific model
+ollama launch pi --model qwen3-coder
+```
+
+### Manual Ollama configuration
+
+`~/.pi/agent/models.json`:
+```json
+{
+  "providers": {
+    "ollama": {
+      "baseUrl": "http://localhost:11434/v1",
+      "api": "openai-completions",
+      "apiKey": "ollama",
+      "models": [
+        { "id": "qwen3-coder" },
+        { "id": "qwen3:1.7b" }
+      ]
+    }
+  }
+}
+```
+
+`~/.pi/agent/settings.json`:
+```json
+{
+  "defaultProvider": "ollama",
+  "defaultModel": "qwen3-coder"
+}
+```
+
+Pi works well even with small local models — Jeffrey Morgan (Ollama founder) specifically called out the Qwen 3.5 series as performing well with Pi.
+
+---
+
+## Configuration File Layout
+
+```
+~/.pi/agent/                    # global config (all projects)
+    SYSTEM.md                   # replace default system prompt globally
+    APPEND_SYSTEM.md            # append to default system prompt globally
+    settings.json               # global settings
+    models.json                 # provider/model definitions
+    skills/                     # global skills
+    prompts/                    # global prompt templates
+    extensions/                 # global TypeScript extensions
+    themes/                     # global themes
+    keybindings.json            # custom keybindings
+
+<project-root>/
+    AGENTS.md                   # project context (loaded at startup)
+    .pi/
+        SYSTEM.md               # replace system prompt for this project
+        APPEND_SYSTEM.md        # append to system prompt for this project
+        settings.json           # project settings (override global)
+        skills/                 # project-specific skills
+        prompts/                # project-specific prompt templates
+        extensions/             # project-specific extensions
+        themes/                 # project-specific themes
+```
+
+Project settings override global settings. Nested objects are **merged** (not replaced), so you only need to specify what differs:
+
+```json
+// ~/.pi/agent/settings.json (global)
+{
+  "theme": "dark",
+  "compaction": { "enabled": true, "reserveTokens": 16384 }
+}
+
+// .pi/settings.json (project)
+{
+  "compaction": { "reserveTokens": 8192 }
+}
+
+// Effective result
+{
+  "theme": "dark",
+  "compaction": { "enabled": true, "reserveTokens": 8192 }
+}
+```
+
+---
+
+## System Prompt Customization
+
+This is Pi's most powerful single lever. The default system prompt is intentionally tiny (~1000 tokens). You have three mechanisms:
+
+### 1. Replace: `SYSTEM.md`
+
+Completely replaces the default prompt. Use with caution — the default prompt handles tool descriptions.
+
+```
+~/.pi/agent/SYSTEM.md           # global replacement
+.pi/SYSTEM.md                   # project-level replacement
+```
+
+### 2. Append: `APPEND_SYSTEM.md`
+
+Adds your content after the default prompt. **This is usually what you want.** It keeps Pi's core tool instructions and just adds your personality/preferences on top.
+
+```
+~/.pi/agent/APPEND_SYSTEM.md    # appended globally
+.pi/APPEND_SYSTEM.md            # appended for this project
+```
+
+Example `~/.pi/agent/APPEND_SYSTEM.md`:
+```markdown
+## Personal Preferences
+
+- I work primarily in Go. Follow idiomatic Go conventions and stdlib patterns.
+- Never use `cd` — use `zoxide` (`z`) for directory navigation, or pass directories as arguments (e.g., `git -C <dir>`).
+- Prefer `podman` over `docker` unless there's no alternative.
+- When writing tests, use table-driven tests with subtests (`t.Run`).
+- Don't add commentary to obvious code. Prefer self-documenting names.
+- When in doubt, ask rather than guess.
+```
+
+### 3. Context files: `AGENTS.md` / `CLAUDE.md`
+
+Not strictly system prompt — loaded as context at startup. Pi reads `AGENTS.md` (or `CLAUDE.md` for compatibility) from:
+- `~/.pi/agent/AGENTS.md` — global
+- All parent directories up to `/`
+- Current working directory
+
+Files are **concatenated in order** from root → cwd. Use these for project-specific knowledge: commands, conventions, architecture notes, gotchas. Think of it as the README for your agent.
+
+Pi scans parent directories, so you can have:
+```
+~/.pi/agent/AGENTS.md       # your personal global preferences
+~/projects/AGENTS.md        # conventions for all your projects
+~/projects/myapp/AGENTS.md  # instructions specific to myapp
+```
+
+The startup header shows which AGENTS.md files were loaded, so you can verify what's in context.
+
+#### What to put in AGENTS.md
+
+From [agents.md](https://agents.md/) and real-world usage:
+
+```markdown
+# Project Overview
+Brief description of what this is and what it does.
+
+## Stack
+- Go 1.23, standard library preferred
+- PostgreSQL via pgx/v5 (no ORM)
+- Kubernetes deployment, Docker images via ko
+
+## Common Commands
+- `make test` — run tests
+- `make lint` — run golangci-lint
+- `make build` — build all binaries
+- `./scripts/dev.sh` — start local dev stack
+
+## Conventions
+- Error wrapping: `fmt.Errorf("doing X: %w", err)`
+- Context first in all function signatures
+- No global state
+- Tests live next to source as `_test.go`
+
+## Architecture Notes
+- Services communicate via gRPC internally
+- All config via environment variables (no config files in prod)
+- Feature flags in `internal/flags/`
+
+## Gotchas
+- The auth middleware strips bearer tokens — don't log request headers in prod
+- `pkg/cache` uses a write-through strategy; don't bypass it for writes
+- Integration tests need `docker compose up -d` first
+
+## Debug Mode
+In dev, emails are logged to stdout instead of sent. The agent can find the confirmation link in the logs. Reference: `internal/mailer/dev.go`.
+```
+
+That last point — logging debug output so the agent can observe it — is a key tip from Armin Ronacher's [agentic coding recommendations](https://lucumr.pocoo.org/2025/6/12/agentic-coding/): *"In debug mode (which the agent runs in), the email is just logged to stdout. This is crucial! It allows the agent to complete a full sign-in with a remote controlled browser without extra assistance."*
+
+---
+
+## Skills
+
+Skills are the primary mechanism for progressive capability disclosure. Only skill **descriptions** live in the system prompt; full instructions load on-demand. This keeps context small.
+
+### Structure
+
+```
+my-skill/
+    SKILL.md          # required: YAML frontmatter + instructions
+    scripts/          # helper executables
+        process.sh
+    references/       # additional docs loaded on demand
+        api-reference.md
+    assets/
+        template.json
+```
+
+`SKILL.md` format:
+```markdown
+---
+name: my-skill
+description: Brief description used to decide when to load this skill. Be specific.
+hidden: false        # if true, only loads via /skill:my-skill (not auto-loaded)
+---
+
+# My Skill
+
+## Setup
+```bash
+# any one-time setup
+npm install
+```
+
+## Usage
+The `{baseDir}` placeholder is replaced at runtime with the skill directory path.
+
+```bash
+{baseDir}/scripts/process.sh "input"
+```
+
+## Instructions
+Detailed instructions for the model on how to use this skill...
+```
+
+### Load paths (all loaded at startup)
+
+```
+~/.pi/agent/skills/             # global
+.pi/skills/                     # project
+<installed packages>/           # via pi install
+```
+
+### Triggering skills
+
+- **Auto-trigger**: Pi reads the skill description and loads the full content when the task matches. The description is what matters — make it precise.
+- **Manual**: `/skill:name` — forces load with optional args: `/skill:brave-search "golang context"` (args appended as a `User:` message)
+- **Explicit in prompt**: "use the /skill:web-browser to..." also forces it.
+
+### Writing good skill descriptions
+
+The description determines auto-loading. Bad:
+```yaml
+description: Web search.
+```
+
+Good:
+```yaml
+description: Web search and content extraction via Brave Search API. Use when searching documentation, finding examples, looking up APIs, or fetching current information from the web.
+```
+
+### Installing existing skills
+
+```bash
+# Mario Zechner's official skills collection (brave-search, browser-tools, gccli, gdcli, gmcli, transcribe, vscode, youtube-transcript)
+git clone https://github.com/badlogic/pi-skills ~/.pi/agent/skills/pi-skills
+
+# Project-level
+git clone https://github.com/badlogic/pi-skills .pi/skills/pi-skills
+
+# Via pi package manager
+pi install npm:@mariozechner/pi-skills
+
+# Armin Ronacher's (mitsuhiko) extensions + skills
+pi install npm:mitsupi
+```
+
+The [badlogic/pi-skills](https://github.com/badlogic/pi-skills) repo includes:
+
+| Skill | What it does |
+|---|---|
+| `brave-search` | Web search + content extraction |
+| `browser-tools` | Chrome DevTools Protocol automation |
+| `gccli` | Google Calendar CLI |
+| `gdcli` | Google Drive CLI |
+| `gmcli` | Gmail CLI |
+| `transcribe` | Speech-to-text via Groq Whisper |
+| `vscode` | VS Code diffs and file comparison |
+| `youtube-transcript` | Fetch YouTube transcripts |
+
+### Mitsuhiko's skills (via `mitsupi`)
+
+From [mitsuhiko/agent-stuff](https://github.com/mitsuhiko/agent-stuff):
+
+| Skill | What it does |
+|---|---|
+| `/commit` | Git commits in Conventional Commits style |
+| `/update-changelog` | CHANGELOG.md updates |
+| `/ghidra` | Reverse engineering via Ghidra headless |
+| `/github` | GitHub CLI (issues, PRs, runs) |
+| `/web-browser` | Puppeteer-based browser automation |
+| `/tmux` | Drive tmux with keystrokes + pane scraping |
+| `/openscad` | 3D models → STL via OpenSCAD |
+| `/frontend-design` | Distinctive UI implementation |
+| `/uv` | Python dependency management via uv |
+| `/mermaid` | Mermaid diagram creation + validation |
+
+Note from Armin: he replaced all his browser automation MCPs with a [CDP-based skill](https://github.com/mitsuhiko/agent-stuff/blob/main/skills/web-browser/SKILL.md) — *"Not because the alternatives don't work, or are bad, but because this is just easy and natural. The agent maintains its own functionality."*
+
+### Skills replace MCP
+
+Pi has no MCP support by design. The pattern is: CLI tools + skills with a README. The model already knows how to use `bash`. Give it a CLI and a SKILL.md that explains how — that's equivalent to MCP but without the context overhead of loading all tools at session start.
+
+---
+
+## Prompt Templates
+
+Reusable prompts as Markdown files. Type `/name` to expand in the editor.
+
+### Structure
+
+```
+~/.pi/agent/prompts/review.md
+```
+
+```markdown
+Review this code for bugs, security issues, and performance problems.
+Focus on: {{focus}}
+```
+
+Invoke with `/review` — Pi will prompt for `{{focus}}` if present, or you can type `/review security` to pre-fill.
+
+### Load paths
+
+```
+~/.pi/agent/prompts/    # global
+.pi/prompts/            # project
+<installed packages>/
+```
+
+### Useful prompt templates to create
+
+```markdown
+<!-- ~/.pi/agent/prompts/commit.md -->
+Review the current git diff and write a commit message following Conventional Commits.
+Subject line max 72 chars, present tense imperative. No period at end.
+Body explains *why* not *what* if non-obvious.
+```
+
+```markdown
+<!-- ~/.pi/agent/prompts/todo.md -->
+Read TODO.md and pick the highest-priority item that has no blockers.
+Implement it, mark it done in TODO.md, and run the relevant tests.
+```
+
+```markdown
+<!-- ~/.pi/agent/prompts/pr.md -->
+Review the diff between current branch and main.
+Summarize: what changed, why, any concerns.
+Check for: missing tests, security issues, breaking changes, missing error handling.
+```
+
+---
+
+## Extensions (TypeScript)
+
+Extensions are TypeScript modules that hook into the agent lifecycle. They run with full system access. This is the power layer — everything Pi doesn't do natively can be built here.
+
+### Placement
+
+```
+~/.pi/agent/extensions/my-extension.ts    # global
+.pi/extensions/my-extension.ts            # project
+```
+
+No build step required — Pi compiles them at startup.
+
+### Lifecycle hooks
+
+```
+pi starts
+├─► session_start { reason: "startup"|"reload"|"new"|"resume"|"fork" }
+└─► resources_discover { reason: "startup"|"reload" }
+         ▼
+user sends prompt
+├─► input                        (intercept/transform/handle input)
+├─► before_agent_start           (inject messages, modify system prompt)
+├─► agent_start
+│   └─── turn (repeats while LLM calls tools) ───
+│       ├─► turn_start
+│       ├─► context              (modify messages before LLM sees them)
+│       ├─► before_provider_request  (inspect/replace full payload)
+│       │   LLM responds, may call tools:
+│       │   ├─► tool_execution_start
+│       │   ├─► tool_call        (can block)
+│       │   ├─► tool_execution_update
+│       │   ├─► tool_result      (can modify)
+│       │   └─► tool_execution_end
+│       └─► turn_end
+└─► agent_end
+```
+
+### Example: system prompt injection
+
+```typescript
+import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
+
+export default function (pi: ExtensionAPI) {
+  pi.on("before_agent_start", async (event, ctx) => {
+    // Inject dynamic context before each prompt
+    const gitBranch = await ctx.bash("git branch --show-current 2>/dev/null || echo ''");
+    if (gitBranch.trim()) {
+      return {
+        injectedMessages: [{
+          role: "user",
+          content: `Current git branch: ${gitBranch.trim()}`
+        }]
+      };
+    }
+  });
+}
+```
+
+### Example: tool call interception
+
+```typescript
+import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
+
+export default function (pi: ExtensionAPI) {
+  pi.on("tool_call", async (event, ctx) => {
+    // Block any bash command containing 'rm -rf'
+    if (event.toolName === "bash") {
+      const cmd = event.input.command as string;
+      if (/rm\s+-rf/.test(cmd)) {
+        const ok = await ctx.ui.confirm("Allow rm -rf?", cmd);
+        if (!ok) return { block: true, reason: "Blocked by user" };
+      }
+    }
+  });
+}
+```
+
+### Example: context modification
+
+```typescript
+import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
+
+export default function (pi: ExtensionAPI) {
+  pi.on("context", async (event, ctx) => {
+    // Trim oversized tool results to save tokens (what OpenClaw does)
+    const MAX_TOOL_RESULT = 10_000;
+    return {
+      messages: event.messages.map(msg => {
+        if (msg.role !== "tool") return msg;
+        const text = typeof msg.content === "string" ? msg.content : JSON.stringify(msg.content);
+        if (text.length > MAX_TOOL_RESULT) {
+          return { ...msg, content: text.slice(0, MAX_TOOL_RESULT) + "\n[truncated]" };
+        }
+        return msg;
+      })
+    };
+  });
+}
+```
+
+### Example: custom slash command
+
+```typescript
+import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
+
+export default function (pi: ExtensionAPI) {
+  pi.registerCommand("todo", {
+    description: "Show TODO.md items",
+    handler: async (args, ctx) => {
+      const content = await ctx.bash("cat TODO.md 2>/dev/null || echo 'No TODO.md found'");
+      ctx.ui.notify(content, "info");
+    },
+  });
+}
+```
+
+### Notable community extensions
+
+From [mitsuhiko/agent-stuff `pi-extensions/`](https://github.com/mitsuhiko/agent-stuff/tree/main/pi-extensions) (install via `pi install npm:mitsupi`):
+
+| Extension | What it does |
+|---|---|
+| `answer.ts` | TUI for answering agent questions one-by-one |
+| `btw.ts` | Side-chat popover with optional summary injection back into main chat |
+| `context.ts` | Context breakdown (extensions, skills, tokens, what's loaded) |
+| `control.ts` | RPC-based inter-session control (manager/worker sessions) |
+| `files.ts` | File browser merging git status + session references |
+| `go-to-bed.ts` | Late-night confirmation guard (midnight–6am) |
+| `loop.ts` | Rapid iterative coding with auto-continue |
+| `multi-edit.ts` | Batch multi-edit tool replacing built-in edit, with Codex-style patch support |
+| `notify.ts` | Desktop notifications when agent finishes |
+| `prompt-editor.ts` | In-editor mode selector (default/fast/precise) with model/thinking persistence |
+| `review.ts` | Code review: uncommitted/PR/commit, with fix loop |
+| `session-breakdown.ts` | 7/30/90-day session usage + cost graph |
+| `split-fork.ts` | Fork session into a new Pi process in a right-hand Ghostty split |
+| `todos.ts` | File-backed todo manager with TUI |
+| `uv.ts` | Intercepts pip/python calls and redirects to uv |
+| `whimsical.ts` | Replaces "Thinking..." with "Reticulating splines..." |
+
+**`answer.ts`** — When the agent has questions, they normally get buried in prose. This extension intercepts the agent's last response, extracts questions from it, and reformats them into a clean TUI input box — one at a time. You get the agent's natural explanation plus a tidy input for each question, rather than having to parse them out of a wall of text.
+
+**`btw.ts`** — A `/btw` command that opens a side-chat popover alongside the main session. Use it to ask a tangential question or explore something without polluting the main session's context. Optionally injects a summary of the side-chat back into the main conversation when you close it.
+
+**`context.ts`** — Shows a breakdown of everything loaded into the current session: which extensions are active, which skills had their full content actually read vs just their description in the system prompt, which AGENTS.md/CLAUDE.md files were consumed, and token usage. The loaded-skill highlighting is particularly useful — it tells you whether the model actually loaded a skill's full instructions or just saw the description stub. Essential for debugging why the agent isn't using a skill you expected it to.
+
+**`control.ts`** — Session control helpers for RPC-based inter-session communication. Lets one Pi session list and send prompts to other running sessions — the primitive needed to build a "manager + worker" multi-agent setup without a formal sub-agent framework.
+
+**`files.ts`** — A unified file browser that merges git status (dirty files first) with files referenced in the current session. Lets you reveal files in Finder, open in editor, diff in VS Code, or quick-look them. `Shift+Ctrl+R` quick-looks the most recently mentioned file — handy when the agent produces a PDF or image.
+
+**`go-to-bed.ts`** — Checks the time and between midnight and 6am requires explicit confirmation before continuing. A gentle "should you really be doing this?" guard for late-night sessions.
+
+**`loop.ts`** — Runs a prompt repeatedly in a loop with optional auto-continue. Useful for rapid iterative work where you want the agent to keep going without you hitting Enter each time. Supports a breakout condition to stop the loop.
+
+**`multi-edit.ts`** — Replaces Pi's built-in `edit` tool with a batch multi-edit tool supporting Codex-style patch format, including preflight validation before applying changes. More reliable for large refactors touching many locations.
+
+**`notify.ts`** — Sends a native desktop notification (via OSC 777 terminal escape sequence) when the agent finishes a task. Fire off a long-running task, go do something else, get notified when it's done.
+
+**`prompt-editor.ts`** — Adds an in-editor mode selector (default / fast / precise) with `Ctrl+Shift+M` and `Ctrl+Space` shortcuts. Each mode persists its own model and thinking level settings, so "precise" automatically bumps to a more capable model/higher thinking, and "fast" drops to something cheap and quick. Config saved per-mode to global or project settings.
+
+**`review.ts`** — A `/review` command (also `Ctrl+R`) for structured code review. Supports uncommitted changes, comparing against a base branch (PR-style), specific commits, or custom instructions. Has an optional "fix loop" mode that iterates review → fix until all blocking findings are cleared. UI modeled after Codex's review interface.
+
+**`session-breakdown.ts`** — An interactive TUI showing Pi usage over the last 7, 30, or 90 days: session counts, token/cost breakdown by model, and a GitHub-style activity graph. Useful for understanding which models you're actually spending money on.
+
+**`split-fork.ts`** — A `/split-fork` command that branches the current session and opens the fork in a new Pi process in a right-hand Ghostty terminal split. Ghostty-specific, but a clean workflow for exploring a different approach without losing your current position.
+
+**`todos.ts`** — A full todo manager backed by markdown files in `.pi/todos/`. Todos have a title, long-form markdown body, status, and can be "claimed" by a session (marking tasks in-progress and releasing them when done). Both you and the agent can create, update, and close todos. The TUI lists them with status indicators. More structured than a plain TODO.md, with actual session ownership tracking.
+
+**`uv.ts`** — Helpers for Python projects using `uv`. Intercepts calls to `pip` and `python` and redirects them to `uv` instead, so the agent doesn't fall back to pip even when it thinks it's being helpful.
+
+**`whimsical.ts`** — Replaces the default "Thinking..." spinner with random phrases: "Reticulating splines...", "Consulting the void...", "Bribing the compiler...". Purely cosmetic, but it makes long waits less tedious.
+
+---
+
+## Packages: Bundling Everything Together
+
+Pi packages bundle extensions, skills, prompts, and themes for distribution via npm or git.
+
+### Installing packages
+
+```bash
+# From npm
+pi install npm:@foo/pi-tools
+pi install npm:mitsupi                        # Armin Ronacher's stuff
+
+# From git
+pi install git:github.com/badlogic/pi-skills@v1
+pi install git:github.com/user/repo
+
+# Local path
+pi install ./my-local-package
+pi install /absolute/path/to/package
+
+# Test without installing
+pi -e git:github.com/user/repo
+
+# Remove / update
+pi remove npm:@foo/pi-tools
+pi update                                     # update all non-pinned packages
+pi list                                       # show installed
+
+# Project-local install (writes to .pi/settings.json instead of global)
+pi install -l npm:@foo/pi-tools
+```
+
+### Selective loading from packages
+
+In `settings.json` you can load only specific skills/extensions from a package:
+
+```json
+{
+  "packages": [
+    {
+      "source": "pi-skills",
+      "skills": ["brave-search", "transcribe"],
+      "extensions": []
+    }
+  ]
+}
+```
+
+### Creating a package
+
+`package.json`:
+```json
+{
+  "name": "my-pi-package",
+  "keywords": ["pi-package"],
+  "pi": {
+    "extensions": ["./extensions"],
+    "skills": ["./skills"],
+    "prompts": ["./prompts"],
+    "themes": ["./themes"]
+  }
+}
+```
+
+Without a `pi` key, Pi auto-discovers from conventional directory names. The `pi-package` keyword makes it show up in the package gallery.
+
+---
+
+## Session Management
+
+Understanding sessions unlocks Pi's most distinctive features.
+
+### Sessions are trees
+
+Sessions are stored as JSONL files with a `parentId` DAG structure. This means:
+
+- `/tree` — navigate the full session tree in-place, switch between branches, filter by type or label
+- `/fork` — branch from any previous point into a new session file
+- `--fork <path|id>` — fork from the CLI before launching
+
+**Pattern**: use `/fork` or branch off to do exploratory work or fix a broken tool, then return to the main session. Armin uses this to do a "side-quest to fix a broken tool without wasting context in the main session. After the tool is fixed, I can rewind the session back to earlier and Pi summarizes what has happened on the other branch."
+
+### Compaction
+
+When context approaches the limit, Pi auto-compacts: it summarizes older messages and keeps the most recent `keepRecentTokens` (default 20k) of messages verbatim.
+
+```bash
+# Manual compaction with guidance
+/compact
+/compact Preserve all file paths and code changes made to the auth module
+```
+
+Compaction settings in `settings.json`:
+```json
+{
+  "compaction": {
+    "enabled": true,
+    "reserveTokens": 16384,
+    "keepRecentTokens": 20000
+  }
+}
+```
+
+For Ollama with smaller context models, lower `reserveTokens`:
+```json
+{
+  "compaction": {
+    "reserveTokens": 4096,
+    "keepRecentTokens": 8000
+  }
+}
+```
+
+The compaction summary prompt is: *"Create a handoff summary for another LLM... Include: current progress and key decisions, important context/constraints/preferences, absolute file paths of any relevant files, what remains to be done, any critical data needed to continue."*
+
+### Resuming sessions
+
+```bash
+pi               # continue most recent session
+pi -c            # same
+pi -r            # open session picker
+pi -r <id>       # resume by partial UUID
+```
+
+### Exporting / sharing
+
+```bash
+/export          # export session to HTML
+/share           # upload to GitHub gist, get shareable URL
+```
+
+---
+
+## Settings Reference
+
+Full `settings.json` structure:
+
+```json
+{
+  "defaultProvider": "ollama",
+  "defaultModel": "qwen3-coder",
+  "defaultThinkingLevel": "none",
+  "theme": "dark",
+  "compaction": {
+    "enabled": true,
+    "reserveTokens": 16384,
+    "keepRecentTokens": 20000
+  },
+  "retry": {
+    "enabled": true,
+    "maxRetries": 3,
+    "baseDelayMs": 2000,
+    "maxDelayMs": 60000
+  },
+  "enabledModels": ["qwen3-*", "llama-*"],
+  "packages": ["pi-skills"],
+  "steeringMode": "one-at-a-time",
+  "followUpMode": "one-at-a-time",
+  "transport": "auto",
+  "npmCommand": ["mise", "exec", "node@20", "--", "npm"]
+}
+```
+
+`npmCommand` is important if you use a Node version manager (mise, nvm, etc.) — Pi uses npm for package installs.
+
+---
+
+## Ollama-Specific Tips
+
+### Context window
+
+Ollama models vary significantly in context window. Check yours:
+
+```bash
+ollama show qwen3-coder --modelfile | grep context
+```
+
+Set `reserveTokens` conservatively for smaller models. With 32k context:
+```json
+{
+  "compaction": {
+    "reserveTokens": 2048,
+    "keepRecentTokens": 6000
+  }
+}
+```
+
+### Multiple local models
+
+```json
+{
+  "providers": {
+    "ollama": {
+      "baseUrl": "http://localhost:11434/v1",
+      "api": "openai-completions",
+      "apiKey": "ollama",
+      "models": [
+        { "id": "qwen3-coder" },
+        { "id": "qwen3:1.7b" },
+        { "id": "devstral" },
+        { "id": "codestral" }
+      ]
+    }
+  }
+}
+```
+
+Switch models mid-session: `Ctrl+L` or `/model`.
+
+### Tool calling reliability
+
+Smaller local models sometimes struggle with multi-step tool calls. Workarounds:
+
+1. **Keep AGENTS.md focused** — don't overload it with irrelevant context.
+2. **Use skills instead of dumping instructions in AGENTS.md** — only the description loads by default; full content loads when needed.
+3. **Shorter sessions** — compact more aggressively or start new sessions for unrelated tasks.
+4. **Explicit steering** — if the model drifts, use `Enter` (steering message) to redirect mid-turn.
+
+---
+
+## Practical Workflow Patterns
+
+### The "DESIGN.md / TODO.md" pattern
+
+There's no built-in plan mode — by design. The community pattern is to write plans to files and have the agent work through them:
+
+```
+# Ask Pi to help you design
+"Let's plan the auth system refactor. Write a DESIGN.md with the approach, 
+then a TODO.md with concrete tasks. Small, specific tasks."
+
+# Work through it
+"Read TODO.md. Pick the first unchecked item and implement it. Check it 
+off when done."
+```
+
+This keeps plans in version control, makes progress visible, and works perfectly with local models since it avoids relying on the model's memory.
+
+### Context budget management
+
+From Armin's [agentic coding recommendations](https://lucumr.pocoo.org/2025/6/12/agentic-coding/): *"One thing ties all of these shifts together: in agentic mode, the LLM's context window fills up fast."*
+
+Practical tips:
+- Use HTML instead of screenshots for UI debugging (much cheaper)
+- Give the agent log output it can observe (`debug: true` in your app)
+- Keep tool outputs small — instrument your app to give concise, relevant output
+- Start new sessions for unrelated tasks rather than compacting repeatedly
+- Use `/compact "focus on X"` to guide what matters in the summary
+
+### The self-extending agent pattern
+
+Pi's core philosophy is that the agent can build its own tools. When you need a capability:
+
+```
+"I need to be able to quickly search our internal Confluence docs. 
+Build a skill for this. Look at ~/.pi/agent/skills/pi-skills/brave-search/SKILL.md 
+as an example of the format. The Confluence base URL is https://..."
+```
+
+The agent will write the SKILL.md and any helper scripts, then you reload with `/reload`. This is philosophically the alternative to MCP — instead of a protocol for connecting tools, you just have the agent write CLI tools with documentation.
+
+### Session branching for risky changes
+
+```bash
+# Before a risky refactor, branch
+/fork
+# or from CLI:
+pi --fork current-session.jsonl
+```
+
+Work in the branch. If it goes wrong, go back to the fork point. If it succeeds, continue.
+
+### The `Superpowers` workflow (third-party)
+
+[obra/superpowers](https://github.com/obra/superpowers) is a compatible skill collection implementing a full development workflow:
+
+1. **Brainstorming**: Before writing code, refine ideas through questions, explore alternatives, save design document
+2. **Implementation plan**: Clear enough for "an enthusiastic junior engineer" to follow
+3. **TDD**: Red/green with YAGNI and DRY emphasis
+4. **Subagent-driven development**: Agents work through each engineering task with review
+
+Install:
+```bash
+pi install git:github.com/obra/superpowers
+```
+
+---
+
+## Debugging Your Configuration
+
+### Startup header
+
+Pi shows at startup exactly what's loaded: AGENTS.md files, skills (with descriptions), extensions, and prompt templates. If something isn't loading, check here first.
+
+### `/settings` command
+
+Opens the interactive settings UI. Common options: theme, model, thinking level, compaction toggle.
+
+### `/reload`
+
+Reloads extensions, skills, prompts, and context files without restarting. Themes hot-reload automatically. Use this after editing any config file.
+
+### Context inspection
+
+Armin's `context.ts` extension (from `mitsupi` package) shows: which extensions/skills are loaded, which AGENTS.md files were read, token breakdown, and highlights skills that were actually loaded (vs just their descriptions).
+
+```bash
+pi install npm:mitsupi
+# then in session:
+/context
+```
+
+### Check what the model sees
+
+The `/tree` navigator shows full session history including all injected messages from extensions. Use this to verify that your AGENTS.md content and skill descriptions are appearing as expected.
+
+---
+
+## Reference: Key Files
+
+| File | Purpose |
+|---|---|
+| `~/.pi/agent/SYSTEM.md` | Replace default system prompt (global) |
+| `~/.pi/agent/APPEND_SYSTEM.md` | Append to system prompt (global) |
+| `~/.pi/agent/AGENTS.md` | Global context loaded at startup |
+| `~/.pi/agent/settings.json` | Global settings |
+| `~/.pi/agent/models.json` | Provider/model configuration |
+| `.pi/SYSTEM.md` | Replace system prompt (project) |
+| `.pi/APPEND_SYSTEM.md` | Append to system prompt (project) |
+| `AGENTS.md` | Project context (also read by Claude Code, Codex, etc.) |
+| `.pi/settings.json` | Project settings (merged with global) |
+
+---
+
+## Reference: Key Commands
+
+| Command | What it does |
+|---|---|
+| `/tree` | Navigate session tree, switch branches |
+| `/fork` | Branch current session to new file |
+| `/compact [instructions]` | Manual context compaction |
+| `/reload` | Reload all config without restart |
+| `/model` | Switch model (also `Ctrl+L`) |
+| `/settings` | Interactive settings UI |
+| `/hotkeys` | Show all keybindings |
+| `/skill:name` | Force-load a skill |
+| `/name` | Expand a prompt template |
+| `/share` | Export session to GitHub gist |
+| `/export` | Export session to HTML |
+| `pi install npm:pkg` | Install a Pi package globally |
+| `pi install -l npm:pkg` | Install project-local |
+
+---
+
+## Sources & Further Reading
+
+- **Canonical docs**: [badlogic/pi-mono/packages/coding-agent](https://github.com/badlogic/pi-mono/tree/main/packages/coding-agent)
+- **Official site / docs**: [shittycodingagent.ai](https://shittycodingagent.ai) / [buildwithpi.ai](https://buildwithpi.ai)
+- **Ollama integration**: [docs.ollama.com/integrations/pi](https://docs.ollama.com/integrations/pi)
+- **Mario Zechner's design post**: [mariozechner.at — What I learned building a minimal coding agent](https://mariozechner.at/posts/2025-11-30-pi-coding-agent/)
+- **Armin Ronacher on Pi**: [lucumr.pocoo.org/2026/1/31/pi/](https://lucumr.pocoo.org/2026/1/31/pi/)
+- **Armin's agentic coding practices**: [lucumr.pocoo.org/2025/6/12/agentic-coding/](https://lucumr.pocoo.org/2025/6/12/agentic-coding/)
+- **Mitsuhiko's extensions + skills**: [github.com/mitsuhiko/agent-stuff](https://github.com/mitsuhiko/agent-stuff) (npm: `mitsupi`)
+- **Mario's official skills**: [github.com/badlogic/pi-skills](https://github.com/badlogic/pi-skills)
+- **Superpowers workflow**: [github.com/obra/superpowers](https://github.com/obra/superpowers)
+- **agents.md format**: [agents.md](https://agents.md/)
+- **SDK / custom agent tutorial**: [nader.substack.com — Building a Custom Agent Framework with PI](https://nader.substack.com/p/how-to-build-a-custom-agent-framework)
+- **Architecture deep-dive**: [Medium — Anatomy of a Minimal Coding Agent](https://shivamagarwal7.medium.com/agentic-ai-pi-anatomy-of-a-minimal-coding-agent-powering-openclaw-5ecd4dd6b440)
