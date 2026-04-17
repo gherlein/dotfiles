@@ -460,23 +460,34 @@ else
 fi
 
 # ---------------------------------------------------------------------------
-# Ghostty terminal emulator
+# Kitty terminal emulator
 # ---------------------------------------------------------------------------
 
-info "Installing Ghostty..."
-if ! command -v ghostty &>/dev/null; then
-    /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/mkasberg/ghostty-ubuntu/HEAD/install.sh)"
-    ok "Ghostty installed."
+info "Installing Kitty..."
+if ! command -v kitty &>/dev/null; then
+    /bin/sh -c "$(curl -fsSL https://sw.kovidgoyal.net/kitty/installer.sh)"
+    mkdir -p "$HOME/.local/bin"
+    ln -sf "$HOME/.local/kitty.app/bin/kitty" "$HOME/.local/bin/kitty"
+    ln -sf "$HOME/.local/kitty.app/bin/kitten" "$HOME/.local/bin/kitten"
+    cp "$HOME/.local/kitty.app/share/applications/kitty.desktop" "$HOME/.local/share/applications/"
+    cp "$HOME/.local/kitty.app/share/applications/kitty-open.desktop" "$HOME/.local/share/applications/"
+    sed -i "s|Icon=kitty|Icon=$HOME/.local/kitty.app/share/icons/hicolor/256x256/apps/kitty.png|g" \
+        "$HOME/.local/share/applications/kitty.desktop" \
+        "$HOME/.local/share/applications/kitty-open.desktop"
+    sed -i "s|Exec=kitty|Exec=$HOME/.local/kitty.app/bin/kitty|g" \
+        "$HOME/.local/share/applications/kitty.desktop" \
+        "$HOME/.local/share/applications/kitty-open.desktop"
+    ok "Kitty installed."
 else
-    info "Ghostty already installed."
+    info "Kitty already installed."
 fi
 
-# Set Ghostty as the default terminal for GNOME desktop (right-click → Open Terminal)
-if command -v ghostty &>/dev/null && command -v gsettings &>/dev/null; then
-    info "Setting Ghostty as GNOME default terminal..."
-    gsettings set org.gnome.desktop.default-applications.terminal exec "$(which ghostty)"
+# Set Kitty as the default terminal for GNOME desktop (right-click → Open Terminal)
+if command -v kitty &>/dev/null && command -v gsettings &>/dev/null; then
+    info "Setting Kitty as GNOME default terminal..."
+    gsettings set org.gnome.desktop.default-applications.terminal exec "$(which kitty)"
     gsettings set org.gnome.desktop.default-applications.terminal exec-arg ''
-    ok "Ghostty set as GNOME default terminal."
+    ok "Kitty set as GNOME default terminal."
 fi
 
 # ---------------------------------------------------------------------------

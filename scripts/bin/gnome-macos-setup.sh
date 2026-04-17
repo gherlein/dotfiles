@@ -350,7 +350,7 @@ main() {
     warn "Log out and back in for all changes to take effect."
     echo ""
     info "Useful commands:"
-    info "  ghostty +list-themes        — browse terminal themes"
+    info "  kitten themes               — browse terminal themes"
     info "  gnome-tweaks                — fine-tune appearance"
     info "  $0 --dump                   — backup your settings"
     info "  dconf load / < backup.ini   — restore settings on new machine"

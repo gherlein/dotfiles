@@ -19,11 +19,11 @@ else
   PS1="\e[1;31m[\u@\h \W]\$ \e[0m>"
 fi
 
-# Ghostty terminal background color per hostname
-ghostty_bg() { printf '\e]11;%s\a' "$1"; }
-ghostty_bg_reset() {
-    if [[ -n "$GHOSTTY_HOST_COLOR" ]]; then
-        ghostty_bg "$GHOSTTY_HOST_COLOR"
+# Terminal background color per hostname (OSC 11 — works in kitty, ghostty, xterm, wezterm)
+term_bg() { printf '\e]11;%s\a' "$1"; }
+term_bg_reset() {
+    if [[ -n "$TERM_HOST_COLOR" ]]; then
+        term_bg "$TERM_HOST_COLOR"
     else
         printf '\e]111\a'
     fi
@@ -32,21 +32,21 @@ ghostty_bg_reset() {
 # Set terminal background color based on hostname.
 # Each machine gets a distinct color so you always know which host you are on.
 # Run 'hostname -s' on a machine to find its short name, then add it here.
-GHOSTTY_HOST_COLOR='#4f4f4f'
+TERM_HOST_COLOR='#4f4f4f'
 case "$(hostname -s)" in
-    jupiter3)  GHOSTTY_HOST_COLOR='#0d1f0d' ;;  # dark green  - local workstation
-    io)        GHOSTTY_HOST_COLOR='#0d0d1f' ;;  # dark blue   - SBC / edge node
-    helios)    GHOSTTY_HOST_COLOR='#0d0d1f' ;;  # dark blue
-    ai2)       GHOSTTY_HOST_COLOR='#1f0d0d' ;;  # dark red    - GPU / AI server
-    builder)   GHOSTTY_HOST_COLOR='#1f1a0d' ;;  # dark amber  - build server
-    jumpbox)   GHOSTTY_HOST_COLOR='#1f0d1a' ;;  # dark rose   - bastion host
-    *)         GHOSTTY_HOST_COLOR='#1a1a1a' ;;  # unknown host - default dark grey
+    jupiter3)  TERM_HOST_COLOR='#0d1f0d' ;;  # dark green  - local workstation
+    io)        TERM_HOST_COLOR='#0d0d1f' ;;  # dark blue   - SBC / edge node
+    helios)    TERM_HOST_COLOR='#0d0d1f' ;;  # dark blue
+    ai2)       TERM_HOST_COLOR='#1f0d0d' ;;  # dark red    - GPU / AI server
+    builder)   TERM_HOST_COLOR='#1f1a0d' ;;  # dark amber  - build server
+    jumpbox)   TERM_HOST_COLOR='#1f0d1a' ;;  # dark rose   - bastion host
+    *)         TERM_HOST_COLOR='#1a1a1a' ;;  # unknown host - default dark grey
 esac
-ghostty_bg "$GHOSTTY_HOST_COLOR"
+term_bg "$TERM_HOST_COLOR"
 
 ssh() {
-    command ssh "$@"
-    ghostty_bg "$GHOSTTY_HOST_COLOR"
+    kitten ssh "$@"
+    term_bg "$TERM_HOST_COLOR"
 }
 
 # fzf
