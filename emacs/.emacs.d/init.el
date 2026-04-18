@@ -51,7 +51,13 @@
 ;;; --- Theme ---
 
 (setq modus-vivendi-palette-overrides
-      '((bg-main "#1a1a1a")))
+      '((bg-main "#1a1a1a")
+        (fg-heading-1 cyan-warmer)
+        (keyword magenta-cooler)
+        (fnname cyan-warmer)
+        (variable cyan)
+        (type magenta-warmer)
+        (constant blue-warmer)))
 (load-theme 'modus-vivendi t)
 
 ;;; --- Basic UI ---
