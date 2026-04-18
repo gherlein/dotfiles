@@ -40,7 +40,8 @@
 (unless (display-graphic-p)
   (xterm-mouse-mode 1)
   (global-set-key (kbd "<mouse-4>") 'scroll-down-line)
-  (global-set-key (kbd "<mouse-5>") 'scroll-up-line))
+  (global-set-key (kbd "<mouse-5>") 'scroll-up-line)
+  (add-to-list 'term-file-aliases '("xterm-kitty" . "xterm-256color")))
 (setq select-enable-clipboard t)
 
 ;;; --- System clipboard in terminal (OSC 52) ---
@@ -52,12 +53,23 @@
 
 (setq modus-vivendi-palette-overrides
       '((bg-main "#1a1a1a")
+        (blue         "#9ec0ff")
+        (blue-warmer  "#eeeeee")
+        (blue-cooler  "#8fd8ff")
+        (blue-faint   "#b8ccff")
+        (blue-intense "#8fd0ff")
         (fg-heading-1 cyan-warmer)
+        (fg-heading-2 "#a0d8ff")
+        (fg-heading-3 cyan-warmer)
+        (fg-heading-4 magenta-warmer)
+        (fg-heading-5 green-warmer)
+        (fg-heading-6 yellow-warmer)
         (keyword magenta-cooler)
         (fnname cyan-warmer)
         (variable cyan)
         (type magenta-warmer)
-        (constant blue-warmer)))
+        (constant yellow-warmer)
+        (string green-cooler)))
 (load-theme 'modus-vivendi t)
 
 ;;; --- Basic UI ---
@@ -182,7 +194,11 @@
 
 (use-package markdown-mode
   :mode "\\.md\\'"
-  :hook (markdown-mode . visual-line-mode))
+  :hook (markdown-mode . visual-line-mode)
+  :config
+  (set-face-attribute 'markdown-pre-face nil :foreground "#eeeeee")
+  (set-face-attribute 'markdown-code-face nil :foreground "#eeeeee")
+  (set-face-attribute 'markdown-inline-code-face nil :foreground "#eeeeee"))
 
 ;;; --- YAML ---
 

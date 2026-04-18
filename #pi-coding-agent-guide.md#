@@ -25,7 +25,8 @@ The key insight from the [Medium anatomy post](https://shivamagarwal7.medium.com
 
 ```bash
 # Via npmx
-npm install -g @mariozechner/pi-coding-agent
+npm install -g @mariozechner/pi-coding-agenload-theme
+t
 
 # Via Ollama (installs, configures ollama provider, launches)
 ollama launch pi
