@@ -1,4 +1,4 @@
-xgx# Pi Coding Agent: Complete Configuration & Customization Guide
+# Pi Coding Agent: Complete Configuration & Customization Guide
 
 > **Canonical source:** [`badlogic/pi-mono/packages/coding-agent`](https://github.com/badlogic/pi-mono/tree/main/packages/coding-agent)  
 > **Official site:** [shittycodingagent.ai](https://shittycodingagent.ai) / [buildwithpi.ai](https://buildwithpi.ai)  
@@ -34,7 +34,13 @@ ollama launch pi
 ollama launch pi --config
 
 # Specific model
-ollama launch pi --model qwen3-coder
+ollama launch pi --model qwen3:30b-a3b
+```
+
+Pull the model first if you haven't already:
+
+```bash
+ollama pull qwen3:30b-a3b
 ```
 
 ### Manual Ollama configuration
@@ -48,8 +54,7 @@ ollama launch pi --model qwen3-coder
       "api": "openai-completions",
       "apiKey": "ollama",
       "models": [
-        { "id": "qwen3-coder" },
-        { "id": "qwen3:1.7b" }
+        { "id": "qwen3:30b-a3b" }
       ]
     }
   }
@@ -60,11 +65,11 @@ ollama launch pi --model qwen3-coder
 ```json
 {
   "defaultProvider": "ollama",
-  "defaultModel": "qwen3-coder"
+  "defaultModel": "qwen3:30b-a3b"
 }
 ```
 
-Pi works well even with small local models — Jeffrey Morgan (Ollama founder) specifically called out the Qwen 3.5 series as performing well with Pi.
+Pi works well with local models served by Ollama — the Qwen 3.x family performs particularly well, and `qwen3:30b-a3b` (MoE with ~3B active params) is a strong default balancing capability against local VRAM cost.
 
 ---
 
@@ -698,7 +703,7 @@ Full `settings.json` structure:
 ```json
 {
   "defaultProvider": "ollama",
-  "defaultModel": "qwen3-coder",
+  "defaultModel": "qwen3:30b-a3b",
   "defaultThinkingLevel": "none",
   "theme": "dark",
   "compaction": {
@@ -712,7 +717,7 @@ Full `settings.json` structure:
     "baseDelayMs": 2000,
     "maxDelayMs": 60000
   },
-  "enabledModels": ["qwen3-*", "llama-*"],
+  "enabledModels": ["qwen3*"],
   "packages": ["pi-skills"],
   "steeringMode": "one-at-a-time",
   "followUpMode": "one-at-a-time",
@@ -732,7 +737,7 @@ Full `settings.json` structure:
 Ollama models vary significantly in context window. Check yours:
 
 ```bash
-ollama show qwen3-coder --modelfile | grep context
+ollama show qwen3:30b-a3b --modelfile | grep context
 ```
 
 Set `reserveTokens` conservatively for smaller models. With 32k context:
@@ -755,7 +760,7 @@ Set `reserveTokens` conservatively for smaller models. With 32k context:
       "api": "openai-completions",
       "apiKey": "ollama",
       "models": [
-        { "id": "qwen3-coder" },
+        { "id": "qwen3:30b-a3b" },
         { "id": "qwen3:1.7b" },
         { "id": "devstral" },
         { "id": "codestral" }
