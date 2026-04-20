@@ -83,5 +83,8 @@ export EDITOR="${EDITOR:-mg}"
 # zed
 alias zed='~/.local/zed.app/bin/zed --new'
 
+# marktext
+md() { marktext -n "$1" & }
+
 # misc
 alias sshr='ssh-keygen -R '
