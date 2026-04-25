@@ -1,0 +1,237 @@
+#!/usr/bin/env bash
+# verify-gpu - Validate Strix Halo (gfx1151) iGPU setup for local LLM workloads.
+# Checks kernel cmdline, GTT/VRAM sizing, ROCm visibility, group membership,
+# and the Ollama service config recommended in ~/h/src/gch-notes/ai-hp.md.
+
+set -u
+
+PASS=0
+FAIL=0
+WARN=0
+
+if [[ -t 1 ]]; then
+    C_OK=$'\e[32m'; C_FAIL=$'\e[31m'; C_WARN=$'\e[33m'; C_DIM=$'\e[2m'; C_OFF=$'\e[0m'
+else
+    C_OK=""; C_FAIL=""; C_WARN=""; C_DIM=""; C_OFF=""
+fi
+
+ok()   { printf '  %s[OK]%s   %s\n' "$C_OK"   "$C_OFF" "$1"; PASS=$((PASS+1)); }
+fail() { printf '  %s[FAIL]%s %s\n' "$C_FAIL" "$C_OFF" "$1"; FAIL=$((FAIL+1)); }
+warn() { printf '  %s[WARN]%s %s\n' "$C_WARN" "$C_OFF" "$1"; WARN=$((WARN+1)); }
+note() { printf '         %s%s%s\n' "$C_DIM" "$1" "$C_OFF"; }
+
+section() { printf '\n%s\n' "== $1 =="; }
+
+# -----------------------------------------------------------------------------
+section "Kernel"
+# -----------------------------------------------------------------------------
+
+KVER=$(uname -r)
+KMAJ=${KVER%%.*}
+KMIN=${KVER#*.}; KMIN=${KMIN%%.*}
+if (( KMAJ > 6 || (KMAJ == 6 && KMIN >= 16) )); then
+    ok   "kernel $KVER (>= 6.16, has Strix Halo unified-memory fixes)"
+elif (( KMAJ == 6 && KMIN >= 10 )); then
+    warn "kernel $KVER (>= 6.10 works; 6.16+ recommended for full 96GB visibility)"
+else
+    fail "kernel $KVER too old (need >= 6.10, ideally >= 6.16)"
+fi
+
+CMDLINE=$(< /proc/cmdline)
+note "cmdline: $CMDLINE"
+
+check_cmdline() {
+    local key=$1 expected=$2 desc=$3
+    if [[ " $CMDLINE " == *" $key=$expected "* ]]; then
+        ok "$desc ($key=$expected)"
+    elif grep -qE "(^| )$key=" <<< "$CMDLINE"; then
+        local actual
+        actual=$(grep -oE "(^| )$key=[^ ]+" <<< "$CMDLINE" | awk '{print $1}')
+        warn "$desc set to $actual, expected $key=$expected"
+    else
+        fail "$desc missing ($key=$expected not in cmdline)"
+    fi
+}
+
+check_cmdline "amdgpu.gttsize"  "131072"   "GTT size 128 GB"
+check_cmdline "ttm.pages_limit" "33554432" "TTM pages limit 128 GB"
+
+if [[ " $CMDLINE " == *" amd_iommu=off "* ]]; then
+    ok   "IOMMU disabled (amd_iommu=off)"
+elif [[ " $CMDLINE " == *" iommu=pt "* ]]; then
+    ok   "IOMMU passthrough (iommu=pt) - safer than amd_iommu=off"
+else
+    warn "no IOMMU override; if ROCm hangs, add iommu=pt or amd_iommu=off"
+fi
+
+# -----------------------------------------------------------------------------
+section "amdgpu driver"
+# -----------------------------------------------------------------------------
+
+if lsmod | grep -q '^amdgpu'; then
+    ok "amdgpu kernel module loaded"
+else
+    fail "amdgpu kernel module not loaded"
+fi
+
+CARD_DEV=""
+for dev in /sys/class/drm/card*/device; do
+    [[ -e $dev/mem_info_vram_total ]] || continue
+    if grep -q '0x1002' "$dev/vendor" 2>/dev/null; then
+        CARD_DEV=$dev
+        break
+    fi
+done
+
+if [[ -z $CARD_DEV ]]; then
+    fail "no AMD GPU found under /sys/class/drm"
+else
+    note "device: $CARD_DEV"
+fi
+
+human() {
+    awk -v b="$1" 'BEGIN{
+        s="BKMGTPE"; i=0;
+        while (b>=1024 && i<length(s)-1) { b/=1024; i++ }
+        printf "%.2f %siB", b, substr(s,i+1,1)
+    }'
+}
+
+if [[ -n $CARD_DEV ]]; then
+    VRAM=$(<"$CARD_DEV/mem_info_vram_total")
+    GTT=$(<"$CARD_DEV/mem_info_gtt_total")
+    VRAM_GIB=$(awk -v b="$VRAM" 'BEGIN{printf "%.1f", b/1073741824}')
+    GTT_GIB=$(awk -v b="$GTT" 'BEGIN{printf "%.1f", b/1073741824}')
+
+    note "VRAM (BIOS carve-out): $(human "$VRAM")"
+    note "GTT  (kernel-managed): $(human "$GTT")"
+
+    if (( $(awk -v g="$GTT_GIB" 'BEGIN{print (g>=120)}') )); then
+        ok "GTT ~128 GB as expected"
+    elif (( $(awk -v g="$GTT_GIB" 'BEGIN{print (g>=90)}') )); then
+        warn "GTT ${GTT_GIB} GiB - usable but below the 128 GB target"
+    else
+        fail "GTT ${GTT_GIB} GiB - kernel cmdline likely not applied (reboot after update-grub?)"
+    fi
+
+    case "$VRAM_GIB" in
+        47.*|48.*) ok   "VRAM carve-out 48 GB (BIOS set per spec)" ;;
+        31.*|32.*) warn "VRAM carve-out 32 GB; spec recommends 48 GB" ;;
+        15.*|16.*) warn "VRAM carve-out 16 GB; spec recommends 48 GB" ;;
+        0.*|1.*|2.*) warn "VRAM carve-out ${VRAM_GIB} GiB - small carve-out is a known workaround, but Ollama may fall back to CPU" ;;
+        *) note "VRAM carve-out ${VRAM_GIB} GiB" ;;
+    esac
+fi
+
+# -----------------------------------------------------------------------------
+section "User permissions"
+# -----------------------------------------------------------------------------
+
+for grp in render video; do
+    if id -nG | tr ' ' '\n' | grep -qx "$grp"; then
+        ok "user in '$grp' group"
+    else
+        fail "user NOT in '$grp' group (run: sudo usermod -aG $grp \$USER && relogin)"
+    fi
+done
+
+for dev in /dev/kfd /dev/dri/renderD128; do
+    if [[ -e $dev ]]; then
+        if [[ -r $dev && -w $dev ]]; then
+            ok "$dev accessible"
+        else
+            fail "$dev exists but not r/w for current user"
+        fi
+    else
+        fail "$dev missing"
+    fi
+done
+
+# -----------------------------------------------------------------------------
+section "ROCm"
+# -----------------------------------------------------------------------------
+
+if command -v rocminfo >/dev/null 2>&1; then
+    ROC_OUT=$(rocminfo 2>&1)
+    if grep -q "Agent creation failed" <<< "$ROC_OUT"; then
+        fail "rocminfo: 'Agent creation failed' (ROCm not attached to GPU)"
+    elif grep -qE "Name:\s+gfx1151" <<< "$ROC_OUT"; then
+        ok "rocminfo sees gfx1151 agent"
+    elif grep -qE "Name:\s+gfx" <<< "$ROC_OUT"; then
+        local_gfx=$(grep -oE "gfx[0-9a-f]+" <<< "$ROC_OUT" | head -1)
+        warn "rocminfo sees $local_gfx, not gfx1151"
+    else
+        fail "rocminfo ran but did not report any GPU agent"
+    fi
+
+    if command -v rocm-smi >/dev/null 2>&1; then
+        if rocm-smi --showproductname >/dev/null 2>&1; then
+            ok "rocm-smi functional"
+        else
+            warn "rocm-smi installed but errored"
+        fi
+    else
+        warn "rocm-smi not installed"
+    fi
+else
+    fail "rocminfo not installed (sudo apt install rocm or run amdgpu-install --usecase=rocm)"
+fi
+
+# -----------------------------------------------------------------------------
+section "Ollama"
+# -----------------------------------------------------------------------------
+
+if ! command -v ollama >/dev/null 2>&1; then
+    warn "ollama not installed (skip)"
+else
+    ok "ollama on PATH ($(ollama --version 2>&1 | head -1))"
+
+    if systemctl list-unit-files ollama.service >/dev/null 2>&1; then
+        if systemctl is-active --quiet ollama.service; then
+            ok "ollama.service active"
+        else
+            warn "ollama.service not active"
+        fi
+
+        UNIT=$(systemctl cat ollama.service 2>/dev/null || true)
+        check_env() {
+            local key=$1 expected=$2
+            if grep -qE "Environment=\"?$key=$expected\"?( |$)" <<< "$UNIT"; then
+                ok "ollama env $key=$expected"
+            elif grep -qE "Environment=\"?$key=" <<< "$UNIT"; then
+                warn "ollama env $key set but != $expected"
+            else
+                warn "ollama env $key not set (recommended: $expected)"
+            fi
+        }
+        check_env_bool() {
+            local key=$1
+            if grep -qE "Environment=\"?$key=(1|t|T|true|TRUE|True)\"?( |$)" <<< "$UNIT"; then
+                ok "ollama env $key enabled"
+            elif grep -qE "Environment=\"?$key=" <<< "$UNIT"; then
+                warn "ollama env $key set but not a truthy value"
+            else
+                warn "ollama env $key not set (recommended: true)"
+            fi
+        }
+        check_env_bool OLLAMA_FLASH_ATTENTION
+        check_env      OLLAMA_KV_CACHE_TYPE q8_0
+    else
+        warn "ollama.service not installed as a systemd unit"
+    fi
+
+    if curl -sf --max-time 2 http://127.0.0.1:11434/api/version >/dev/null; then
+        ok "ollama API responding on :11434"
+    else
+        warn "ollama API not responding on :11434"
+    fi
+fi
+
+# -----------------------------------------------------------------------------
+section "Summary"
+# -----------------------------------------------------------------------------
+
+printf '  %sPASS%s: %d   %sWARN%s: %d   %sFAIL%s: %d\n\n' \
+    "$C_OK" "$C_OFF" "$PASS" "$C_WARN" "$C_OFF" "$WARN" "$C_FAIL" "$C_OFF" "$FAIL"
+
+(( FAIL == 0 ))
