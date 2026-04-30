@@ -3,9 +3,17 @@ set -euo pipefail
 
 DEVICE="${1:-}"
 LABEL="${2:-NONE}"
+MOUNT="${3:-}"
 
-if [[ -z "$DEVICE" ]]; then
-    echo "Usage: $0 <device> [label]  (e.g. /dev/sdb or /dev/mmcblk0)"
+if [[ -z "$DEVICE" || -z "$MOUNT" ]]; then
+    echo "Usage: $0 <device> [label] <y|n>  (e.g. /dev/sdb MYCARD y)"
+    echo "  y: mount the device after formatting"
+    echo "  n: do not mount after formatting"
+    exit 1
+fi
+
+if [[ "$MOUNT" != "y" && "$MOUNT" != "n" ]]; then
+    echo "Error: mount argument must be 'y' or 'n'"
     exit 1
 fi
 
@@ -47,4 +55,7 @@ sudo fatlabel "$PARTITION" "$LABEL"
 echo "==> Done."
 lsblk -o NAME,FSTYPE,LABEL,SIZE "$DEVICE"
 
-udisksctl mount -b /dev/sdc1
+if [[ "$MOUNT" == "y" ]]; then
+    udisksctl mount -b "$PARTITION"
+fi
+
