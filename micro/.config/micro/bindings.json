@@ -1,4 +1,13 @@
 {
     "Alt-/": "lua:comment.comment",
     "CtrlUnderscore": "lua:comment.comment",
+    "F2": "Save",
+    "F3": "command:replace",
+    "F6": "command:goto",
+    "F8": "CursorStart",
+    "F9": "CursorEnd",
+    "Alt-.": "command:definition",
+    "Alt-*": "command:jump_back",
+    "CtrlShiftK": "DeleteLine",
+    "CtrlShiftD": "DuplicateLine"
 }
