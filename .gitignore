@@ -32,3 +32,6 @@ Thumbs.db
 .backups/
 emacs/elisp/
 fzf/.fzf/
+
+# opencode auth (contains credentials)
+opencode/.local/share/opencode/auth.json

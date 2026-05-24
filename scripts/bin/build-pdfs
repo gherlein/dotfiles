@@ -1,8 +1,6 @@
-#!/bin/bash
 
 # Install Montserrat font if not installed
 if ! fc-list | grep -qi montserrat; then
-    echo "Installing Montserrat font..."
     brew install --cask font-montserrat
 fi
 

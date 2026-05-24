@@ -1,0 +1,16 @@
+{
+  "llm": {
+    "models": {
+      "planner": "qwen3.5:35b-a3b-q4_k_m",
+      "coder": "qwen2.5-coder:32b-instruct-fp16"
+    },
+    "default": "planner"
+  },
+  "hooks": [
+    {
+      "event": "after_tool",
+      "tool": "write",
+      "command": "gofmt -w {{.Path}} 2>/dev/null || true"
+    }
+  ]
+}
