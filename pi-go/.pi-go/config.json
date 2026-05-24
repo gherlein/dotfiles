@@ -1,10 +1,13 @@
 {
   "roles": {
     "default": {
-      "model": "ollama/qwen2.5-coder:32b-instruct-fp16"
+      "model": "ollama/qwen3.5:35b-a3b-q4_k_m"
     },
     "planner": {
       "model": "ollama/qwen3.5:35b-a3b-q4_k_m"
+    },
+    "coding": {
+      "model": "ollama/qwen2.5-coder:32b-instruct-fp16"
     },
     "slow": {
       "model": "ollama/qwen2.5-coder:32b-instruct-fp16"
