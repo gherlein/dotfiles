@@ -1,10 +1,17 @@
 {
-  "llm": {
-    "models": {
-      "planner": "qwen3.5:35b-a3b-q4_k_m",
-      "coder": "qwen2.5-coder:32b-instruct-fp16"
+  "roles": {
+    "default": {
+      "model": "ollama/qwen2.5-coder:32b-instruct-fp16"
     },
-    "default": "planner"
+    "planner": {
+      "model": "ollama/qwen3.5:35b-a3b-q4_k_m"
+    },
+    "slow": {
+      "model": "ollama/qwen2.5-coder:32b-instruct-fp16"
+    },
+    "smol": {
+      "model": "ollama/qwen3.5:35b-a3b-q4_k_m"
+    }
   },
   "hooks": [
     {
