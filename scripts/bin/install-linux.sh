@@ -221,6 +221,13 @@ fi
     albumentations imgaug torchmetrics
 
 # ---------------------------------------------------------------------------
+# pdf2md (pymupdf4llm in dedicated venv)
+# ---------------------------------------------------------------------------
+
+info "Installing pymupdf4llm into ~/.local/share/pdf2md..."
+"$UV" pip install --python ~/.local/share/pdf2md pymupdf4llm
+
+# ---------------------------------------------------------------------------
 # Node.js via nvm
 # ---------------------------------------------------------------------------
 

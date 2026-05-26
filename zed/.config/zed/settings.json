@@ -102,7 +102,7 @@
         "go": {
             "format_on_save": "language_server",
             "tab_size": 2
-        },
+        }
     },
     "ssh_connections": [
         {
@@ -128,5 +128,13 @@
         "light": "Ayu Dark",
         "dark": "One Dark"
     },
-    "always_treat_brackets_as_autoclosed": true
+    "always_treat_brackets_as_autoclosed": true,
+    "context_servers": {
+        "codebase-memory-mcp": {
+            "command": "/home/gherlein/.local/bin/codebase-memory-mcp",
+            "args": [
+                ""
+            ]
+        }
+    }
 }
