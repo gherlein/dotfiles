@@ -1,16 +1,16 @@
 {
   "roles": {
     "default": {
-      "model": "ollama/qwen3.5:35b-a3b-q4_k_m"
+      "model": "ollama/qwen3.6:35b-a3b"
     },
     "planner": {
-      "model": "ollama/qwen3.5:35b-a3b-q4_k_m"
+      "model": "ollama/qwen3.6:35b-a3b"
     },
     "coding": {
-      "model": "ollama/qwen2.5-coder:32b-instruct-fp16"
+      "model": "ollama/qwen3-coder:30b"
     },
     "slow": {
-      "model": "ollama/qwen2.5-coder:32b-instruct-fp16"
+      "model": "ollama/qwen3-coder:30b"
     },
     "smol": {
       "model": "ollama/qwen3.5:35b-a3b-q4_k_m"

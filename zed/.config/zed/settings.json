@@ -30,9 +30,10 @@
         "diagnostics": true,
         "metrics": true
     },
-    "show_copilot_suggestions": true,
+    "show_inline_completions": false,
+    "show_copilot_suggestions": false,
     "features": {
-        "copilot": true
+        "copilot": false
     },
     "autosave": "on_focus_change",
     "autosave_delay": 1500,
@@ -129,12 +130,5 @@
         "dark": "One Dark"
     },
     "always_treat_brackets_as_autoclosed": true,
-    "context_servers": {
-        "codebase-memory-mcp": {
-            "command": "/home/gherlein/.local/bin/codebase-memory-mcp",
-            "args": [
-                ""
-            ]
-        }
-    }
+    "context_servers": {}
 }

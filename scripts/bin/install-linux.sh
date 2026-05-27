@@ -169,6 +169,36 @@ if [[ -n "$TINYGO_URL" ]]; then
 fi
 
 # ---------------------------------------------------------------------------
+# Rust / Cargo via rustup
+# ---------------------------------------------------------------------------
+
+info "Installing Rust via rustup..."
+if ! command -v cargo &>/dev/null; then
+    curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+    # shellcheck source=/dev/null
+    source "$HOME/.cargo/env"
+    rustup update stable
+    ok "Rust installed."
+else
+    info "Rust already installed: $(cargo --version)"
+    # shellcheck source=/dev/null
+    source "$HOME/.cargo/env"
+    rustup update stable
+fi
+
+# ---------------------------------------------------------------------------
+# amdgpu_top (AMD GPU monitor via cargo)
+# ---------------------------------------------------------------------------
+
+info "Installing amdgpu_top..."
+if ! command -v amdgpu_top &>/dev/null; then
+    cargo install amdgpu_top
+    ok "amdgpu_top installed."
+else
+    info "amdgpu_top already installed."
+fi
+
+# ---------------------------------------------------------------------------
 # protoc-gen-go
 # ---------------------------------------------------------------------------
 
@@ -549,6 +579,7 @@ echo "Next steps:"
 echo "  - Add to ~/.bash_profile if not present:"
 echo "      export PATH=\$PATH:/usr/local/go/bin"
 echo "      export PATH=\$PATH:\$HOME/go/bin"
+echo "      source \$HOME/.cargo/env"
 echo "  - Log out and back in for Docker group membership"
 echo "  - Log in to Tailscale:   sudo tailscale up"
 echo "  - Join ZeroTier network: sudo zerotier-cli join <network-id>"
