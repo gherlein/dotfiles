@@ -1,19 +1,19 @@
 {
   "roles": {
     "default": {
-      "model": "ollama/qwen3.6:35b-a3b"
+      "model": "ollama/qwen3-coder-next-nothink"
     },
     "planner": {
       "model": "ollama/qwen3.6:35b-a3b"
     },
     "coding": {
-      "model": "ollama/qwen3-coder:30b"
+      "model": "ollama/qwen3-coder-next-nothink"
     },
     "slow": {
-      "model": "ollama/qwen3-coder:30b"
+      "model": "ollama/qwen3-coder-next-32k"
     },
     "smol": {
-      "model": "ollama/qwen3.5:35b-a3b-q4_k_m"
+      "model": "ollama/qwen3-coder:30b"
     }
   },
   "hooks": [
