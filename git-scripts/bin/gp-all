@@ -1,15 +1,14 @@
 #!/usr/bin/env bash
-# Run 'gp' in every git repository under this directory.
+# Run 'gp' in every git repository under the given directory (default: cwd).
 # For non-git directories, offer to initialize and push to GitHub.
 set -uo pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+ROOT="${1:-$PWD}"
 
-for dir in "$SCRIPT_DIR"/*/; do
+for dir in "$ROOT"/*/; do
     [ -d "$dir" ] || continue
-    label="${dir#"$SCRIPT_DIR"/}"
+    label="${dir#"$ROOT"/}"
     label="${label%/}"
-
     if [ -d "$dir/.git" ]; then
         echo ">>> $label (git repo) — running gp"
         (cd "$dir" && gp) || echo "!!! Failed in $label, continuing..."

@@ -1,13 +1,20 @@
 {
+  "hooks": [
+    {
+      "command": "gofmt -w {{.Path}} 2\u003e/dev/null || true",
+      "event": "after_tool",
+      "tool": "write"
+    }
+  ],
   "roles": {
+    "coding": {
+      "model": "ollama/qwen3-coder-next-nothink"
+    },
     "default": {
       "model": "ollama/qwen3-coder-next-nothink"
     },
     "planner": {
       "model": "ollama/qwen3.6:35b-a3b"
-    },
-    "coding": {
-      "model": "ollama/qwen3-coder-next-nothink"
     },
     "slow": {
       "model": "ollama/qwen3-coder-next-32k"
@@ -16,11 +23,5 @@
       "model": "ollama/qwen3-coder:30b"
     }
   },
-  "hooks": [
-    {
-      "event": "after_tool",
-      "tool": "write",
-      "command": "gofmt -w {{.Path}} 2>/dev/null || true"
-    }
-  ]
+  "theme": "dracula"
 }
