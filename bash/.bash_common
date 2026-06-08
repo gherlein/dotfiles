@@ -58,6 +58,12 @@ case "$(uname -s)" in
         fi
         export PATH="$PATH:/opt/mssql-tools18/bin"
         export SQLCMDTRUSTED="yes"
+        # pnpm (Linux)
+        export PNPM_HOME="$HOME/.local/share/pnpm"
+        case ":$PATH:" in
+            *":$PNPM_HOME/bin:"*) ;;
+            *) export PATH="$PNPM_HOME/bin:$PATH" ;;
+        esac
         ;;
 esac
 

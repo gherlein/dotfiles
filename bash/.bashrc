@@ -52,11 +52,11 @@ ssh() {
 # fzf
 [ -f ~/.fzf.bash ] && source ~/.fzf.bash
 
-. "$HOME/.local/bin/env"
+[ -f "$HOME/.local/bin/env" ] && . "$HOME/.local/bin/env"
 
 # opencode
 export PATH=/home/gherlein/.opencode/bin:$PATH
 
 # Added by codebase-memory-mcp install
 export PATH="/home/gherlein/.local/bin:$PATH"
-. "$HOME/.cargo/env"
+[ -f "$HOME/.cargo/env" ] && . "$HOME/.cargo/env"

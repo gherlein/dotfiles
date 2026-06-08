@@ -32,8 +32,9 @@ stow:
 		if [ -d $$pkg ]; then \
 			echo "Stowing $$pkg..."; \
 			stow -n $$pkg 2>&1 | grep 'existing target' \
-				| sed "s|.*existing target \(.*\) since.*|\1|" \
+				| sed -e 's|.*existing target[^:]*: ||' -e 's| =>.*||' \
 				| while read target; do \
+					[ -n "$$target" ] || continue; \
 					echo "  Removing conflicting file: $$HOME/$$target"; \
 					rm -f "$$HOME/$$target"; \
 				done; \
