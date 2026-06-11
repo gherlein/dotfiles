@@ -1,0 +1,240 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# genimg - generate an image via Replicate's flux-schnell model
+# Usage: genimg [options] "your prompt" [output_file]
+#
+# ---------------------------------------------------------------------------
+# GETTING A REPLICATE ACCOUNT AND API TOKEN
+# ---------------------------------------------------------------------------
+# This script requires a Replicate API token in the REPLICATE_API_TOKEN
+# environment variable. To get one:
+#
+#   1. Go to https://replicate.com and click "Sign in".
+#      You can sign up with a GitHub account (fastest) or with an email.
+#
+#   2. Verify your email if you signed up that way, then complete the
+#      onboarding (a few profile questions; "personal use" is fine).
+#
+#   3. Add a billing method. Replicate is pay-as-you-go - there is no
+#      monthly fee, but you must have a card on file to run paid models.
+#      Go to https://replicate.com/account/billing and add a card.
+#      New accounts typically get a small free credit; flux-schnell costs
+#      roughly $0.003 per image so the free credit lasts a long time.
+#
+#   4. Create an API token at https://replicate.com/account/api-tokens
+#      Click "Create token", give it a name (e.g. "blog-genimg"), and
+#      copy the token immediately - it is shown only once.
+#
+#   5. Export it in your shell. For persistent use, add to ~/.bashrc or
+#      ~/.zshrc (or a sourced ~/.envrc if you use direnv):
+#
+#        export REPLICATE_API_TOKEN="r8_..."
+#
+#      Then reload your shell or `source` the file.
+#
+#   6. Verify it works:
+#
+#        curl -s -H "Authorization: Bearer $REPLICATE_API_TOKEN" \
+#          https://api.replicate.com/v1/account | jq
+#
+#      You should see your account JSON. If you get an auth error, the
+#      token is wrong or was not exported into this shell.
+#
+# Models and pricing: https://replicate.com/explore
+# This script uses black-forest-labs/flux-schnell - fast, cheap, good
+# quality. To swap models, edit REPLICATE_MODEL below.
+# ---------------------------------------------------------------------------
+
+REPLICATE_MODEL="https://api.replicate.com/v1/models/black-forest-labs/flux-schnell/predictions"
+POLL_INTERVAL=2
+MAX_WAIT=120
+VALID_FORMATS="webp jpg png"
+
+die() {
+  echo "error: $*" >&2
+  exit 1
+}
+
+usage() {
+  cat >&2 <<EOF
+usage: genimg [options] <prompt> [output_file]
+
+  prompt       Text description of the image to generate
+  output_file  Where to save the image (default: prompted interactively)
+               Format is inferred from extension (.webp, .jpg, .png)
+
+options:
+  -f FORMAT    Output format: webp, jpg, or png (default: webp)
+               Overrides format inferred from output_file extension
+  -q QUALITY   Output quality 0-100 for webp/jpg (default: 80, ignored for png)
+  -h           Show this help
+
+environment:
+  REPLICATE_API_TOKEN  Required. Get yours at https://replicate.com/account
+
+examples:
+  genimg "a rainbow corgi"
+  genimg "a rainbow corgi" corgi.png
+  genimg -f png "a rainbow corgi" corgi
+  genimg -f jpg -q 95 "a rainbow corgi" corgi.jpg
+EOF
+  exit 1
+}
+
+# --- check dependencies ---
+for cmd in curl jq; do
+  command -v "$cmd" &>/dev/null || die "'$cmd' is required but not installed"
+done
+
+# --- check auth ---
+[[ -z "${REPLICATE_API_TOKEN:-}" ]] && die "REPLICATE_API_TOKEN is not set"
+
+# --- parse options ---
+FORMAT=""
+QUALITY=80
+
+while getopts ":f:q:h" opt; do
+  case $opt in
+    f) FORMAT="$OPTARG" ;;
+    q) QUALITY="$OPTARG" ;;
+    h) usage ;;
+    :) die "option -$OPTARG requires an argument" ;;
+    \?) die "unknown option: -$OPTARG" ;;
+  esac
+done
+shift $((OPTIND - 1))
+
+# validate format if explicitly set
+if [[ -n "$FORMAT" ]]; then
+  valid=0
+  for f in $VALID_FORMATS; do
+    [[ "$f" == "$FORMAT" ]] && valid=1 && break
+  done
+  [[ $valid -eq 0 ]] && die "invalid format '$FORMAT'. must be one of: $VALID_FORMATS"
+fi
+
+# validate quality
+[[ "$QUALITY" =~ ^[0-9]+$ ]] || die "quality must be a number 0-100"
+[[ "$QUALITY" -ge 0 && "$QUALITY" -le 100 ]] || die "quality must be between 0 and 100"
+
+# --- parse args ---
+if [[ $# -eq 0 ]]; then
+  usage
+fi
+
+PROMPT="$1"
+[[ -z "$PROMPT" ]] && die "prompt cannot be empty"
+
+if [[ $# -ge 2 ]]; then
+  OUTFILE="$2"
+else
+  read -r -p "output filename [out.webp]: " OUTFILE
+  OUTFILE="${OUTFILE:-out.webp}"
+fi
+
+# infer format from extension if not set via -f
+ext="${OUTFILE##*.}"
+if [[ -z "$FORMAT" ]]; then
+  if [[ "$ext" == "$OUTFILE" ]]; then
+    # no extension — default to webp
+    FORMAT="webp"
+    OUTFILE="${OUTFILE}.webp"
+  else
+    ext_lower=$(printf '%s' "$ext" | tr '[:upper:]' '[:lower:]')
+    valid=0
+    for f in $VALID_FORMATS; do
+      [[ "$f" == "$ext_lower" ]] && valid=1 && FORMAT="$ext_lower" && break
+    done
+    [[ $valid -eq 0 ]] && die "unrecognised extension '.$ext'. use .webp, .jpg, or .png — or set format with -f"
+  fi
+else
+  # -f was set: fix extension to match if they conflict
+  current_ext=$(printf '%s' "${OUTFILE##*.}" | tr '[:upper:]' '[:lower:]')
+  if [[ "$current_ext" == "$OUTFILE" ]]; then
+    # no extension at all
+    OUTFILE="${OUTFILE}.${FORMAT}"
+  elif [[ "$current_ext" != "$FORMAT" ]]; then
+    base="${OUTFILE%.*}"
+    echo "warning: extension .${current_ext} does not match -f ${FORMAT}, saving as ${base}.${FORMAT}" >&2
+    OUTFILE="${base}.${FORMAT}"
+  fi
+fi
+
+# warn if file already exists
+if [[ -e "$OUTFILE" ]]; then
+  read -r -p "file '$OUTFILE' already exists. overwrite? [y/N] " confirm
+  [[ "$confirm" =~ ^[Yy]$ ]] || { echo "aborted." >&2; exit 1; }
+fi
+
+# --- create prediction ---
+echo "creating prediction (format: $FORMAT, quality: $QUALITY)..." >&2
+
+payload=$(jq -n \
+  --arg prompt "$PROMPT" \
+  --arg fmt "$FORMAT" \
+  --argjson quality "$QUALITY" \
+  '{"input":{"prompt":$prompt,"output_format":$fmt,"output_quality":$quality}}')
+
+response=$(curl -sS -X POST \
+  -H "Authorization: Bearer $REPLICATE_API_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d "$payload" \
+  "$REPLICATE_MODEL") || die "failed to create prediction (network error)"
+
+# check for API-level errors
+if echo "$response" | jq -e '.detail // .title' &>/dev/null; then
+  msg=$(echo "$response" | jq -r '.detail // .title')
+  die "API error: $msg"
+fi
+
+ID=$(echo "$response" | jq -r '.id')
+[[ -z "$ID" || "$ID" == "null" ]] && die "no prediction ID returned: $response"
+
+echo "prediction id: $ID" >&2
+
+# --- poll for completion ---
+elapsed=0
+while true; do
+  result=$(curl -sS \
+    -H "Authorization: Bearer $REPLICATE_API_TOKEN" \
+    "https://api.replicate.com/v1/predictions/$ID") || die "failed to poll prediction status (network error)"
+
+  # surface API-level errors that came back as JSON
+  if echo "$result" | jq -e '.detail // .title' &>/dev/null; then
+    msg=$(echo "$result" | jq -r '.detail // .title')
+    die "API error during poll: $msg"
+  fi
+
+  status=$(echo "$result" | jq -r '.status')
+
+  case "$status" in
+    succeeded)
+      break
+      ;;
+    failed|canceled)
+      err=$(echo "$result" | jq -r '.error // "unknown error"')
+      die "prediction $status: $err"
+      ;;
+    starting|processing)
+      printf "." >&2
+      sleep "$POLL_INTERVAL"
+      elapsed=$((elapsed + POLL_INTERVAL))
+      [[ $elapsed -ge $MAX_WAIT ]] && die "timed out after ${MAX_WAIT}s waiting for prediction $ID"
+      ;;
+    *)
+      die "unexpected status '$status'"
+      ;;
+  esac
+done
+
+echo "" >&2
+
+# --- download output ---
+url=$(echo "$result" | jq -r '.output[0] // empty')
+[[ -z "$url" ]] && die "no output URL in response: $result"
+
+echo "downloading..." >&2
+curl -sSf -L -o "$OUTFILE" "$url" || die "failed to download image from $url"
+
+echo "saved: $OUTFILE" >&2
