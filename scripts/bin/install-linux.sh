@@ -24,10 +24,34 @@ info "Detected architecture: $ARCH"
 # and permanently disabled.
 
 # ---------------------------------------------------------------------------
-# Go version - update this to the latest stable release
+# Section selection
 # ---------------------------------------------------------------------------
 
-GO_VERSION="1.25.4"
+ask() {
+    local prompt="$1" reply
+    while true; do
+        read -rp "$prompt [y/n]: " reply
+        case "$reply" in
+            [Yy]*) return 0 ;;
+            [Nn]*) return 1 ;;
+            *) echo "Please answer y or n." ;;
+        esac
+    done
+}
+
+echo "Select which sections to install (the base system/apt packages always run):"
+echo ""
+
+if ask "Development toolchains (Go, TinyGo, Rust, protoc-gen-go, Node/npm, pnpm, AWS CLI)?"; then INSTALL_DEV=true; else INSTALL_DEV=false; fi
+if ask "Python/ML stack (uv, torch/transformers/jupyter venv, pdf2md)?"; then INSTALL_PYTHON=true; else INSTALL_PYTHON=false; fi
+if ask "AMD GPU tools (amdgpu_top, ROCm drivers)?"; then INSTALL_AMD=true; else INSTALL_AMD=false; fi
+if ask "Container tooling (Docker, localdev/podman)?"; then INSTALL_CONTAINERS=true; else INSTALL_CONTAINERS=false; fi
+if ask "Networking/VPN (Tailscale, ZeroTier)?"; then INSTALL_NETWORK=true; else INSTALL_NETWORK=false; fi
+if ask "Monitoring stack (Prometheus, node_exporter, Grafana)?"; then INSTALL_MONITORING=true; else INSTALL_MONITORING=false; fi
+if ask "AI tools (Ollama)?"; then INSTALL_AI=true; else INSTALL_AI=false; fi
+if ask "GUI/desktop apps (Signal Desktop, Kitty terminal)?"; then INSTALL_GUI=true; else INSTALL_GUI=false; fi
+
+echo ""
 
 # ---------------------------------------------------------------------------
 # System update
@@ -92,8 +116,13 @@ else
 fi
 
 # ---------------------------------------------------------------------------
-# Go
+# Development toolchains (Go, TinyGo, Rust, protoc-gen-go, Node, pnpm, AWS CLI)
 # ---------------------------------------------------------------------------
+
+if [[ "$INSTALL_DEV" == "true" ]]; then
+
+GO_VERSION="1.25.4"
+TINYGO_VERSION="0.33.0"
 
 info "Installing Go $GO_VERSION..."
 if [[ "$ARCH" == "amd64" ]]; then
@@ -115,12 +144,6 @@ if [[ -n "$GO_URL" ]]; then
     ok "Go installed to /usr/local/go"
 fi
 
-# ---------------------------------------------------------------------------
-# TinyGo (Go compiler for microcontrollers)
-# ---------------------------------------------------------------------------
-
-TINYGO_VERSION="0.33.0"
-
 info "Installing TinyGo $TINYGO_VERSION..."
 if [[ "$ARCH" == "amd64" ]]; then
     TINYGO_URL="https://github.com/tinygo-org/tinygo/releases/download/v${TINYGO_VERSION}/tinygo_${TINYGO_VERSION}_amd64.deb"
@@ -140,10 +163,6 @@ if [[ -n "$TINYGO_URL" ]]; then
     rm /tmp/tinygo.deb
 fi
 
-# ---------------------------------------------------------------------------
-# Rust / Cargo via rustup
-# ---------------------------------------------------------------------------
-
 info "Installing Rust via rustup..."
 if ! command -v cargo &>/dev/null; then
     curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
@@ -158,22 +177,6 @@ else
     rustup update stable
 fi
 
-# ---------------------------------------------------------------------------
-# amdgpu_top (AMD GPU monitor via cargo)
-# ---------------------------------------------------------------------------
-
-info "Installing amdgpu_top..."
-if ! command -v amdgpu_top &>/dev/null; then
-    cargo install amdgpu_top
-    ok "amdgpu_top installed."
-else
-    info "amdgpu_top already installed."
-fi
-
-# ---------------------------------------------------------------------------
-# protoc-gen-go
-# ---------------------------------------------------------------------------
-
 info "Installing protoc-gen-go..."
 if command -v go &>/dev/null || [[ -x /usr/local/go/bin/go ]]; then
     export PATH="$PATH:/usr/local/go/bin"
@@ -183,9 +186,66 @@ else
     warn "Go not found — skipping protoc-gen-go install."
 fi
 
+info "Installing nvm..."
+if [[ ! -s "$HOME/.nvm/nvm.sh" ]]; then
+    # The nvm-sh/nvm clone is public and read-only; bypass the global
+    # "https://github.com/ -> ssh://git@github.com/" rewrite (~/.gitconfig)
+    # so it doesn't require SSH auth to GitHub.
+    (
+        export GIT_CONFIG_GLOBAL=/dev/null
+        curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.3/install.sh | bash
+    )
+fi
+
+export NVM_DIR="$HOME/.nvm"
+
+# nvm scripts use unbound variables internally; suspend -u around them
+set +u
+# shellcheck source=/dev/null
+[[ -s "$NVM_DIR/nvm.sh" ]] && source "$NVM_DIR/nvm.sh"
+
+info "Installing Node.js LTS..."
+nvm install --lts
+nvm use --lts
+set -u
+
+info "Installing global npm packages..."
+npm install -g typescript aws-cdk @anthropic-ai/claude-code
+
+info "Installing pnpm..."
+if ! command -v pnpm &>/dev/null; then
+    curl -fsSL https://get.pnpm.io/install.sh | sh -
+else
+    info "pnpm already installed."
+fi
+
+info "Installing AWS CLI v2..."
+if ! command -v aws &>/dev/null; then
+    if [[ "$ARCH" == "amd64" ]]; then
+        curl -fsSL "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o /tmp/awscliv2.zip
+    elif [[ "$ARCH" == "arm64" ]]; then
+        curl -fsSL "https://awscli.amazonaws.com/awscli-exe-linux-aarch64.zip" -o /tmp/awscliv2.zip
+    else
+        warn "Unknown architecture $ARCH — skipping AWS CLI install."
+    fi
+    if [[ -f /tmp/awscliv2.zip ]]; then
+        unzip -q /tmp/awscliv2.zip -d /tmp/awscli
+        sudo /tmp/awscli/aws/install
+        rm -rf /tmp/awscliv2.zip /tmp/awscli
+    fi
+else
+    info "AWS CLI already installed: $(aws --version)"
+fi
+
+else
+    info "Skipping development toolchains."
+fi
+
 # ---------------------------------------------------------------------------
-# uv (fast Python package manager)
+# Python / ML stack (uv, torch/transformers venv, pdf2md)
 # ---------------------------------------------------------------------------
+
+if [[ "$INSTALL_PYTHON" == "true" ]]; then
 
 info "Installing uv..."
 if ! command -v uv &>/dev/null; then
@@ -193,10 +253,6 @@ if ! command -v uv &>/dev/null; then
 else
     info "uv already installed."
 fi
-
-# ---------------------------------------------------------------------------
-# Python ML stack (via uv venv at ~/.venv)
-# ---------------------------------------------------------------------------
 
 VENV="$HOME/.venv"
 UV=$(command -v uv || echo "$HOME/.local/bin/uv")
@@ -222,120 +278,57 @@ fi
     tqdm wandb tensorboard \
     albumentations imgaug torchmetrics
 
-# ---------------------------------------------------------------------------
-# pdf2md (pymupdf4llm in dedicated venv)
-# ---------------------------------------------------------------------------
-
 info "Installing pymupdf4llm into ~/.local/share/pdf2md..."
 "$UV" venv "$HOME/.local/share/pdf2md"
 "$UV" pip install --python "$HOME/.local/share/pdf2md" pymupdf4llm
 
-# ---------------------------------------------------------------------------
-# Node.js via nvm
-# ---------------------------------------------------------------------------
-
-info "Installing nvm..."
-if [[ ! -d "$HOME/.nvm" ]]; then
-    curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.3/install.sh | bash
-fi
-
-export NVM_DIR="$HOME/.nvm"
-
-# nvm scripts use unbound variables internally; suspend -u around them
-set +u
-# shellcheck source=/dev/null
-[[ -s "$NVM_DIR/nvm.sh" ]] && source "$NVM_DIR/nvm.sh"
-
-info "Installing Node.js LTS..."
-nvm install --lts
-nvm use --lts
-set -u
-
-info "Installing global npm packages..."
-npm install -g typescript aws-cdk @anthropic-ai/claude-code
-
-# ---------------------------------------------------------------------------
-# pnpm
-# ---------------------------------------------------------------------------
-
-info "Installing pnpm..."
-if ! command -v pnpm &>/dev/null; then
-    curl -fsSL https://get.pnpm.io/install.sh | sh -
 else
-    info "pnpm already installed."
+    info "Skipping Python/ML stack."
 fi
 
 # ---------------------------------------------------------------------------
-# AWS CLI v2
+# AMD GPU tools (amdgpu_top, ROCm drivers)
 # ---------------------------------------------------------------------------
 
-info "Installing AWS CLI v2..."
-if ! command -v aws &>/dev/null; then
-    if [[ "$ARCH" == "amd64" ]]; then
-        curl -fsSL "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o /tmp/awscliv2.zip
-    elif [[ "$ARCH" == "arm64" ]]; then
-        curl -fsSL "https://awscli.amazonaws.com/awscli-exe-linux-aarch64.zip" -o /tmp/awscliv2.zip
+if [[ "$INSTALL_AMD" == "true" ]]; then
+
+info "Installing amdgpu_top..."
+if ! command -v cargo &>/dev/null && [[ -f "$HOME/.cargo/env" ]]; then
+    # shellcheck source=/dev/null
+    source "$HOME/.cargo/env"
+fi
+if command -v cargo &>/dev/null; then
+    if ! command -v amdgpu_top &>/dev/null; then
+        cargo install amdgpu_top
+        ok "amdgpu_top installed."
     else
-        warn "Unknown architecture $ARCH — skipping AWS CLI install."
-    fi
-    if [[ -f /tmp/awscliv2.zip ]]; then
-        unzip -q /tmp/awscliv2.zip -d /tmp/awscli
-        sudo /tmp/awscli/aws/install
-        rm -rf /tmp/awscliv2.zip /tmp/awscli
+        info "amdgpu_top already installed."
     fi
 else
-    info "AWS CLI already installed: $(aws --version)"
+    warn "cargo not found — enable the development toolchains section to install Rust. Skipping amdgpu_top."
 fi
-
-# Homebrew is macOS tooling and not installed on Linux.
-
-# ---------------------------------------------------------------------------
-# Tailscale
-# ---------------------------------------------------------------------------
-
-info "Installing Tailscale..."
-if ! command -v tailscale &>/dev/null; then
-    curl -fsSL https://tailscale.com/install.sh | sh
-else
-    info "Tailscale already installed."
-fi
-
-# ---------------------------------------------------------------------------
-# ZeroTier
-# ---------------------------------------------------------------------------
-
-info "Installing ZeroTier..."
-if ! command -v zerotier-cli &>/dev/null; then
-    curl -s https://install.zerotier.com | sudo bash
-else
-    info "ZeroTier already installed."
-fi
-
-# ---------------------------------------------------------------------------
-# Signal Desktop (amd64 only)
-# ---------------------------------------------------------------------------
 
 if [[ "$ARCH" == "amd64" ]]; then
-    info "Installing Signal Desktop..."
-    if ! command -v signal-desktop &>/dev/null; then
-        wget -O- https://updates.signal.org/desktop/apt/keys.asc \
-            | gpg --dearmor \
-            | sudo tee /usr/share/keyrings/signal-desktop-keyring.gpg > /dev/null
-        echo "deb [arch=amd64 signed-by=/usr/share/keyrings/signal-desktop-keyring.gpg] \
-https://updates.signal.org/desktop/apt xenial main" \
-            | sudo tee /etc/apt/sources.list.d/signal-xenial.list
-        sudo apt-get update
-        sudo apt-get install -y signal-desktop
+    ROCM_SCRIPT="$(dirname "$0")/ROCm-install.sh"
+    if [[ -x "$ROCM_SCRIPT" ]]; then
+        info "Running ROCm-install.sh (AMD GPU drivers / ROCm)..."
+        "$ROCM_SCRIPT"
     else
-        info "Signal Desktop already installed."
+        warn "ROCm-install.sh not found next to this script — skipping ROCm driver install."
     fi
 else
-    info "Signal Desktop: skipping (amd64 only)."
+    info "ROCm driver install: skipping (amd64 only)."
+fi
+
+else
+    info "Skipping AMD GPU tools."
 fi
 
 # ---------------------------------------------------------------------------
-# Docker (Debian/Ubuntu)
+# Container tooling (Docker, localdev)
 # ---------------------------------------------------------------------------
+
+if [[ "$INSTALL_CONTAINERS" == "true" ]]; then
 
 info "Installing Docker..."
 if ! command -v docker &>/dev/null; then
@@ -354,9 +347,44 @@ else
     info "Docker already installed."
 fi
 
+info "Installing localdev..."
+curl -fsSL https://raw.githubusercontent.com/gherlein/localdev/main/install.sh | bash
+podman pull ghcr.io/gherlein/localdev:latest
+ok "localdev installed."
+
+else
+    info "Skipping container tooling."
+fi
+
 # ---------------------------------------------------------------------------
-# Prometheus (manual install from GitHub releases)
+# Networking / VPN (Tailscale, ZeroTier)
 # ---------------------------------------------------------------------------
+
+if [[ "$INSTALL_NETWORK" == "true" ]]; then
+
+info "Installing Tailscale..."
+if ! command -v tailscale &>/dev/null; then
+    curl -fsSL https://tailscale.com/install.sh | sh
+else
+    info "Tailscale already installed."
+fi
+
+info "Installing ZeroTier..."
+if ! command -v zerotier-cli &>/dev/null; then
+    curl -s https://install.zerotier.com | sudo bash
+else
+    info "ZeroTier already installed."
+fi
+
+else
+    info "Skipping networking/VPN tools."
+fi
+
+# ---------------------------------------------------------------------------
+# Monitoring stack (Prometheus, node_exporter, Grafana)
+# ---------------------------------------------------------------------------
+
+if [[ "$INSTALL_MONITORING" == "true" ]]; then
 
 info "Installing Prometheus..."
 if ! command -v prometheus &>/dev/null; then
@@ -403,10 +431,6 @@ else
     info "Prometheus already installed."
 fi
 
-# ---------------------------------------------------------------------------
-# Node Exporter (manual install from GitHub releases)
-# ---------------------------------------------------------------------------
-
 info "Installing Prometheus node_exporter..."
 if ! command -v node_exporter &>/dev/null; then
     NE_URL=$(curl -s https://api.github.com/repos/prometheus/node_exporter/releases/latest \
@@ -440,10 +464,6 @@ else
     info "node_exporter already installed."
 fi
 
-# ---------------------------------------------------------------------------
-# Grafana
-# ---------------------------------------------------------------------------
-
 info "Installing Grafana..."
 if ! command -v grafana-server &>/dev/null; then
     curl -fsSL https://apt.grafana.com/gpg.key \
@@ -458,9 +478,15 @@ else
     info "Grafana already installed."
 fi
 
+else
+    info "Skipping monitoring stack."
+fi
+
 # ---------------------------------------------------------------------------
-# Ollama
+# AI tools (Ollama)
 # ---------------------------------------------------------------------------
+
+if [[ "$INSTALL_AI" == "true" ]]; then
 
 info "Installing Ollama..."
 if ! command -v ollama &>/dev/null; then
@@ -469,9 +495,33 @@ else
     info "Ollama already installed."
 fi
 
+else
+    info "Skipping AI tools."
+fi
+
 # ---------------------------------------------------------------------------
-# Kitty terminal emulator
+# GUI / desktop apps (Signal Desktop, Kitty terminal, PipeWire)
 # ---------------------------------------------------------------------------
+
+if [[ "$INSTALL_GUI" == "true" ]]; then
+
+if [[ "$ARCH" == "amd64" ]]; then
+    info "Installing Signal Desktop..."
+    if ! command -v signal-desktop &>/dev/null; then
+        wget -O- https://updates.signal.org/desktop/apt/keys.asc \
+            | gpg --dearmor \
+            | sudo tee /usr/share/keyrings/signal-desktop-keyring.gpg > /dev/null
+        echo "deb [arch=amd64 signed-by=/usr/share/keyrings/signal-desktop-keyring.gpg] \
+https://updates.signal.org/desktop/apt xenial main" \
+            | sudo tee /etc/apt/sources.list.d/signal-xenial.list
+        sudo apt-get update
+        sudo apt-get install -y signal-desktop
+    else
+        info "Signal Desktop already installed."
+    fi
+else
+    info "Signal Desktop: skipping (amd64 only)."
+fi
 
 info "Installing Kitty..."
 if ! command -v kitty &>/dev/null; then
@@ -501,22 +551,6 @@ if command -v kitty &>/dev/null && command -v gsettings &>/dev/null; then
 fi
 
 # ---------------------------------------------------------------------------
-# localdev container environment
-# ---------------------------------------------------------------------------
-
-info "Installing localdev..."
-curl -fsSL https://raw.githubusercontent.com/gherlein/localdev/main/install.sh | bash
-podman pull ghcr.io/gherlein/localdev:latest
-ok "localdev installed."
-
-# ---------------------------------------------------------------------------
-# AMD ROCm / amdgpu (Ryzen AI / workstation GPU — amd64 only)
-# ---------------------------------------------------------------------------
-
-# Moved to ./ROCm-install.sh — run that script separately on Ryzen AI or AMD
-# GPU workstations.
-
-# ---------------------------------------------------------------------------
 # PipeWire (replace PulseAudio — desktop systems only)
 # ---------------------------------------------------------------------------
 
@@ -532,6 +566,10 @@ ok "localdev installed."
 # systemctl --user --now enable pipewire-media-session.service
 # systemctl --user restart pipewire
 
+else
+    info "Skipping GUI/desktop apps."
+fi
+
 # ---------------------------------------------------------------------------
 # Done
 # ---------------------------------------------------------------------------
@@ -541,13 +579,24 @@ echo "================================================================"
 echo "Installation complete."
 echo ""
 echo "Next steps:"
-echo "  - Add to ~/.bash_profile if not present:"
-echo "      export PATH=\$PATH:/usr/local/go/bin"
-echo "      export PATH=\$PATH:\$HOME/go/bin"
-echo "      source \$HOME/.cargo/env"
-echo "  - Log out and back in for Docker group membership"
-echo "  - Log in to Tailscale:   sudo tailscale up"
-echo "  - Join ZeroTier network: sudo zerotier-cli join <network-id>"
-echo "  - Prometheus UI:         http://localhost:9090"
-echo "  - Grafana UI:            http://localhost:3000"
+if [[ "$INSTALL_DEV" == "true" ]]; then
+    echo "  - Add to ~/.bash_profile if not present:"
+    echo "      export PATH=\$PATH:/usr/local/go/bin"
+    echo "      export PATH=\$PATH:\$HOME/go/bin"
+    echo "      source \$HOME/.cargo/env"
+fi
+if [[ "$INSTALL_CONTAINERS" == "true" ]]; then
+    echo "  - Log out and back in for Docker group membership"
+fi
+if [[ "$INSTALL_NETWORK" == "true" ]]; then
+    echo "  - Log in to Tailscale:   sudo tailscale up"
+    echo "  - Join ZeroTier network: sudo zerotier-cli join <network-id>"
+fi
+if [[ "$INSTALL_MONITORING" == "true" ]]; then
+    echo "  - Prometheus UI:         http://localhost:9090"
+    echo "  - Grafana UI:            http://localhost:3000"
+fi
+if [[ "$INSTALL_AMD" == "true" ]]; then
+    echo "  - Reboot to load AMD GPU drivers/ROCm (if installed)"
+fi
 echo "================================================================"
