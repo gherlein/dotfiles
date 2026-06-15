@@ -1,14 +1,15 @@
 SHELL := /bin/bash
-STACK_DIR := $(HOME)/.config/goloo/stacks/localdev
+STACK_DIR := $(HOME)/.config/govirt/stacks/devbox
 HOST_SETUP_DIR := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))host-setup
 
-.PHONY: help host-setup install-nfs setup-paths install-export-gen export-nfs enable-nfs ufw-allow create-vm delete-vm ssh-vm status-vm
+.PHONY: help host-setup install-multipass install-nfs setup-paths install-export-gen export-nfs enable-nfs ufw-allow create-vm delete-vm ssh-vm status-vm
 
 help:
-	@echo "localdev VM management"
+	@echo "devbox VM management"
 	@echo ""
 	@echo "Host setup (run once, before creating the VM):"
 	@echo "  make host-setup        Run all host setup steps in sequence"
+	@echo "  make install-multipass Install Multipass (via snap)"
 	@echo "  make install-nfs       Install nfs-kernel-server"
 	@echo "  make setup-paths       Install /etc/host-shadow-paths"
 	@echo "  make install-export-gen Install /usr/local/bin/shadow-export-gen"
@@ -17,30 +18,35 @@ help:
 	@echo "  make ufw-allow         Allow NFS through ufw (if ufw is active)"
 	@echo ""
 	@echo "VM lifecycle:"
-	@echo "  make create-vm         goloo create localdev"
-	@echo "  make delete-vm         goloo delete localdev"
-	@echo "  make ssh-vm            goloo ssh localdev"
-	@echo "  make status-vm         goloo status localdev"
+	@echo "  make create-vm         govirt create devbox"
+	@echo "  make delete-vm         govirt destroy devbox"
+	@echo "  make ssh-vm            govirt ssh devbox"
+	@echo "  make status-vm         govirt status devbox"
 
 # --------------------------------------------------------------------------
 # Host setup: all steps
 # --------------------------------------------------------------------------
-host-setup: install-nfs setup-paths install-export-gen export-nfs enable-nfs
+host-setup: install-multipass install-nfs setup-paths install-export-gen export-nfs enable-nfs
 	@echo ""
 	@echo "Host setup complete. Run 'make ufw-allow' if ufw is active."
 	@echo "Then run 'make create-vm' to launch the VM."
+
+install-multipass:
+	@if command -v multipass >/dev/null 2>&1; then \
+	    echo "multipass already installed: $$(multipass version 2>/dev/null | head -1)"; \
+	else \
+	    echo "Installing Multipass via snap..."; \
+	    sudo apt-get install -y snapd; \
+	    sudo snap install multipass; \
+	fi
 
 install-nfs:
 	sudo apt-get update -qq
 	sudo apt-get install -y nfs-kernel-server
 
 setup-paths:
-	@if [ ! -f /etc/host-shadow-paths ]; then \
-	    sudo cp $(HOST_SETUP_DIR)/host-shadow-paths /etc/host-shadow-paths; \
-	    echo "Installed /etc/host-shadow-paths (edit to customise RW paths)"; \
-	else \
-	    echo "/etc/host-shadow-paths already exists, not overwriting"; \
-	fi
+	sudo cp $(HOST_SETUP_DIR)/host-shadow-paths /etc/host-shadow-paths
+	@echo "Installed /etc/host-shadow-paths from repo template"
 
 install-export-gen:
 	sudo cp $(HOST_SETUP_DIR)/shadow-export-gen /usr/local/bin/shadow-export-gen
@@ -74,13 +80,13 @@ ufw-allow:
 # VM lifecycle
 # --------------------------------------------------------------------------
 create-vm:
-	goloo create localdev
+	govirt create devbox
 
 delete-vm:
-	goloo delete localdev
+	govirt destroy devbox
 
 ssh-vm:
-	goloo ssh localdev
+	govirt ssh devbox
 
 status-vm:
-	goloo status localdev
+	govirt status devbox

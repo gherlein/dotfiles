@@ -1,4 +1,4 @@
-# Requirements: goloo Local Development VM
+# Requirements: govirt Local Development VM
 
 Disclaimer: This works for me — that's the entire guarantee. Built with AI in the loop, so check your own biases before you love it or hate it on principle. Use at your own risk, fork freely, and don't @ me when it explodes. (But do drop me a note if it helps — pay it forward.)
 
@@ -6,7 +6,7 @@ Disclaimer: This works for me — that's the entire guarantee. Built with AI in 
 
 ## 1. Overview
 
-Create a local development VM using [goloo](https://github.com/emergingrobotics/goloo) and Multipass that:
+Create a local development VM using [govirt](https://github.com/emergingrobotics/govirt) and Multipass that:
 
 1. Has the full development tool stack from `example-Containerfile` installed (Go, Node.js, Python/uv, Claude Code, opencode, TinyGo, pi-go, Podman, GitHub CLI, and all supporting tooling).
 2. Can mount a shadow of the host filesystem via NFS (as specified in `VM-SHARED-MOUNTS.md`), giving the VM read-only access to the entire host filesystem with selective read-write overlays for designated project directories.
@@ -15,7 +15,7 @@ Create a local development VM using [goloo](https://github.com/emergingrobotics/
 The VM is provisioned by running:
 
 ```bash
-goloo create localdev
+govirt create localdev
 ```
 
 where `localdev` is the stack name.
@@ -24,16 +24,16 @@ where `localdev` is the stack name.
 
 ## 2. Stack Directory Structure
 
-goloo expects this layout (default base: `~/.config/goloo/stacks/`):
+govirt expects this layout (default base: `~/.config/govirt/stacks/`):
 
 ```
-~/.config/goloo/stacks/
+~/.config/govirt/stacks/
 └── localdev/
     ├── config.json          # VM spec — you write this
     └── cloud-init.yaml      # Provisioning script — you write this
 ```
 
-Both files must exist before running `goloo create localdev`.
+Both files must exist before running `govirt create localdev`.
 
 ---
 
@@ -42,7 +42,7 @@ Both files must exist before running `goloo create localdev`.
 ### 3.1 File Location
 
 ```
-~/.config/goloo/stacks/localdev/config.json
+~/.config/govirt/stacks/localdev/config.json
 ```
 
 ### 3.2 Required Content
@@ -70,12 +70,12 @@ Both files must exist before running `goloo create localdev`.
 
 | Field | Value | Rationale |
 |-------|-------|-----------|
-| `name` | `localdev` | Matches the stack folder name; used by goloo for all operations |
+| `name` | `localdev` | Matches the stack folder name; used by govirt for all operations |
 | `cpus` | `8` | Claude Code and Go compilation are CPU-hungry; tune to host capacity |
 | `memory` | `8G` | Node.js + Go + Claude Code need headroom; minimum 4G, recommend 8G |
 | `disk` | `80G` | Go toolchain, Docker/Podman images, node_modules; minimum 40G |
 | `image` | `24.04` | Ubuntu 24.04 LTS — matches host and all tooling targets in the Containerfile |
-| `users[0].github_username` | `gherlein` | goloo fetches SSH public keys from `https://github.com/gherlein.keys` and injects them into cloud-init via `${SSH_PUBLIC_KEY}` |
+| `users[0].github_username` | `gherlein` | govirt fetches SSH public keys from `https://github.com/gherlein.keys` and injects them into cloud-init via `${SSH_PUBLIC_KEY}` |
 | `mounts` | see above | Optional Multipass bind mounts for host directories directly into the VM; complement to (not a replacement for) the NFS shadow mount |
 
 ### 3.4 Mounts Note
@@ -94,7 +94,7 @@ If the NFS shadow mount is the only mechanism needed, the `mounts` array may be 
 ### 4.1 File Location
 
 ```
-~/.config/goloo/stacks/localdev/cloud-init.yaml
+~/.config/govirt/stacks/localdev/cloud-init.yaml
 ```
 
 ### 4.2 Structure Overview
@@ -121,7 +121,7 @@ users:
       - ${SSH_PUBLIC_KEY}
 ```
 
-- `${SSH_PUBLIC_KEY}` is substituted by goloo with the SSH public keys fetched from `https://github.com/gherlein.keys` before passing the file to Multipass.
+- `${SSH_PUBLIC_KEY}` is substituted by govirt with the SSH public keys fetched from `https://github.com/gherlein.keys` before passing the file to Multipass.
 - This is the only user. UID/GID 1000 is assigned by Ubuntu automatically (matches the `developer` user UID in the Containerfile).
 
 ### 4.4 Package Updates
@@ -568,7 +568,7 @@ echo "localdev cloud-init complete" >> /var/log/cloud-init-custom.log
 
 ## 5. Host Setup Requirements
 
-Before `goloo create localdev` is run, the host machine must be prepared to export its filesystem via NFS to the VM.
+Before `govirt create localdev` is run, the host machine must be prepared to export its filesystem via NFS to the VM.
 
 ### 5.1 Required Packages on Host
 
@@ -621,7 +621,7 @@ The simplest reliable method: SSH into the VM and run `ip route | grep default`.
 
 **Update the VM's shadow scripts** with this address. Either:
 - Patch the `HOST=` line in `/usr/local/bin/shadow-mount` and `/usr/local/bin/shadow-sync` after the VM is created, or
-- Hard-code the correct bridge IP in the `write_files` section of `cloud-init.yaml` before running `goloo create`.
+- Hard-code the correct bridge IP in the `write_files` section of `cloud-init.yaml` before running `govirt create`.
 
 To find the bridge IP before creating the VM (it is stable once Multipass is installed):
 
@@ -670,12 +670,12 @@ sudo systemctl status nfs-kernel-server
 
 These are all files that must exist, grouped by where they live:
 
-### On the Host (before `goloo create`)
+### On the Host (before `govirt create`)
 
 | Path | Purpose |
 |------|---------|
-| `~/.config/goloo/stacks/localdev/config.json` | goloo VM spec |
-| `~/.config/goloo/stacks/localdev/cloud-init.yaml` | Provisioning script |
+| `~/.config/govirt/stacks/localdev/config.json` | govirt VM spec |
+| `~/.config/govirt/stacks/localdev/cloud-init.yaml` | Provisioning script |
 | `/etc/host-shadow-paths` | RW path list (source of truth) |
 | `/etc/exports` | Generated by `shadow-export-gen` |
 | `/usr/local/bin/shadow-export-gen` | Regenerates `/etc/exports` |
@@ -774,9 +774,9 @@ These items from `example-Containerfile` are container-specific and deliberately
 
 ## 11. Validation Checklist
 
-After `goloo create localdev` completes and the VM is running (`goloo status localdev`):
+After `govirt create localdev` completes and the VM is running (`govirt status localdev`):
 
-- [ ] `goloo ssh localdev` connects successfully using the GitHub SSH key
+- [ ] `govirt ssh localdev` connects successfully using the GitHub SSH key
 - [ ] `go version` returns `go1.25.0`
 - [ ] `tinygo version` returns `tinygo version 0.40.1`
 - [ ] `node --version` returns a current LTS version

@@ -2,6 +2,6 @@
 # Canonical list of directories exported read-write to the VM.
 # One absolute path per line. Blank lines and # comments are ignored.
 # After editing: run shadow-export-gen on the host, then shadow-sync in the VM.
-/home/gherlein/.claude/
-/home/gherlein/.config/
-
+/home/gherlein/h/src
+/home/gherlein/dotfiles
+/home/gherlein/.config

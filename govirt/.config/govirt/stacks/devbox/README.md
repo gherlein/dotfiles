@@ -1,10 +1,10 @@
-# localdev VM
+# devbox VM
 
 Disclaimer: This works for me — that's the entire guarantee. Built with AI in the loop, so check your own biases before you love it or hate it on principle. Use at your own risk, fork freely, and don't @ me when it explodes. (But do drop me a note if it helps — pay it forward.)
 
 ---
 
-A local development VM provisioned by [goloo](https://github.com/emergingrobotics/goloo) using Multipass. It runs Ubuntu 24.04 and comes with the full dev toolchain pre-installed, plus an NFS shadow-mount system that makes the host filesystem visible inside the VM with selectable read-write paths.
+A local development VM provisioned by [govirt](https://github.com/emergingrobotics/govirt) using Multipass. It runs Ubuntu 24.04 and comes with the full dev toolchain pre-installed, plus an NFS shadow-mount system that makes the host filesystem visible inside the VM with selectable read-write paths.
 
 ## What's inside the VM
 
@@ -33,8 +33,9 @@ The VM can mount a read-only shadow of the entire host filesystem at `/mnt/host`
 Default RW paths (configured in `/etc/host-shadow-paths` on both host and VM):
 
 ```
-/localdev
-/home/greg/projects
+/home/gherlein/h/src
+/home/gherlein/dotfiles
+/home/gherlein/.config
 ```
 
 ### Usage inside the VM
@@ -42,7 +43,7 @@ Default RW paths (configured in `/etc/host-shadow-paths` on both host and VM):
 ```bash
 sudo shadow-mount          # mount: RO shadow at /mnt/host, RW overlays on top
 ls /mnt/host/etc           # browse host filesystem read-only
-cd /mnt/host/localdev/my-project && claude  # run Claude Code against a host project
+cd /mnt/host/home/gherlein/h/src/my-project && claude  # run Claude Code against a host project
 sudo shadow-umount         # tear down all mounts cleanly
 ```
 
@@ -50,9 +51,9 @@ The `host-shadow.service` systemd unit is enabled and will auto-mount on boot if
 
 ## Prerequisites
 
-- [goloo](https://github.com/emergingrobotics/goloo) installed and on PATH
-- [Multipass](https://multipass.run/) installed
-- SSH public keys on GitHub (used by goloo for passwordless VM access)
+- [govirt](https://github.com/emergingrobotics/govirt) installed and on PATH
+- [Multipass](https://multipass.run/) installed (`make install-multipass`, or run as part of `make host-setup`)
+- SSH public keys on GitHub (used by govirt for passwordless VM access)
 
 ## Quickstart
 
@@ -62,7 +63,7 @@ The `host-shadow.service` systemd unit is enabled and will auto-mount on boot if
 make host-setup
 ```
 
-This installs `nfs-kernel-server`, writes `/etc/host-shadow-paths`, installs the `shadow-export-gen` script, generates `/etc/exports`, and starts the NFS server.
+This installs Multipass (via snap), installs `nfs-kernel-server`, writes `/etc/host-shadow-paths`, installs the `shadow-export-gen` script, generates `/etc/exports`, and starts the NFS server.
 
 If `ufw` is active on your host, also run:
 
@@ -76,22 +77,22 @@ make ufw-allow
 make create-vm
 ```
 
-goloo fetches your SSH public keys from GitHub, injects them into the cloud-init template, and launches a Multipass VM. First boot takes 5–10 minutes while cloud-init installs everything.
+govirt fetches your SSH public keys from GitHub, injects them into the cloud-init template, and launches a Multipass VM. First boot takes 5–10 minutes while cloud-init installs everything.
 
 ### Step 3 — Connect
 
 ```bash
 make ssh-vm
-# or: goloo ssh localdev
+# or: govirt ssh devbox
 ```
 
 ## VM lifecycle
 
 ```bash
-make create-vm     # goloo create localdev
-make ssh-vm        # goloo ssh localdev
-make status-vm     # goloo status localdev
-make delete-vm     # goloo delete localdev
+make create-vm     # govirt create devbox
+make ssh-vm        # govirt ssh devbox
+make status-vm     # govirt status devbox
+make delete-vm     # govirt destroy devbox
 ```
 
 ## Customising RW paths
@@ -102,7 +103,7 @@ To add or remove a read-write path:
 
 ```bash
 # Add a path
-echo '/home/greg/new-thing' | sudo tee -a /etc/host-shadow-paths
+echo '/home/gherlein/new-thing' | sudo tee -a /etc/host-shadow-paths
 sudo shadow-export-gen
 
 # Remove a path: edit /etc/host-shadow-paths, then:
@@ -118,11 +119,16 @@ sudo shadow-umount && sudo shadow-mount   # remount with new paths
 
 ## Dotfiles
 
-If your dotfiles repo is structured for [stow](https://www.gnu.org/software/stow/) and lives at `/home/greg/dotfiles` on the host, add it to `config.json`:
+Your dotfiles at `/home/gherlein/dotfiles` are already a read-write shadow path, so
+they are reachable (and editable) inside the VM at `/mnt/host/home/gherlein/dotfiles`
+once `shadow-mount` has run.
+
+If you instead want them bind-mounted at a fixed location on boot — independent of the
+NFS shadow — add a mount to `config.json`:
 
 ```json
 "mounts": [
-  {"source": "/home/greg/dotfiles", "target": "/external/dotfiles"}
+  {"source": "/home/gherlein/dotfiles", "target": "/external/dotfiles"}
 ]
 ```
 
@@ -130,7 +136,7 @@ The VM's `.bashrc.d/dev-env.sh` automatically stows every package from `/externa
 
 ## Resizing
 
-To change CPU, memory, or disk allocation, edit `~/.config/goloo/stacks/localdev/config.json`, then delete and recreate:
+To change CPU, memory, or disk allocation, edit `~/.config/govirt/stacks/devbox/config.json`, then delete and recreate:
 
 ```bash
 make delete-vm
@@ -150,7 +156,7 @@ make create-vm
     ├── shadow-export-gen       Script installed to /usr/local/bin on the host
     └── host-shadow-paths       Template for /etc/host-shadow-paths on the host
 
-~/.config/goloo/stacks/localdev/
-    ├── config.json             goloo VM spec (8 CPU / 8G / 80G / Ubuntu 24.04)
+~/.config/govirt/stacks/devbox/
+    ├── config.json             govirt VM spec (8 CPU / 8G / 80G / Ubuntu 24.04)
     └── cloud-init.yaml         Full provisioning script run on first boot
 ```
