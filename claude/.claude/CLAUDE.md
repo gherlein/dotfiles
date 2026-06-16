@@ -1,9 +1,3 @@
-# CLAUDE.md - Greg Herlein's Development Environment
-
-## IMPORTANT: Repository Purpose
-
-**THIS IS THE SOURCE OF TRUTH FOR MY CLAUDE CODE CONFIG** -- it lives in the `dotfiles` repo (`bash` package) and is delivered to `~/.claude` with GNU Stow. `~/.claude` is a symlink to `dotfiles/bash/.claude`, so editing files here edits the live config directly.
-
 ### For AI Agents
 
 If you are an AI agent reading this file:
@@ -20,7 +14,7 @@ Also follow these instructions:
 - carefully read requirements - don't assume functional proof-of-concept over spec compliance
 - project level requirements will usually be in a ./REQUIREMENTS.md file
 
-Also, when writing README.md files, always insert this where appropriate near the top:
+Also, when writing README.md files for repos that are not part of any git organization with "BrightSign" as part of it's name insert this where appropriate near the top:
 
 ```
 Disclaimer: This works for me — that's the entire guarantee. Built with AI in the loop, so check your own biases before you love it or hate it on principle. Use at your own risk, fork freely, and don't @ me when it explodes. (But do drop me a note if it helps — pay it forward.)
@@ -35,7 +29,7 @@ To install or refresh this configuration on a machine:
 cd ~/dotfiles && make stow      # first-time install (or: make restow to refresh)
 ```
 
-Stow symlinks `dotfiles/bash/.claude` to `~/.claude`. Claude Code then reads `~/.claude/CLAUDE.md`, `~/.claude/skills/`, etc.
+Stow symlinks `dotfiles/claude/.claude` to `~/.claude`. Claude Code then reads `~/.claude/CLAUDE.md`, `~/.claude/skills/`, etc.
 
 > Note: this config previously lived in the standalone `dot-agents` repo (installed via a `./safe-install` copy script). That repo is **deprecated** -- everything now lives here and ships via Stow.
 
@@ -64,9 +58,6 @@ Full-stack systems engineer working across the entire compute spectrum: embedded
 * I want all documents in markdown format unless I specifically ask otherwise
 
 ## Guiding Principles
-
-Behavioral guidelines to reduce common LLM coding mistakes. Merge with project-specific instructions as needed.
-Tradeoff: These guidelines bias toward caution over speed. For trivial tasks, use judgment.
 
 1. Think Before Coding
 Don't assume. Don't hide confusion. Surface tradeoffs.
