@@ -1,1 +1,0 @@
-/home/gherlein/.emacs.d/straight/repos/brightscript-mode/brightscript-mode.el

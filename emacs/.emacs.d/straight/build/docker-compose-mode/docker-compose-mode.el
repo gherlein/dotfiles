@@ -1,1 +1,0 @@
-/home/gherlein/.emacs.d/straight/repos/docker-compose-mode/docker-compose-mode.el

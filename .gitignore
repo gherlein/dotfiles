@@ -35,3 +35,16 @@ fzf/.fzf/
 
 # opencode auth (contains credentials)
 opencode/.local/share/opencode/auth.json
+
+# LLM context (per global policy)
+.llm/
+
+# Emacs runtime/build artifacts (package manager output, compiled, caches)
+emacs/.emacs.d/eln-cache/
+emacs/.emacs.d/elpa/
+emacs/.emacs.d/straight/
+emacs/.emacs.d/**/*.elc
+emacs/.emacs.d/ac-comphist.dat
+
+# Micro editor buffer state
+micro/.config/micro/buffers/
