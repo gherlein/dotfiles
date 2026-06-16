@@ -1,6 +1,6 @@
 ---
 name: code-review
-description: Four-category code review framework covering architecture, quality, maintainability, and correctness with domain-specific safety checks
+description: "Four-category code review framework (architecture, quality, maintainability, correctness) with domain-specific safety checks. Triggers on: review this code, do a code review, review my changes, review before merge, check this PR for issues, assess code quality."
 ---
 
 # Code Review

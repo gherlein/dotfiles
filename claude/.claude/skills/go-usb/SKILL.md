@@ -1,7 +1,6 @@
 ---
 name: go-usb
-description: Go USB device development with gousb, karalabe/usb, serial ports, HID, udev rules, and troubleshooting
-disable-model-invocation: true
+description: "Go USB device development with gousb, karalabe/usb, serial ports, HID, udev rules, and troubleshooting. Triggers on: talk to a USB device in Go, gousb, HID device, serial port in Go, udev rule, device not detected, libusb."
 ---
 
 # Go USB Device Development

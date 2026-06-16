@@ -1,7 +1,6 @@
 ---
 name: gitignore-policy
-description: Ensure a correct .gitignore when writing files into a development project, especially any folder containing a .git directory. Invoke when scaffolding a repo, adding files to an existing project, or reviewing repo hygiene.
-disable-model-invocation: true
+description: "Ensure a correct .gitignore when writing files into a dev project, especially any folder with a .git directory. Triggers on: scaffolding a new repo, git init, adding files to a project, before first commit, repo hygiene, what should I gitignore."
 ---
 
 # Gitignore Policy

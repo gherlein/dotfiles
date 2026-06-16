@@ -1,6 +1,7 @@
 ---
 name: brainstorming
 description: "Use when explicitly invoked with /brainstorming. Explores user intent, requirements and design before implementation through collaborative dialogue."
+disable-model-invocation: true
 ---
 
 # Brainstorming Ideas Into Designs

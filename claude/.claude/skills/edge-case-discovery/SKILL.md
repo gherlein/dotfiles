@@ -1,6 +1,6 @@
 ---
 name: edge-case-discovery
-description: Two-step systematic discovery of missing edge cases with checklists for Go, web, embedded RP2040, and K8s
+description: "Two-step systematic discovery of missing edge cases, with checklists for Go, web, embedded RP2040, and K8s. Triggers on: what edge cases am I missing, find untested cases, boundary conditions, nil or empty or overflow handling, after implementing a feature before calling it done."
 ---
 
 # Edge Case Discovery

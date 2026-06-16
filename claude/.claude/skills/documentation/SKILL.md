@@ -1,6 +1,6 @@
 ---
 name: documentation
-description: Documentation standards including README structure, writing style, Mermaid diagrams, and API docs
+description: "Documentation standards: README structure, writing style, Mermaid diagrams, API docs, design docs. Triggers on: write a README, document this, write docs, add a diagram, write API docs, write a design doc, improve documentation."
 ---
 
 # Documentation Standards

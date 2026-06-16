@@ -1,7 +1,7 @@
 {
-    "mcpServers": {
-        "codebase-memory-mcp": {
-            "command": "/home/gherlein/.local/bin/codebase-memory-mcp"
-        }
+  "mcpServers": {
+    "codebase-memory-mcp": {
+      "command": "/home/gherlein/.claude/hooks/cbm-mcp-launch"
     }
+  }
 }

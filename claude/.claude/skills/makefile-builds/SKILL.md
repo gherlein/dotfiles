@@ -1,7 +1,6 @@
 ---
 name: makefile-builds
-description: Build projects via a Makefile rather than ad hoc commands, and run builds safely. Invoke when setting up a build, adding build tooling, or running build/test commands for a project.
-disable-model-invocation: true
+description: "Build projects via a Makefile rather than ad hoc commands, and run builds safely. Triggers on: set up a build, build this project, add a build target, write a Makefile, run make build or test, how should I build or test this, avoid running go build directly."
 ---
 
 # Makefile Builds

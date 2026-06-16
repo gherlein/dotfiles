@@ -11,6 +11,8 @@ Load only what applies to the current task -- do not read all files.
 
 ## Skill Selection
 
+> Invocation: most process, domain, and convention skills now **auto-invoke** when their description matches the task. Orchestration/subagent-spawning and human-in-the-loop skills (`build-autonomous`, `orchestrate`, `subagent-driven-development`, `dispatching-parallel-agents`, `three-experts`, `brainstorming`, `plan*`, `writing-plans`, `executing-plans`, `finishing-a-development-branch`, `onboard`, `reverse-engineer`, `learn`, `refine`, `writing-skills`) are **manual-only** (`disable-model-invocation: true`) -- invoke them explicitly or via `build-autonomous`.
+
 ### Planning & Orchestration
 
 | When | Skill |
@@ -82,6 +84,7 @@ Load only what applies to the current task -- do not read all files.
 | When | Skill |
 |------|-------|
 | Unfamiliar or new codebase | `onboard` |
+| Structural code queries: find functions/callers, trace call chains, dead code, architecture, impact analysis | `codebase-memory` (auto-invokes) |
 | Understanding an existing system's architecture | `reverse-engineer` |
 | Documenting a tricky solution for future reference | `learn` |
 

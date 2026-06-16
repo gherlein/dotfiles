@@ -1,6 +1,6 @@
 ---
 name: go-performance
-description: Go garbage collection optimization, allocation reduction, profiling with pprof, and memory management techniques
+description: "Go GC optimization, allocation reduction, pprof profiling, and memory management. Triggers on: Go is slow, reduce allocations, GC pressure, profile with pprof, memory leak in Go, optimize a hot path, escape analysis, benchmark a Go function."
 ---
 
 # Go Performance and GC Optimization

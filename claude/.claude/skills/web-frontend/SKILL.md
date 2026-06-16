@@ -1,6 +1,6 @@
 ---
 name: web-frontend
-description: React/TypeScript conventions, Tailwind/shadcn styling, and frontend testing with testing-library and Playwright
+description: "React/TypeScript conventions, Tailwind/shadcn styling, frontend testing (testing-library, Playwright). Triggers on: build a React component, TypeScript frontend, Tailwind or shadcn styling, write a frontend test, Playwright e2e, fix a UI bug, React state management."
 ---
 
 # Web Frontend Guidelines

@@ -1,6 +1,6 @@
 ---
 name: evidence-based-debugging
-description: Closed-loop debugging workflow with 5 Whys root cause analysis, domain-specific tools for Go, web, embedded, and K8s
+description: "Closed-loop debugging with 5 Whys root-cause analysis and domain tools for Go, web, embedded, and K8s. Triggers on: debug this, why is this failing, root cause, intermittent or flaky bug, crash or panic, K8s pod failing, when a test fails and the cause is unclear."
 ---
 
 # Evidence-Based Debugging

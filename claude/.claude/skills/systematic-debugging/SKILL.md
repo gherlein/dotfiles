@@ -1,6 +1,6 @@
 ---
 name: systematic-debugging
-description: Use when encountering any bug, test failure, or unexpected behavior, before proposing fixes
+description: "Disciplined debugging before proposing fixes (reproduce and find root cause first). Triggers on: any bug, test failure, unexpected behavior, it's broken, not working, an error message, before guessing at a fix."
 ---
 
 # Systematic Debugging

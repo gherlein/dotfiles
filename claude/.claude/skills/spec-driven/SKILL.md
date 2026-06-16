@@ -1,7 +1,6 @@
 ---
 name: spec-driven
-description: Treat specs as authoritative source of truth; code implements specs and is regenerated when they diverge
-disable-model-invocation: true
+description: "Treat specs (PROJECT.md, REQUIREMENTS.md, docs/DESIGN.md) as authoritative; code implements specs and is regenerated when they diverge. Triggers on: repo has requirements or spec or design docs, write a design doc, changing behavior so update the spec first, code disagrees with the spec, requirements changed."
 ---
 
 # Spec-Driven Development

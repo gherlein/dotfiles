@@ -1,6 +1,6 @@
 ---
 name: test-driven-development
-description: Use when implementing any feature or bugfix, before writing implementation code
+description: "Test-first development: write a failing test before implementation. Triggers on: implement a feature, fix a bug, add functionality, start coding a change, write code for X (write the test first)."
 ---
 
 # Test-Driven Development (TDD)

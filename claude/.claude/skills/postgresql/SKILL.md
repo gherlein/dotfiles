@@ -1,6 +1,6 @@
 ---
 name: postgresql
-description: PostgreSQL best practices for data types, indexing, queries, migrations, ORM policy, monitoring, and backups
+description: "PostgreSQL best practices: data types, indexing, queries, migrations, ORM policy, monitoring, backups. Triggers on: design a Postgres schema, add an index, slow query, write a migration, choose a column type, Postgres performance, connection pooling, JSONB."
 ---
 
 # PostgreSQL Database Practices

@@ -1,7 +1,6 @@
 ---
 name: git-ops
-description: Cherry-pick via inspect-and-recreate and rebase conflict resolution workflows
-disable-model-invocation: true
+description: "Commit message conventions, cherry-pick via inspect-and-recreate, and rebase conflict resolution. Triggers on: write a commit message, commit changes, cherry-pick a commit, resolve rebase or merge conflicts, rebase onto."
 ---
 
 # Git Operations

@@ -1,6 +1,6 @@
 ---
 name: test-as-guardrails
-description: Three-context testing workflow preventing specification gaming, with edge case categories for Go, web, embedded, and distributed systems
+description: "Three-context testing workflow that prevents specification gaming, with edge-case categories for Go, web, embedded, distributed. Triggers on: writing tests, are my tests meaningful, tests pass but behavior is wrong, prevent gaming the tests, test coverage for edge cases."
 ---
 
 # Tests as Guardrails

@@ -1,6 +1,6 @@
 ---
 name: rest-api-design
-description: RESTful API conventions including status codes, pagination, error format, auth, caching, and OpenAPI documentation
+description: "RESTful API conventions: status codes, pagination, error format, auth, caching, OpenAPI. Triggers on: design a REST API, add an endpoint, what status code, paginate results, API error format, API versioning, OpenAPI or Swagger spec, auth for an API."
 ---
 
 # REST API Design

@@ -1,7 +1,6 @@
 ---
 name: clean-comments
-description: Remove obvious and redundant comments from code files, following comment rules from CLAUDE.md
-disable-model-invocation: true
+description: "Remove obvious, redundant, or process-narrating comments from code, per the CLAUDE.md comment rules. Triggers on: clean up comments, remove redundant or obvious comments, strip WHAT-comments, delete commented-out code, comment cleanup before commit."
 ---
 
 # Clean Comments

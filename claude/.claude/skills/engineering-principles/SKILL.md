@@ -1,7 +1,6 @@
 ---
 name: engineering-principles
-description: Full engineering discipline behind the CLAUDE.md gist -- think-before-coding, simplicity-first, surgical changes, goal-driven execution, and the research-plan-execute-validate workflow. Invoke before non-trivial implementation work.
-disable-model-invocation: true
+description: "Full engineering discipline behind the CLAUDE.md gist: think-before-coding, simplicity-first, surgical changes, goal-driven execution, research-plan-execute-validate. Triggers on: starting non-trivial implementation work, before writing a feature, planning an approach, deciding how to change existing code."
 ---
 
 # Engineering Principles

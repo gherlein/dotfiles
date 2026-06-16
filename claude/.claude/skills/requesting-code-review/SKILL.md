@@ -1,6 +1,6 @@
 ---
 name: requesting-code-review
-description: Use when completing tasks, implementing major features, or before merging to verify work meets requirements
+description: "Verify work meets requirements before declaring done or merging. Triggers on: finished a feature, before merging, ready for review, double-check my work, did I meet the requirements, completing a major change."
 ---
 
 # Requesting Code Review

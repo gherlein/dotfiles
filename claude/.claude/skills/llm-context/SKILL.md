@@ -1,7 +1,6 @@
 ---
 name: llm-context
-description: Conventions for the .llm/ directory at a repo root (extra LLM context and the active task list). Invoke when a repo has a .llm/ folder or when asked to track tasks in .llm/todo.md.
-disable-model-invocation: true
+description: "Conventions for the .llm/ directory at a repo root (extra LLM context and the active task list). Triggers on: repo has a .llm/ folder, .llm/todo.md task list, track tasks, where to put extra agent context."
 ---
 
 # LLM Context (`.llm/`)

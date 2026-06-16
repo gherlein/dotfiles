@@ -1,6 +1,6 @@
 ---
 name: refactoring
-description: Safe incremental refactoring with continuous test verification, code smell detection, and Go/frontend/distributed-specific checks
+description: "Safe incremental refactoring with continuous test verification and code-smell detection (Go, frontend, distributed). Triggers on: refactor this, clean up this code, reduce duplication, extract a function or package, code smell, restructure without changing behavior, this code is messy."
 ---
 
 # Refactoring (Gardener Pattern)
