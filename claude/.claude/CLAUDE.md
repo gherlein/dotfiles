@@ -37,6 +37,11 @@ Stow symlinks `dotfiles/claude/.claude` to `~/.claude`. Claude Code then reads `
 
 Full-stack systems engineer working across the entire compute spectrum: embedded controllers (RP2040), SBCs (Raspberry Pi, Orange Pi), mobile phones and tablets, on-prem servers, cloud servers, and complex distributed systems on Kubernetes. Primary languages: **Go** and **web frontends** (TypeScript/JavaScript). I use Claude Code as my primary coding tool.
 
+Work spans multiple deployment targets, and code often needs to work across them -- design for portability where practical:
+- **Embedded** (RP2040): resource-constrained, no OS or RTOS, hardware I/O
+- **SBC** (Raspberry Pi, Orange Pi): Linux-based, GPIO/sensor access, edge compute
+- **Cloud/K8s**: microservices, distributed systems, horizontal scaling, observability
+
 ## Global Preferences
 
 - Primary language: Go (idiomatic Go, follow stdlib conventions)
@@ -57,113 +62,14 @@ Full-stack systems engineer working across the entire compute spectrum: embedded
 * I am a linux expert and strongly favor Linux of Ubuntu/Debian flavor.  I avoid Windows.
 * I want all documents in markdown format unless I specifically ask otherwise
 
-## Guiding Principles
+## Engineering Principles
 
-1. Think Before Coding
-Don't assume. Don't hide confusion. Surface tradeoffs.
+The discipline in one line each. Full detail in the `engineering-principles` skill -- invoke it before non-trivial implementation work.
 
-Before implementing:
-
-State your assumptions explicitly. If uncertain, ask.
-If multiple interpretations exist, present them - don't pick silently.
-If a simpler approach exists, say so. Push back when warranted.
-If something is unclear, stop. Name what's confusing. Ask.
-
-2. Simplicity First
-Minimum code that solves the problem. Nothing speculative.
-
-No features beyond what was asked.
-No abstractions for single-use code.
-No "flexibility" or "configurability" that wasn't requested.
-No error handling for impossible scenarios.
-If you write 200 lines and it could be 50, rewrite it.
-Ask yourself: "Would a senior engineer say this is overcomplicated?" If yes, simplify.
-
-3. Surgical Changes
-Touch only what you must. Clean up only your own mess.
-
-When editing existing code:
-
-Don't "improve" adjacent code, comments, Behavioral guidelines to reduce common LLM coding mistakes. Merge with project-specific instructions as needed.
-
-Tradeoff: These guidelines bias toward caution over speed. For trivial tasks, use judgment.
-
-1. Think Before Coding
-Don't assume. Don't hide confusion. Surface tradeoffs.
-
-Before implementing:
-
-State your assumptions explicitly. If uncertain, ask.
-If multiple interpretations exist, present them - don't pick silently.
-If a simpler approach exists, say so. Push back when warranted.
-If something is unclear, stop. Name what's confusing. Ask.
-2. Simplicity First
-Minimum code that solves the problem. Nothing speculative.
-
-No features beyond what was asked.
-No abstractions for single-use code.
-No "flexibility" or "configurability" that wasn't requested.
-No error handling for impossible scenarios.
-If you write 200 lines and it could be 50, rewrite it.
-Ask yourself: "Would a senior engineer say this is overcomplicated?" If yes, simplify.
-
-3. Surgical Changes
-Touch only what you must. Clean up only your own mess.
-
-When editing existing code:
-
-Don't "improve" adjacent code, comments, or formatting.
-Don't refactor things that aren't broken.
-Match existing style, even if you'd do it differently.
-If you notice unrelated dead code, mention it - don't delete it.
-When your changes create orphans:
-
-Remove imports/variables/functions that YOUR changes made unused.
-Don't remove pre-existing dead code unless asked.
-The test: Every changed line should trace directly to the user's request.
-
-4. Goal-Driven Execution
-Define success criteria. Loop until verified.
-
-Transform tasks into verifiable goals:
-
-"Add validation" → "Write tests for invalid inputs, then make them pass"
-"Fix the bug" → "Write a test that reproduces it, then make it pass"
-"Refactor X" → "Ensure tests pass before and after"
-For multi-step tasks, state a brief plan:
-
-1. [Step] → verify: [check]
-2. [Step] → verify: [check]
-3. [Step] → verify: [check]
-Strong success criteria let you loop independently. Weak criteria ("make it work") require constant clarification.
-
-These guidelines are working if: fewer unnecessary changes in diffs, fewer rewrites due to overcomplication, and clarifying questions come before implementation rather than after mistakes.or formatting.
-
-Don't refactor things that aren't broken.
-Match existing style, even if you'd do it differently.
-If you notice unrelated dead code, mention it - don't delete it.
-
-When your changes create orphans:
-- Remove imports/variables/functions that YOUR changes made unused.
-- Don't remove pre-existing dead code unless asked.
-- The test: Every changed line should trace directly to the user's request.
-
-4. Goal-Driven Execution
-Define success criteria. Loop until verified.
-
-Transform tasks into verifiable goals:
-
-"Add validation" → "Write tests for invalid inputs, then make them pass"
-"Fix the bug" → "Write a test that reproduces it, then make it pass"
-"Refactor X" → "Ensure tests pass before and after"
-For multi-step tasks, state a brief plan:
-
-1. [Step] → verify: [check]
-2. [Step] → verify: [check]
-3. [Step] → verify: [check]
-Strong success criteria let you loop independently. Weak criteria ("make it work") require constant clarification.
-
-These guidelines are working if: fewer unnecessary changes in diffs, fewer rewrites due to overcomplication, and clarifying questions come before implementation rather than after mistakes.
+1. **Think before coding** -- state assumptions, surface tradeoffs, ask when unclear; don't pick silently.
+2. **Simplicity first** -- minimum code that solves the problem; nothing speculative.
+3. **Surgical changes** -- touch only what the request requires; match existing style; don't refactor what isn't broken.
+4. **Goal-driven execution** -- turn the task into verifiable success criteria, then loop until they pass.
 
 ## Code Quality Rules
 
@@ -198,119 +104,6 @@ These guidelines are working if: fewer unnecessary changes in diffs, fewer rewri
 - No silenced warnings or linter ignores without documented rationale
 - NEVER skip or stub tests - all tests must be run - only a human can comment out or stub or skip tests
 
-## Architecture Awareness
-
-This work spans multiple deployment targets:
-- **Embedded** (RP2040): Resource-constrained, no OS or RTOS, hardware I/O
-- **SBC** (Raspberry Pi, Orange Pi): Linux-based, GPIO/sensor access, edge compute
-- **Cloud/K8s**: Microservices, distributed systems, horizontal scaling, observability
-- Code often needs to work across these tiers -- design for portability where practical
-
-## Documentation Hierarchy
-
-Requirements, specifications, and design documents are the most valuable project artifacts. Code is ephemeral and can be regenerated from specs. Never delete specs. When code and spec disagree, fix the code. Always update specs before changing implementation.
-
-## Project File Conventions
-
-- Look for `PROJECT.md` in the working folder for a high level description of the project - often the basis for deriving requirements
-- Look for `REQUIREMENTS.md` in the working folder for detailed requirements - this is what you work from, always
-- Look for `docs/DESIGN.md` as the master design document - this is what you will write and keep up to date based on REQUIREMENTS.md
-- If asked to design software, write the design to `docs/DESIGN.md`
-- If changes are requested, first update the REQUIREMENTS.md and the the DESIGN.md and then the implementation in accordance with the design
-
-## Gitignore Policy
-
-On any file write to a development project folder -- and absolutely if a `.git` folder exists -- ensure a `.gitignore` file is present and correct:
-
-1. **Always ignore** these entries (add if missing):
-   - `.env`
-   - `.envrc`
-   - `*~`
-   - `bin/`
-   - '.llm/'
-2. **Add language/framework best-practice ignores** for the project type (e.g., Go: `bin/`, `vendor/`; Node: `node_modules/`, `dist/`; Python: `__pycache__/`, `*.pyc`, `.venv/`; C/C++: `*.o`, `*.a`, `*.so`, `build/`; Rust: `target/`; etc.)
-3. **Do not overwrite** existing entries -- only append missing ones
-4. **Check on every write** -- if `.gitignore` does not exist, create it; if it exists, verify the mandatory entries are present and add any that are missing
-
-## Project Building
-
-- Always provide a Makefile instead of build scripts
-- Never use go directly to do builds - always write a makefile and use that
-- Makefiles should print targets if no target is provided on the command line
-- Makefiles should always provide build, test, clean, run-tests targets as a minimum
-
-## Git Commits
-
-- Commit messages: present-tense verb, 60-120 chars, single line, end with period, no praise adjectives, no Claude attribution
-- If the prompt was a compiler/linter error, use a `fixup!` prefix
-- Echo the commit command and confirm with the user before running
-
-## Build Commands
-
-- Do not run long-lived processes (dev servers, file watchers)
-- If a build is slow or verbose, echo the command and ask the user to run it
-
-## LLM Context
-
-- `.llm/` at repo root contains extra LLM context (excluded from git via `.git/info/exclude`) and .gitignore
-- If `.llm/todo.md` exists, it is the active task list -- mark tasks as done and keep it updated
-- Everything else in `.llm/` is read-only context
-
-## Workflow
-
-1. **Research** before implementing -- read relevant code, understand patterns
-2. **Plan** for non-trivial changes -- use plan mode
-3. **Execute** in focused increments with tests
-4. **Validate** -- run build, tests, linters, check with `git diff`
-
-## Autonomous Implementation Protocol
-
-When operating autonomously (permissions bypassed / no human in the loop), ALL implementations MUST follow this phased protocol. No exceptions.
-
-### Phase Execution
-
-1. The design/plan MUST break work into discrete phases with clear boundaries
-2. Implement ONE phase at a time -- do not proceed to the next phase until the current phase is complete
-3. After implementing each phase:
-   - Run ALL tests for that phase (`make test` or equivalent)
-   - If any test fails, iterate: fix the code, re-run tests, repeat until ALL tests pass
-   - Do NOT move to the next phase with failing tests
-4. Repeat for every phase until the full implementation is complete
-
-### Full Integration Validation
-
-After all phases are complete:
-1. Run the entire test suite end-to-end
-2. Run the build (`make build`)
-3. Run linters if configured
-4. If anything fails, iterate: fix, re-run, repeat until everything passes
-5. Do not skip or ignore tests.  Anything that fails must be fixed or you STOP and get directions
-
-### Parallel Review Gate
-
-After all tests and builds pass, launch THREE parallel review subagents:
-
-1. **Spec Compliance Review** -- Compare the implementation against the spec/requirements documents (`PROJECT.md`, any requirements docs). Flag every deviation, missing requirement, or undocumented behavior.
-2. **Design/Architecture Review** -- Compare the implementation against `docs/DESIGN.md` and architectural constraints. Verify interfaces, data flow, error handling patterns, deployment target compatibility, and adherence to code quality rules in this file.
-3. **Security Review** -- Full security audit against OWASP top 10, the Security Rules in this file, input validation boundaries, credential handling, injection vectors, and dependency risks.
-
-Each review subagent writes its findings to `.llm/reviews/`:
-- `.llm/reviews/spec-review.md`
-- `.llm/reviews/design-review.md`
-- `.llm/reviews/security-review.md`
-
-### Review Remediation
-
-1. Read all three review files
-2. Triage findings by severity (critical > high > medium > low)
-3. Fix all critical and high findings -- iterate with tests after each fix
-4. Document any medium/low findings deferred with rationale in `.llm/reviews/deferred.md`
-5. Re-run the full test suite one final time to confirm nothing regressed
-
-### Summary
-
-The cycle is: **implement phase -> test -> iterate -> next phase -> ... -> full test -> parallel reviews -> fix findings -> final test**. Never skip phases, never skip reviews, never leave failing tests.
-
 ## Skills & Context Files
 
 Before starting any task, read `~/.claude/INDEX.md` to identify which skills to invoke and which security rule files to read. Load only what is relevant to the current task -- do not read all files.
@@ -318,3 +111,5 @@ Before starting any task, read `~/.claude/INDEX.md` to identify which skills to 
 - Skills (task-specific workflow guides): `~/.claude/skills/`
 - Security rules (always-on coding policies): `~/.claude/security-rules/`
 - Index (maps task types to the right files): `~/.claude/INDEX.md`
+
+Procedures and conventions that used to live in this file are now lazy-loaded skills (see INDEX.md): `engineering-principles` (full principles + workflow), `build-autonomous` (autonomous phase/test/review protocol), `spec-driven` (spec authority + PROJECT/REQUIREMENTS/DESIGN conventions), `gitignore-policy`, `makefile-builds`, `git-ops` (commit message rules), `llm-context` (`.llm/` handling).

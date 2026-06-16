@@ -1,0 +1,41 @@
+#!/bin/bash
+# PreToolUse(Bash) gate: before a git stage/commit/push, ensure the repo's
+# .gitignore carries the mandatory entries (+ language best-practice ignores).
+# Auto-fixes any that are missing, then allows the command to proceed.
+# Only acts on git mutating ops; everything else is a fast no-op.
+
+input=$(cat)
+cmd=$(printf '%s' "$input" | jq -r '.tool_input.command // ""' 2>/dev/null)
+cwd=$(printf '%s' "$input" | jq -r '.cwd // ""' 2>/dev/null)
+[ -n "$cwd" ] || cwd="$PWD"
+
+# Fast bail unless this is a git command that stages, commits, or pushes.
+printf '%s' "$cmd" | grep -Eq '\bgit\b' || exit 0
+printf '%s' "$cmd" | grep -Eq '\b(add|commit|push)\b' || exit 0
+
+root=$(git -C "$cwd" rev-parse --show-toplevel 2>/dev/null) || exit 0
+[ -n "$root" ] || exit 0
+
+gi="$root/.gitignore"
+touch "$gi" 2>/dev/null || exit 0
+
+added=""
+ensure() {
+    grep -qxF "$1" "$gi" 2>/dev/null && return
+    printf '%s\n' "$1" >> "$gi"
+    added="$added $1"
+}
+
+# Mandatory entries (global policy)
+for e in '.env' '.envrc' '*~' 'bin/' '.llm/'; do ensure "$e"; done
+
+# Language best-practice ignores (lightweight detection)
+[ -f "$root/go.mod" ] && ensure 'vendor/'
+[ -f "$root/package.json" ] && { ensure 'node_modules/'; ensure 'dist/'; }
+if [ -f "$root/pyproject.toml" ] || [ -f "$root/requirements.txt" ] || ls "$root"/*.py >/dev/null 2>&1; then
+    ensure '__pycache__/'; ensure '*.pyc'; ensure '.venv/'
+fi
+[ -f "$root/Cargo.toml" ] && ensure 'target/'
+
+[ -n "$added" ] && echo "gitignore-gate: appended to $gi ->$added"
+exit 0

@@ -10,6 +10,15 @@
             "command": "~/.claude/hooks/cbm-code-discovery-gate"
           }
         ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/gitignore-gate"
+          }
+        ]
       }
     ],
     "SessionStart": [

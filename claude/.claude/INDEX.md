@@ -52,6 +52,18 @@ Load only what applies to the current task -- do not read all files.
 | Writing or reviewing tests | `test-as-guardrails` (use `test-driven-development` to enforce test-first order) |
 | Iterative improvement of algorithms or system design | `refine` |
 
+### Standards & Conventions
+
+| When | Skill |
+|------|-------|
+| Before non-trivial implementation work (full principles + workflow) | `engineering-principles` |
+| Setting up or running a project build (Makefile required) | `makefile-builds` |
+| Ensuring a correct .gitignore when scaffolding or adding files to a repo | `gitignore-policy` |
+| Repo has a `.llm/` folder, or tracking tasks in `.llm/todo.md` | `llm-context` |
+| Commit message format, cherry-pick, or rebase | `git-ops` |
+| PROJECT.md / REQUIREMENTS.md / docs/DESIGN.md are the source of truth | `spec-driven` |
+| Full autonomous phase/test/review build cycle | `build-autonomous` |
+
 ### Language & Domain
 
 | When | Skill |

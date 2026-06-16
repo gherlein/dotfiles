@@ -29,3 +29,10 @@ When resolving conflicts during a rebase:
 6. Repeat if more conflicts arise in subsequent commits
 
 Never use `git rebase --abort` unless the user requests it. Never use `--no-verify`.
+
+## Commit Message Rules
+
+- Present-tense verb, 60-120 chars, single line, end with a period.
+- No praise adjectives, no Claude attribution.
+- If the prompt was a compiler/linter error, use a `fixup!` prefix.
+- Echo the commit command and confirm with the user before running.

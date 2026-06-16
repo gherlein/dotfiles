@@ -68,3 +68,16 @@ Specs capture intent, constraints, and design rationale that cannot be recovered
 - **HOW knowledge** -> lives in code, but is always traceable back to spec requirements
 - Constraint IDs appear in both spec and code comments: `// C-001: NEVER process duplicate event`
 - When updating behavior, update the spec FIRST, then update the code to match
+
+## Project File Conventions
+
+When starting work in a repo, look for these and treat them as authoritative:
+
+- `PROJECT.md` -- high-level description of the project; often the basis for deriving requirements.
+- `REQUIREMENTS.md` -- detailed requirements; this is what you work from, always.
+- `docs/DESIGN.md` -- the master design document; write it and keep it up to date based on `REQUIREMENTS.md`.
+
+Rules:
+
+- If asked to design software, write the design to `docs/DESIGN.md`.
+- If changes are requested, first update `REQUIREMENTS.md`, then `docs/DESIGN.md`, then the implementation in accordance with the design.
