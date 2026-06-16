@@ -1,0 +1,18 @@
+{
+  "vm": {
+    "name": "aws-web-server",
+    "instance_type": "t3.small",
+    "os": "ubuntu-24.04",
+    "region": "us-east-1",
+    "users": [
+      {"username": "ubuntu", "github_username": "your-github-username"}
+    ]
+  },
+  "dns": {
+    "hostname": "web",
+    "domain": "example.com",
+    "ttl": 300,
+    "is_apex_domain": true,
+    "cname_aliases": ["www"]
+  }
+}

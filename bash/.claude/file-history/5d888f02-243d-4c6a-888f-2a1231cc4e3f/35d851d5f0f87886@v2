@@ -1,0 +1,937 @@
+# govirt Requirements
+
+## Overview
+
+`govirt` is a CLI tool for provisioning VMs locally (libvirt/KVM) or in the cloud (AWS EC2, DigitalOcean), using a single JSON config file and a standard cloud-init YAML. One config, any target.
+
+---
+
+## The Problem
+
+Development teams need consistent environments across local machines and cloud infrastructure. Normally this means maintaining separate setups for local and cloud — configs that inevitably drift apart.
+
+govirt solves this with one JSON config and one cloud-init YAML that creates the same server anywhere: local KVM, AWS EC2, or DigitalOcean Droplet.
+
+---
+
+## Commands
+
+```
+govirt create <name>             Create a local VM (libvirt/KVM)
+govirt create <name> --aws       Create an AWS EC2 instance
+govirt create <name> --do        Create a DigitalOcean Droplet
+govirt destroy <name>            Destroy VM (auto-detects provider)
+govirt list                      List local VMs
+govirt list --aws                List AWS VMs
+govirt list --do                 List DigitalOcean Droplets
+govirt ssh <name>                SSH into VM
+govirt status <name>             Show VM status
+govirt stop <name>               Stop VM (graceful shutdown)
+govirt start <name>              Start VM
+govirt dns swap <name>           Update DNS records to current VM IP (AWS and DigitalOcean only)
+```
+
+### Flags
+
+| Flag | Description |
+|------|-------------|
+| `--aws` | Use AWS provider |
+| `--do`, `--digitalocean` | Use DigitalOcean provider |
+| `--local` | Use local libvirt provider |
+| `--dir PATH` | govirt config directory (default: `~/.config/govirt`); stacks at `<dir>/stacks/` |
+| `--folder`, `-f PATH` | Full path to stacks folder (overrides `--dir`) |
+| `--users`, `-u USERS` | GitHub usernames for SSH key injection (comma-separated) |
+| `--no-hosts` | Skip /etc/hosts management for local VMs |
+| `--verbose`, `-v` | Show detailed progress |
+| `--version` | Show version |
+| `--help`, `-h` | Show help |
+
+Flags may appear in any order:
+
+```bash
+govirt create web-server --aws
+govirt create --do web-server -f ~/my-servers
+govirt create web-server -u gherlein
+govirt create web-server -u "alice,bob"
+```
+
+### Environment Variables
+
+| Variable | Description |
+|----------|-------------|
+| `GOVIRT_STACK_FOLDER` | Default base folder for stacks (overridden by `--folder`/`-f`) |
+| `DIGITALOCEAN_TOKEN` | DigitalOcean API token (required when using `--do`) |
+| `GOVIRT_IMAGE_CACHE` | Directory to cache cloud images (default: `~/.cache/govirt/images`) |
+| `LIBVIRT_DEFAULT_URI` | Libvirt connection URI (default: `qemu:///system`) |
+
+### Stack Folder Precedence
+
+`--folder`/`-f` > `--dir` > `GOVIRT_STACK_FOLDER` > `~/.config/govirt/stacks/`
+
+---
+
+## Config File Format
+
+Each VM config lives in a named folder under the stacks base directory:
+
+```
+~/.config/govirt/stacks/
+└── web-server/
+    ├── config.json
+    └── cloud-init.yaml
+```
+
+The `config.json` has two types of sections: **input sections** (written by the user) and **state sections** (written by govirt after creation).
+
+### Input vs State
+
+| Section | Type | Who writes it | When |
+|---------|------|---------------|------|
+| `vm` | Input | User | Before first `govirt create` |
+| `dns` | Input | User | Before first `govirt create` |
+| `local` | State | govirt | Written by `govirt create`, removed by `govirt destroy` |
+| `aws` | State | govirt | Written by `govirt create --aws`, removed by `govirt destroy` |
+| `do` | State | govirt | Written by `govirt create --do`, removed by `govirt destroy` |
+
+Input sections are never modified by govirt. State sections are managed automatically.
+
+### Minimal Config
+
+```json
+{
+  "vm": {
+    "name": "devbox",
+    "users": [
+      {"username": "ubuntu", "github_username": "your-github-username"}
+    ]
+  }
+}
+```
+
+Everything else has defaults. Creates a local VM with 2 CPUs, 2G RAM, 20G disk, Ubuntu 24.04.
+
+### Full Config Example
+
+```json
+{
+  "vm": {
+    "name": "web-server",
+    "cpus": 4,
+    "memory": "4G",
+    "disk": "40G",
+    "image": "24.04",
+    "mounts": [
+      {"source": "/home/user/code", "target": "/home/ubuntu/code"}
+    ],
+    "instance_type": "t3.small",
+    "os": "ubuntu-24.04",
+    "region": "us-east-1",
+    "vpc_id": "",
+    "subnet_id": "",
+    "do_size": "s-2vcpu-4gb",
+    "do_region": "nyc3",
+    "do_image": "ubuntu-24-04-x64",
+    "do_vpc_id": "",
+    "ssh_cidr": "0.0.0.0/0",
+    "web_cidr": "0.0.0.0/0",
+    "users": [
+      {"username": "ubuntu", "github_username": "alice"},
+      {"username": "deploy", "github_username": "deploy-bot"}
+    ]
+  },
+  "dns": {
+    "hostname": "web",
+    "domain": "example.com",
+    "ttl": 300,
+    "is_apex_domain": true,
+    "cname_aliases": ["www"]
+  }
+}
+```
+
+### vm Section Reference
+
+| Field | Default | Provider | Description |
+|-------|---------|----------|-------------|
+| `name` | (required) | All | VM name |
+| `cpus` | `2` | Local | Number of vCPUs |
+| `memory` | `"2G"` | Local | RAM (e.g. `"2G"`, `"512M"`) |
+| `disk` | `"20G"` | Local | Root disk size |
+| `image` | `"24.04"` | Local | Ubuntu version shorthand |
+| `mounts` | | Local | Host directory mounts `[{"source", "target"}]` |
+| `instance_type` | `"t3.micro"` | AWS | EC2 instance type |
+| `os` | `"ubuntu-24.04"` | AWS | AMI lookup key |
+| `region` | `"us-east-1"` | AWS | AWS region |
+| `vpc_id` | | AWS | Specific VPC (auto-discovered if empty) |
+| `subnet_id` | | AWS | Specific subnet (auto-discovered if empty) |
+| `do_size` | | DigitalOcean | Droplet size slug (e.g. `"s-2vcpu-4gb"`) |
+| `do_region` | | DigitalOcean | Region slug (e.g. `"nyc3"`) |
+| `do_image` | | DigitalOcean | Image slug (e.g. `"ubuntu-24-04-x64"`) |
+| `do_vpc_id` | | DigitalOcean | VPC UUID (optional) |
+| `ssh_cidr` | `"0.0.0.0/0"` | DigitalOcean | CIDR for SSH firewall rule |
+| `web_cidr` | `"0.0.0.0/0"` | DigitalOcean | CIDR for HTTP/HTTPS firewall rules |
+| `users` | (required) | All | List of `{"username", "github_username"}` |
+
+### dns Section Reference (AWS and DigitalOcean)
+
+| Field | Default | Description |
+|-------|---------|-------------|
+| `hostname` | `vm.name` | Hostname portion of the FQDN |
+| `domain` | | Hosted zone domain (e.g. `"example.com"`) |
+| `ttl` | `300` | DNS record TTL in seconds |
+| `zone_id` | | Route53 zone ID (AWS only; auto-looked up if empty) |
+| `is_apex_domain` | `false` | Also create an A record at the zone apex |
+| `cname_aliases` | | Additional CNAME records pointing at the hostname |
+
+### State After Local VM Creation
+
+```json
+{
+  "vm": { "..." },
+  "local": {
+    "ip": "192.168.122.5",
+    "hosts_entry": true,
+    "domain_name": "web-server",
+    "disk_path": "/var/lib/libvirt/images/web-server.qcow2",
+    "cloud_init_iso": "/var/lib/libvirt/images/web-server-cloud-init.iso",
+    "network": "default"
+  }
+}
+```
+
+### State After AWS Creation
+
+```json
+{
+  "vm": { "..." },
+  "aws": {
+    "public_ip": "54.1.2.3",
+    "instance_id": "i-0123456789abcdef0",
+    "stack_id": "arn:aws:cloudformation:...",
+    "stack_name": "govirt-web-server",
+    "security_group": "sg-abc123",
+    "ami_id": "ami-0123456789abcdef0",
+    "vpc_id": "vpc-abc123",
+    "subnet_id": "subnet-def456",
+    "zone_id": "Z1234567890",
+    "fqdn": "web.example.com",
+    "dns_records": [...]
+  }
+}
+```
+
+### State After DigitalOcean Creation
+
+```json
+{
+  "vm": { "..." },
+  "do": {
+    "droplet_id": 123456789,
+    "public_ip": "192.241.0.1",
+    "fqdn": "web.example.com",
+    "firewall_id": "bb4b2611-...",
+    "dns_records": [...]
+  }
+}
+```
+
+### Simultaneous Deployments
+
+Because state is stored in separate sections, the same config can have active deployments on multiple providers at once. Delete each independently:
+
+```bash
+govirt destroy web-server --local
+govirt destroy web-server --aws
+govirt destroy web-server --do
+```
+
+---
+
+## Provider Auto-Detection
+
+When no provider flag is given:
+
+1. Has `do` state and no `local` state → DigitalOcean
+2. Has `aws` state and no `local` state → AWS
+3. Otherwise → local libvirt
+
+A `dns` section alone does not trigger cloud provider selection. DNS records are only created when `--aws` or `--do` is passed explicitly.
+
+---
+
+## Cloud-Init Processing
+
+### SSH Key Injection
+
+Before launching any VM, govirt fetches SSH public keys from GitHub for each user in `vm.users` and substitutes them into the cloud-init YAML template.
+
+Keys are fetched from `https://github.com/<github_username>.keys`.
+
+Supported placeholder variables:
+
+| Variable | Value |
+|----------|-------|
+| `${SSH_PUBLIC_KEY}` | SSH public keys of the first user |
+| `${SSH_PUBLIC_KEY_<USERNAME>}` | SSH keys for a specific user (uppercase username) |
+
+Example:
+
+```yaml
+users:
+  - name: ubuntu
+    ssh_authorized_keys:
+      - ${SSH_PUBLIC_KEY}
+  - name: deploy
+    ssh_authorized_keys:
+      - ${SSH_PUBLIC_KEY_DEPLOY}
+```
+
+Go template syntax (`{{ .Field }}`) is also supported when the cloud-init YAML contains `{{`.
+
+### The `--users` Flag
+
+The `--users`/`-u` flag overrides any users defined in config JSON. The first username maps to the `ubuntu` VM user; additional usernames become both the VM user and the GitHub lookup:
+
+```bash
+govirt create web-server -u "alice,deploy-bot"
+# alice      → VM user "ubuntu", SSH keys from github.com/alice.keys
+# deploy-bot → VM user "deploy-bot", SSH keys from github.com/deploy-bot.keys
+```
+
+### Mount Injection (Local VMs)
+
+`vm.mounts` applies to local libvirt VMs only. Host directory sharing has no
+meaning for a cloud instance (the host filesystem is not reachable from AWS or
+DigitalOcean), so `vm.mounts` is ignored for the `--aws` and `--do` providers. To
+avoid silent surprise, govirt prints a warning at create time when `vm.mounts` is
+set but a cloud provider is selected.
+
+When `vm.mounts` is non-empty, govirt automatically appends `runcmd` and `write_files` entries to the processed cloud-init YAML so that host directories are mounted inside the VM. Users do not need to add these manually.
+
+For each mount entry, govirt appends:
+
+```yaml
+runcmd:
+  - mkdir -p <target>
+  - mount -t virtiofs <tag> <target>
+
+write_files:
+  - path: /etc/fstab
+    append: true
+    content: |
+      <tag>   <target>   virtiofs   defaults   0   0
+```
+
+where `<tag>` is derived from the target path (slashes replaced with hyphens, leading hyphen stripped).
+
+---
+
+## Local VM Backend: libvirt/KVM
+
+### Prerequisites
+
+- `libvirtd` daemon running
+- `qemu-kvm` or `qemu-system-x86_64` installed
+- `virt-install` CLI available
+- `virsh` CLI available
+- At least one of `cloud-localds` (from `cloud-image-utils`) or `genisoimage` available
+- `/dev/kvm` accessible to the current user (user in `kvm` and `libvirt` groups, or equivalent)
+
+govirt checks all prerequisites before attempting VM creation and prints an actionable error if any are missing.
+
+### Image Management
+
+govirt downloads Ubuntu cloud images (`.qcow2` format) on first use and caches them locally in `$GOVIRT_IMAGE_CACHE` (default: `~/.cache/govirt/images/`). Cached images are never deleted automatically.
+
+**Image shorthand to download URL mapping:**
+
+| `vm.image` | Ubuntu release | Download URL |
+|------------|---------------|-------------|
+| `24.04` | Noble Numbat | `https://cloud-images.ubuntu.com/noble/current/noble-server-cloudimg-amd64.img` |
+| `22.04` | Jammy Jellyfish | `https://cloud-images.ubuntu.com/jammy/current/jammy-server-cloudimg-amd64.img` |
+| `20.04` | Focal Fossa | `https://cloud-images.ubuntu.com/focal/current/focal-server-cloudimg-amd64.img` |
+
+Download progress is shown to the user. If a checksum file is available alongside the image, the download is verified.
+
+### Disk Creation
+
+For each VM, govirt creates a copy-on-write (CoW) qcow2 overlay disk backed by the cached cloud image. This avoids modifying the shared base image and keeps per-VM disk creation fast.
+
+```bash
+qemu-img create -f qcow2 -b <cached-base-image> -F qcow2 <vm-disk-path> <disk-size>
+```
+
+The VM disk is stored as `<vm-name>.qcow2` in the libvirt default storage pool directory (typically `/var/lib/libvirt/images/`).
+
+If `vm.disk` is larger than the base image, the disk is resized after creation:
+```bash
+qemu-img resize <vm-disk-path> <disk-size>
+```
+
+### cloud-init NoCloud ISO
+
+libvirt does not inject cloud-init data natively. govirt generates a NoCloud datasource ISO and attaches it as a CD-ROM drive alongside the VM disk.
+
+The ISO contains two files:
+
+**meta-data:**
+```yaml
+instance-id: govirt-<vm-name>
+local-hostname: <vm-name>
+```
+
+**user-data:** the fully processed cloud-init YAML (SSH keys substituted, mounts injected).
+
+ISO generation uses whichever tool is available:
+```bash
+# Option 1 (preferred)
+cloud-localds <output.iso> <user-data> <meta-data>
+
+# Option 2 (fallback)
+genisoimage -output <output.iso> -volid cidata -joliet -rock user-data meta-data
+```
+
+The ISO is stored as `<vm-name>-cloud-init.iso` alongside the VM disk. It is removed when the VM is destroyed.
+
+### VM Creation
+
+```bash
+virt-install \
+    --name <vm-name> \
+    --memory <memory-MB> \
+    --vcpus <cpus> \
+    --disk path=<vm-disk-path>,format=qcow2 \
+    --disk path=<cloud-init-iso>,device=cdrom \
+    --os-variant ubuntu24.04 \
+    --network network=default \
+    --graphics none \
+    --noautoconsole \
+    --import
+```
+
+Key behaviors:
+- `--import`: boot from existing disk image; no OS installer is invoked
+- `--noautoconsole`: return immediately; do not attach to the serial console
+- `--graphics none`: headless VM
+- Memory in config uses suffix notation (`"2G"`, `"512M"`); convert to MB for `--memory`
+- `--os-variant` is mapped from `vm.image`: `24.04` → `ubuntu24.04`, `22.04` → `ubuntu22.04`, `20.04` → `ubuntu20.04`. If the exact variant is not in the local osinfo database, fall back to `ubuntu20.04` with a warning.
+
+### Host Directory Mounts
+
+For each entry in `vm.mounts`, a virtiofs filesystem share is added to `virt-install`:
+
+```bash
+--filesystem source=<host-source>,target=<tag>,driver.type=virtiofs
+```
+
+If virtiofs is unavailable (host kernel < 5.4 or QEMU < 4.2), govirt falls back to 9p/virtio-9p and emits a warning.
+
+The corresponding cloud-init mount injection (described in the Cloud-Init Processing section) handles the in-guest mount configuration automatically.
+
+### IP Address Detection
+
+After `virt-install` returns, govirt polls for the VM's IP address:
+
+```bash
+virsh domifaddr <vm-name> --source lease
+```
+
+Poll interval: every 2 seconds, up to 60 seconds. Once an IP is found it is stored in `local.ip`. If no IP is detected within 60 seconds, a warning is printed and `local.ip` is left empty.
+
+Fallback: if `--source lease` returns nothing, read DHCP leases from `/var/lib/libvirt/dnsmasq/default.leases` and match by MAC address obtained from `virsh domiflist <name>`.
+
+### Verbose Mode: cloud-init Log Tailing
+
+With `--verbose`, govirt streams the cloud-init log from the VM once SSH is available:
+
+```bash
+ssh -o StrictHostKeyChecking=no <username>@<ip> \
+    "tail -f /var/log/cloud-init-output.log"
+```
+
+SSH availability is polled (every 2 seconds, up to 120 seconds) before attempting to connect.
+
+### Stop
+
+```bash
+virsh shutdown <vm-name>
+```
+
+Sends ACPI shutdown signal (graceful). Waits up to 30 seconds for the domain to reach the `shut off` state. Returns an error if the VM does not stop within that time; does not force-kill.
+
+### Start
+
+```bash
+virsh start <vm-name>
+```
+
+After starting, polls for the VM's IP (same logic as after creation) and updates `local.ip` in state if the IP has changed.
+
+### Destroy
+
+```bash
+virsh destroy <vm-name>         # force-stop if running (ignore error if already stopped)
+virsh undefine <vm-name> --remove-all-storage
+```
+
+Also removes the cloud-init ISO file explicitly (it may not be tracked in the libvirt storage pool). Sets `cfg.Local = nil`.
+
+### Status
+
+```bash
+virsh dominfo <vm-name>         # domain state
+virsh domifaddr <vm-name>       # current IP
+```
+
+Returns name, state (running, shut off, paused, etc.), provider, and IP.
+
+### List
+
+```bash
+virsh list --all
+```
+
+Returns name and state for all domains. For running VMs, optionally fetches IP via `virsh domifaddr`.
+
+### SSH
+
+```bash
+ssh -o StrictHostKeyChecking=no <first-user-username>@<ip>
+```
+
+Replaces the govirt process (exec) so the terminal session is seamless. If `local.ip` is not set in saved state, attempts a live lookup via `virsh domifaddr` before connecting.
+
+### /etc/hosts Management
+
+After local VM creation, govirt adds an entry to `/etc/hosts` using `sudo tee`. The entry is removed on destroy.
+
+Entry format:
+```
+# govirt:<vm-name>
+<ip>    <vm-name> [<hostname>.<domain>]
+# /govirt:<vm-name>
+```
+
+The marker block allows govirt to find and replace/remove the entry precisely on subsequent operations. If adding the entry fails, govirt prints manual instructions and continues without error.
+
+---
+
+## AWS Provider
+
+### How It Works
+
+1. Look up AMI ID via AWS SSM Parameter Store
+2. Discover or create VPC and Subnet infrastructure
+3. Create a CloudFormation stack containing the EC2 instance and security group, with the processed cloud-init YAML as base64-encoded UserData
+4. Wait for `CREATE_COMPLETE`
+5. Read stack outputs: InstanceId, PublicIP, SecurityGroupId
+6. Create Route53 DNS record(s) if a `dns` section is present
+7. Write all output values to the `aws` state section
+
+### CloudFormation Template
+
+The generated template creates:
+- A security group allowing TCP 22, 80, 443 inbound (0.0.0.0/0 by default)
+- An EC2 instance in the specified VPC/subnet with a public IP and the cloud-init UserData
+
+### AMI Lookup
+
+AMIs are resolved via SSM Parameter Store paths:
+
+| `vm.os` | SSM Path |
+|---------|---------|
+| `ubuntu-24.04` | `/aws/service/canonical/ubuntu/server/24.04/stable/current/amd64/hvm/ebs-gp2/ami-id` |
+| `ubuntu-22.04` | `/aws/service/canonical/ubuntu/server/22.04/stable/current/amd64/hvm/ebs-gp2/ami-id` |
+| `ubuntu-20.04` | `/aws/service/canonical/ubuntu/server/20.04/stable/current/amd64/hvm/ebs-gp2/ami-id` |
+| `amazon-linux-2023` | `/aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-x86_64` |
+| `amazon-linux-2` | `/aws/service/ami-amazon-linux-latest/amzn2-ami-hvm-x86_64-gp2` |
+| `debian-12` | `/aws/service/debian/release/12/latest/amd64` |
+| `debian-11` | `/aws/service/debian/release/11/latest/amd64` |
+
+### VPC/Subnet Discovery
+
+1. Find the default VPC
+2. If no default VPC, find any available VPC
+3. If no VPC exists, create one (VPC + Subnet + Internet Gateway + Route Table)
+4. Find a subnet with public IP auto-assign enabled, or create one
+
+Created network resources are tracked in state and cleaned up on destroy.
+
+### DNS Record Creation
+
+When a `dns` section is present and `--aws` is used:
+
+1. Look up the Route53 hosted zone ID for `dns.domain`
+2. Create an A record: `<hostname>.<domain>` → instance public IP
+3. If `is_apex_domain` is true, create an A record at the zone apex
+4. For each entry in `cname_aliases`, create a CNAME pointing at the hostname FQDN
+
+All DNS records are tracked in `aws.dns_records` and deleted on destroy.
+
+### Credentials
+
+Standard AWS credential chain: environment variables, `~/.aws/credentials`, IAM instance role. `aws configure` must be run before using the AWS provider.
+
+---
+
+## DigitalOcean Provider
+
+### How It Works
+
+1. Create a Droplet with the processed cloud-init YAML as UserData
+2. Create a Firewall allowing TCP 22, 80, 443 inbound and attach it to the Droplet
+3. Wait for the Droplet to reach the `active` state and obtain a public IP
+4. Create DNS A record(s) in the DigitalOcean domain if a `dns` section is present
+5. Write all output values to the `do` state section
+
+### DNS Record Creation
+
+When a `dns` section is present and `--do` is used:
+
+1. Create an A record: `<hostname>` in `<domain>` → Droplet public IP
+2. If `is_apex_domain` is true, create an A record at `@`
+3. For each entry in `cname_aliases`, create a CNAME record
+
+All DNS records are tracked in `do.dns_records` (with their DigitalOcean record IDs) and deleted on destroy.
+
+### Credentials
+
+Set `DIGITALOCEAN_TOKEN` to a Personal Access Token with read/write scope. The token is read at runtime and never written to disk or logged.
+
+---
+
+## DNS Swap (Blue-Green Deployment)
+
+The `govirt dns swap <name>` command updates all DNS A records tracked in the VM's state to point at the VM's current public IP, and re-creates any CNAME aliases. The provider is auto-detected from the state section.
+
+Works with AWS (Route53) and DigitalOcean. Not available for local VMs.
+
+Example workflow:
+
+```bash
+govirt create web-server-v2 --aws
+# test web-server-v2...
+govirt dns swap web-server-v2
+govirt destroy web-server-v1 --aws
+```
+
+---
+
+## Config Schema (Go Types)
+
+```go
+type Config struct {
+    VM    *VMConfig    `json:"vm,omitempty"`
+    DNS   *DNSConfig   `json:"dns,omitempty"`
+    Local *LocalState  `json:"local,omitempty"`
+    AWS   *AWSState    `json:"aws,omitempty"`
+    DO    *DOState      `json:"do,omitempty"`
+}
+
+type VMConfig struct {
+    Name         string  `json:"name"`
+    Users        []User  `json:"users,omitempty"`
+    CPUs         int     `json:"cpus,omitempty"`
+    Memory       string  `json:"memory,omitempty"`
+    Disk         string  `json:"disk,omitempty"`
+    Image        string  `json:"image,omitempty"`
+    Mounts       []Mount `json:"mounts,omitempty"`
+    InstanceType string  `json:"instance_type,omitempty"`
+    OS           string  `json:"os,omitempty"`
+    Region       string  `json:"region,omitempty"`
+    VpcID        string  `json:"vpc_id,omitempty"`
+    SubnetID     string  `json:"subnet_id,omitempty"`
+    DOSize       string  `json:"do_size,omitempty"`
+    DORegion     string  `json:"do_region,omitempty"`
+    DOImage      string  `json:"do_image,omitempty"`
+    DOVpcID      string  `json:"do_vpc_id,omitempty"`
+    SSHCidr      string  `json:"ssh_cidr,omitempty"`
+    WebCidr      string  `json:"web_cidr,omitempty"`
+}
+
+type LocalState struct {
+    IP           string `json:"ip,omitempty"`
+    HostsEntry   bool   `json:"hosts_entry,omitempty"`
+    DomainName   string `json:"domain_name,omitempty"`
+    DiskPath     string `json:"disk_path,omitempty"`
+    CloudInitISO string `json:"cloud_init_iso,omitempty"`
+    Network      string `json:"network,omitempty"`
+}
+
+type AWSState struct {
+    PublicIP              string      `json:"public_ip,omitempty"`
+    InstanceID            string      `json:"instance_id,omitempty"`
+    StackID               string      `json:"stack_id,omitempty"`
+    StackName             string      `json:"stack_name,omitempty"`
+    SecurityGroup         string      `json:"security_group,omitempty"`
+    AMIID                 string      `json:"ami_id,omitempty"`
+    VpcID                 string      `json:"vpc_id,omitempty"`
+    SubnetID              string      `json:"subnet_id,omitempty"`
+    CreatedVPC            bool        `json:"created_vpc,omitempty"`
+    CreatedSubnet         bool        `json:"created_subnet,omitempty"`
+    InternetGatewayID     string      `json:"internet_gateway_id,omitempty"`
+    RouteTableID          string      `json:"route_table_id,omitempty"`
+    RouteTableAssociation string      `json:"route_table_association_id,omitempty"`
+    ZoneID                string      `json:"zone_id,omitempty"`
+    FQDN                  string      `json:"fqdn,omitempty"`
+    DNSRecords            []DNSRecord `json:"dns_records,omitempty"`
+}
+
+type DOState struct {
+    DropletID  int        `json:"droplet_id,omitempty"`
+    PublicIP   string     `json:"public_ip,omitempty"`
+    FQDN       string     `json:"fqdn,omitempty"`
+    FirewallID string     `json:"firewall_id,omitempty"`
+    DNSRecords []DORecord `json:"dns_records,omitempty"`
+}
+
+type DNSConfig struct {
+    Hostname     string   `json:"hostname,omitempty"`
+    Domain       string   `json:"domain,omitempty"`
+    TTL          int      `json:"ttl,omitempty"`
+    IsApexDomain bool     `json:"is_apex_domain,omitempty"`
+    CNAMEAliases []string `json:"cname_aliases,omitempty"`
+    ZoneID       string   `json:"zone_id,omitempty"`
+}
+
+type User struct {
+    Username       string `json:"username"`
+    GitHubUsername string `json:"github_username"`
+}
+
+type Mount struct {
+    Source string `json:"source"`
+    Target string `json:"target"`
+}
+```
+
+---
+
+## Provider Interface
+
+```go
+type VMProvider interface {
+    Name() string
+    Create(ctx context.Context, cfg *config.Config, cloudInitPath string) error
+    Delete(ctx context.Context, cfg *config.Config) error
+    Status(ctx context.Context, cfg *config.Config) (*VMStatus, error)
+    List(ctx context.Context) ([]VMStatus, error)
+    SSH(ctx context.Context, cfg *config.Config) error
+    Stop(ctx context.Context, cfg *config.Config) error
+    Start(ctx context.Context, cfg *config.Config) error
+}
+
+type VMStatus struct {
+    Name      string
+    State     string
+    IP        string
+    Provider  string
+    CreatedAt time.Time
+}
+
+// DNSSwapper is implemented by providers that support in-place DNS record updates.
+type DNSSwapper interface {
+    SwapDNS(ctx context.Context, cfg *config.Config) error
+}
+```
+
+---
+
+## Directory Structure
+
+```
+govirt/
+├── cmd/govirt/
+│   └── main.go
+├── internal/
+│   ├── config/
+│   │   ├── config.go
+│   │   ├── loader.go
+│   │   └── loader_test.go
+│   ├── cloudinit/
+│   │   ├── processor.go     # Variable substitution, mount injection
+│   │   ├── ssh.go           # GitHub key fetching
+│   │   ├── template.go      # Go template rendering
+│   │   └── processor_test.go
+│   ├── images/
+│   │   ├── manager.go       # Cloud image download and cache
+│   │   └── manager_test.go
+│   └── provider/
+│       ├── interface.go
+│       ├── libvirt/
+│       │   ├── libvirt.go   # VMProvider implementation
+│       │   ├── virsh.go     # virsh command wrappers
+│       │   ├── iso.go       # NoCloud ISO generation
+│       │   ├── network.go   # IP detection
+│       │   └── libvirt_test.go
+│       ├── aws/
+│       │   ├── aws.go
+│       │   ├── clients.go
+│       │   ├── dns.go
+│       │   ├── network.go
+│       │   ├── sdk_cloudformation.go
+│       │   ├── sdk_ec2.go
+│       │   ├── sdk_route53.go
+│       │   ├── sdk_ssm.go
+│       │   └── template.go
+│       └── digitalocean/
+│           ├── digitalocean.go
+│           ├── client.go
+│           ├── dns.go
+│           ├── droplet.go
+│           └── firewall.go
+├── configs/
+│   ├── base.yaml
+│   ├── dev.yaml
+│   ├── python-dev.yaml
+│   ├── go-dev.yaml
+│   ├── node-dev.yaml
+│   └── claude-dev.yaml
+├── examples/
+│   ├── web-server/
+│   ├── dev-server/
+│   ├── aws-web-server/
+│   └── do-server/
+├── Makefile
+├── go.mod
+└── README.md
+```
+
+---
+
+## Go Module
+
+```
+module github.com/gherlein/govirt
+
+go 1.21
+```
+
+Dependencies:
+- `github.com/aws/aws-sdk-go-v2` and sub-packages (EC2, CloudFormation, Route53, SSM)
+- `github.com/digitalocean/godo`
+- `golang.org/x/oauth2`
+
+No Go libvirt bindings are required: all libvirt interactions shell out to `virsh` and `virt-install`.
+
+---
+
+## Defaults
+
+| Field | Default |
+|-------|---------|
+| `vm.cpus` | `2` |
+| `vm.memory` | `"2G"` |
+| `vm.disk` | `"20G"` |
+| `vm.image` | `"24.04"` |
+| `vm.region` | `"us-east-1"` |
+| `vm.instance_type` | `"t3.micro"` |
+| `dns.ttl` | `300` |
+| libvirt network | `"default"` |
+| image cache dir | `~/.cache/govirt/images` |
+| stack folder | `~/.config/govirt/stacks` |
+| libvirt URI | `qemu:///system` |
+
+---
+
+## Validation Rules
+
+- `vm.name` is required
+- `vm.users` must have at least one entry
+- Each `user.username` must match `^[a-z][a-z0-9_-]*$`
+- Each `user.github_username` must match `^[a-zA-Z0-9][a-zA-Z0-9-]*$`
+- No duplicate usernames within `vm.users`
+- `dns.cname_aliases` requires `dns.domain`
+- `dns.is_apex_domain` requires `dns.domain`
+
+---
+
+## Error Messages
+
+All errors are actionable:
+
+```
+virsh not found: install libvirt (sudo apt install libvirt-daemon-system)
+virt-install not found: install virtinst (sudo apt install virtinst)
+neither cloud-localds nor genisoimage found: install cloud-image-utils or genisoimage
+/dev/kvm not accessible: check that the current user is in the 'kvm' group
+VM already exists: destroy first with 'govirt destroy <name>'
+VM not found: check 'govirt list' for available VMs
+VM started but no IP assigned after 60s: check libvirt network with 'virsh net-list'
+no SSH keys found for <user>: verify GitHub username at github.com/<user>.keys
+config file not found: create ~/.config/govirt/stacks/<name>/config.json
+AWS credentials not configured: run 'aws configure'
+DIGITALOCEAN_TOKEN not set: export DIGITALOCEAN_TOKEN=<your-token>
+```
+
+---
+
+## cloud-init Template Library
+
+Pre-built cloud-init templates for common use cases:
+
+| File | What it installs |
+|------|-----------------|
+| `configs/base.yaml` | curl, wget, vim, htop, git, ca-certificates |
+| `configs/dev.yaml` | build-essential, ripgrep, tmux, fzf, jq |
+| `configs/python-dev.yaml` | Python 3, pip, venv, uv |
+| `configs/go-dev.yaml` | Go 1.23, gopls, delve |
+| `configs/node-dev.yaml` | Node.js 22, npm, pnpm, yarn |
+| `configs/claude-dev.yaml` | All of the above plus Docker |
+
+---
+
+## Testing Requirements
+
+### Unit Tests
+
+- Config loading, defaults, and validation
+- Cloud-init variable substitution
+- Mount injection into cloud-init YAML
+- NoCloud ISO meta-data content generation
+- Image URL resolution from shorthand
+- `virt-install` argument building
+- `virsh domifaddr` output parsing
+- `virsh list` output parsing
+- `virsh dominfo` state parsing
+- AWS CloudFormation template generation
+- AWS VPC/subnet discovery logic
+
+### Integration Tests (require libvirt on test host)
+
+Manual test matrix:
+
+| Operation | Local | AWS | DigitalOcean |
+|-----------|-------|-----|--------------|
+| Create with cloud-init | | | |
+| SSH into VM | | | |
+| Stop VM | | | |
+| Start VM | | | |
+| Status check | | | |
+| List VMs | | | |
+| Destroy VM | | | |
+| Host directory mount | | N/A | N/A |
+| /etc/hosts management | | N/A | N/A |
+| DNS record creation | N/A | | |
+| DNS record deletion | N/A | | |
+| DNS swap | N/A | | |
+
+---
+
+## Build
+
+```makefile
+build:
+    go build -ldflags "-X main.version=$(VERSION)" -o bin/govirt ./cmd/govirt
+
+run-tests:
+    go test -v ./...
+
+install: build
+    cp bin/govirt $(HOME)/bin/
+
+clean:
+    rm -rf bin/
+```
+
+Requires Go 1.21+.

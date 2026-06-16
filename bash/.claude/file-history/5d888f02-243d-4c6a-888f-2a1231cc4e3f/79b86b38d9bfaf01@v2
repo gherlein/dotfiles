@@ -1,0 +1,19 @@
+#cloud-config
+# Python dev template: Python 3 toolchain plus uv.
+users:
+  - name: ubuntu
+    sudo: ALL=(ALL) NOPASSWD:ALL
+    shell: /bin/bash
+    ssh_authorized_keys:
+      - ${SSH_PUBLIC_KEY}
+package_update: true
+packages:
+  - curl
+  - git
+  - ca-certificates
+  - build-essential
+  - python3
+  - python3-pip
+  - python3-venv
+runcmd:
+  - curl -LsSf https://astral.sh/uv/install.sh | sh -s -- --no-modify-path

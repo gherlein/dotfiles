@@ -1,0 +1,54 @@
+# Deferred Findings
+
+Critical and high findings from the three reviews were remediated (see git history /
+the review files). The following medium and low findings are deferred with rationale.
+None affect correctness of the documented happy paths or introduce a security hole.
+
+## Medium
+
+- **AWS `List` is region-locked (us-east-1) and account-wide; instances are not
+  tagged with the logical VM name.** `List` returns all non-terminated instances in
+  the default region. Mapping the logical govirt name requires tagging the EC2
+  instance in the CloudFormation template and filtering by tag. The command is
+  functional; the logical-name column is cosmetic. *Refinement: add a `Name`/`govirt`
+  tag to the CFN instance and filter List by it.*
+
+- **Cloud `Stop`/`Start` do not wait for a terminal power state**, whereas the libvirt
+  provider waits for `shut off` (REQUIREMENTS specifies the wait only for libvirt). The
+  cloud SDK calls issue the graceful action and return. Acceptable per spec, which does
+  not mandate a wait for AWS/DO.
+
+- **Image checksum verification fails open when `SHA256SUMS` is absent/unfetchable.**
+  This matches REQUIREMENTS ("*If* a checksum file is available alongside the image, the
+  download is verified") — verification is conditional by spec. Ubuntu always publishes
+  `SHA256SUMS`, so images are verified in practice. A stricter fail-closed policy would
+  contradict the spec; raising it would require a spec change first.
+
+- **DigitalOcean `SwapDNS` updates tracked records but does not create brand-new
+  `cname_aliases` added to config after creation.** Spec describes swap as updating
+  tracked A records and re-creating CNAME aliases; reconciling newly-added aliases is an
+  edge case. *Refinement: diff config aliases against tracked records during swap.*
+
+## Low
+
+- **`go.mod` go directive is `go 1.25` rather than the spec's literal `go 1.21`.** The
+  current AWS SDK v2 requires a newer Go toolchain than 1.21, and `go mod tidy` raises
+  the directive to the dependency minimum. `1.25` satisfies the spec's stated
+  "Requires Go 1.21+". Downgrading would require pinning older, less secure SDK releases.
+
+- **`qemu-kvm` is not explicitly probed in prerequisite checks** (REQUIREMENTS lists it).
+  `qemu-img` presence is checked and `/dev/kvm` accessibility is verified, which together
+  cover the practical failure modes; `virt-install` validates the hypervisor at runtime.
+
+- **`gopkg.in/yaml.v3` is an additional dependency not listed in REQUIREMENTS.** It is
+  required to merge mount `runcmd`/`write_files` while preserving the mandatory
+  `#cloud-config` header (documented in `docs/DESIGN.md`).
+
+- **os-variant fallback warns on unknown shorthands but does not live-probe the local
+  osinfo database** for known-but-uninstalled variants. The mapped variants
+  (ubuntu24.04/22.04/20.04) are standard; the warning + ubuntu20.04 fallback for unknown
+  values is implemented.
+
+- **AWS `createDNS` uses Route53 UPSERT rather than CREATE.** UPSERT is idempotent and
+  safe on re-create; deletion still uses DELETE. Behaviorally equivalent for the
+  documented flow.

@@ -1,0 +1,74 @@
+package libvirt
+
+import (
+	"context"
+	"fmt"
+	"os"
+	"os/exec"
+	"time"
+
+	"github.com/gherlein/govirt/internal/config"
+)
+
+// sshPoll controls how long TailCloudInit waits for SSH to come up.
+var sshPoll = pollConfig{interval: 2 * time.Second, timeout: 120 * time.Second}
+
+// TailCloudInit streams the guest cloud-init log once SSH is reachable. It is
+// invoked by the CLI only in verbose mode, after the VM is created and its
+// config saved, so a blocking `tail -f` does not prevent state persistence. A
+// missing IP or unreachable VM is reported and treated as non-fatal.
+func (p *Provider) TailCloudInit(ctx context.Context, cfg *config.Config) error {
+	if cfg.Local == nil || cfg.Local.IP == "" {
+		return fmt.Errorf("no IP available to tail cloud-init log")
+	}
+	if len(cfg.VM.Users) == 0 {
+		return fmt.Errorf("no user available for ssh")
+	}
+	user := cfg.VM.Users[0].Username
+	ip := cfg.Local.IP
+	target := user + "@" + ip
+
+	if !p.waitForSSH(ctx, target) {
+		return fmt.Errorf("ssh to %s not available after %s", target, sshPoll.timeout)
+	}
+
+	fmt.Fprintf(p.out(), "streaming cloud-init log from %s (Ctrl-C to stop)\n", target)
+	cmd := exec.CommandContext(ctx, "ssh",
+		"-o", "StrictHostKeyChecking=no", target,
+		"tail -f /var/log/cloud-init-output.log")
+	cmd.Stdout = p.out()
+	cmd.Stderr = os.Stderr
+	return cmd.Run()
+}
+
+// waitForSSH polls until a non-interactive ssh connection to target succeeds or
+// the timeout elapses.
+func (p *Provider) waitForSSH(ctx context.Context, target string) bool {
+	deadline := time.Now().Add(sshPoll.timeout)
+	for {
+		err := p.Runner.Run(ctx, "ssh",
+			"-o", "StrictHostKeyChecking=no",
+			"-o", "BatchMode=yes",
+			"-o", "ConnectTimeout=5",
+			target, "true")
+		if err == nil {
+			return true
+		}
+		if time.Now().After(deadline) {
+			return false
+		}
+		select {
+		case <-ctx.Done():
+			return false
+		case <-time.After(sshPoll.interval):
+		}
+	}
+}
+
+// CloudInitTailer is the optional capability the CLI uses to stream the guest
+// cloud-init log in verbose mode.
+type CloudInitTailer interface {
+	TailCloudInit(ctx context.Context, cfg *config.Config) error
+}
+
+var _ CloudInitTailer = (*Provider)(nil)

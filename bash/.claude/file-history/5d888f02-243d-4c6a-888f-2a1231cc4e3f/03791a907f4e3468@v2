@@ -1,0 +1,176 @@
+package libvirt
+
+import (
+	"strings"
+	"testing"
+
+	"github.com/gherlein/govirt/internal/config"
+)
+
+func TestParseDomifaddr(t *testing.T) {
+	lease := ` Name       MAC address          Protocol     Address
+-------------------------------------------------------------------------------
+ vnet0      52:54:00:12:34:56    ipv4         192.168.122.5/24
+`
+	if got := parseDomifaddr(lease); got != "192.168.122.5" {
+		t.Errorf("got %q, want 192.168.122.5", got)
+	}
+	empty := ` Name       MAC address          Protocol     Address
+-------------------------------------------------------------------------------
+`
+	if got := parseDomifaddr(empty); got != "" {
+		t.Errorf("expected empty, got %q", got)
+	}
+}
+
+func TestParseList(t *testing.T) {
+	out := ` Id   Name       State
+----------------------------------
+ 1    web        running
+ -    devbox     shut off
+`
+	got := parseList(out)
+	if len(got) != 2 {
+		t.Fatalf("got %d domains, want 2: %+v", len(got), got)
+	}
+	if got[0].Name != "web" || got[0].State != "running" {
+		t.Errorf("domain 0 = %+v", got[0])
+	}
+	if got[1].Name != "devbox" || got[1].State != "shut off" {
+		t.Errorf("domain 1 = %+v", got[1])
+	}
+}
+
+func TestParseDominfoState(t *testing.T) {
+	out := "Id:             1\nName:           web\nUUID:           abc\nState:          running\nCPU(s):         2\n"
+	if got := parseDominfoState(out); got != "running" {
+		t.Errorf("got %q, want running", got)
+	}
+	out2 := "Name:           web\nState:          shut off\n"
+	if got := parseDominfoState(out2); got != "shut off" {
+		t.Errorf("got %q, want 'shut off'", got)
+	}
+}
+
+func TestParseDomiflistMAC(t *testing.T) {
+	out := ` Interface   Type      Source    Model    MAC
+-------------------------------------------------------
+ vnet0       network   default   virtio   52:54:00:ab:cd:ef
+`
+	if got := parseDomiflistMAC(out); got != "52:54:00:ab:cd:ef" {
+		t.Errorf("got %q", got)
+	}
+}
+
+func TestParseDnsmasqLease(t *testing.T) {
+	content := "1700000000 52:54:00:ab:cd:ef 192.168.122.42 web 01:52:54:00:ab:cd:ef\n"
+	if got := parseDnsmasqLease(content, "52:54:00:AB:CD:EF"); got != "192.168.122.42" {
+		t.Errorf("got %q, want 192.168.122.42", got)
+	}
+	if got := parseDnsmasqLease(content, "52:54:00:00:00:00"); got != "" {
+		t.Errorf("expected empty for unknown MAC, got %q", got)
+	}
+}
+
+func TestMetaData(t *testing.T) {
+	got := metaData("web-server")
+	if !strings.Contains(got, "instance-id: govirt-web-server") {
+		t.Errorf("missing instance-id: %q", got)
+	}
+	if !strings.Contains(got, "local-hostname: web-server") {
+		t.Errorf("missing local-hostname: %q", got)
+	}
+}
+
+func TestParseMemoryMB(t *testing.T) {
+	cases := map[string]int{"2G": 2048, "512M": 512, "1024": 1024, "4g": 4096, "256m": 256}
+	for in, want := range cases {
+		got, err := parseMemoryMB(in)
+		if err != nil {
+			t.Fatalf("parseMemoryMB(%q): %v", in, err)
+		}
+		if got != want {
+			t.Errorf("parseMemoryMB(%q) = %d, want %d", in, got, want)
+		}
+	}
+	if _, err := parseMemoryMB("notanumber"); err == nil {
+		t.Error("expected error for invalid memory")
+	}
+}
+
+func TestMapOSVariant(t *testing.T) {
+	cases := []struct {
+		image     string
+		variant   string
+		wantKnown bool
+	}{
+		{"24.04", "ubuntu24.04", true},
+		{"22.04", "ubuntu22.04", true},
+		{"20.04", "ubuntu20.04", true},
+		{"99.99", "ubuntu20.04", false},
+	}
+	for _, tt := range cases {
+		got, known := mapOSVariant(tt.image)
+		if got != tt.variant || known != tt.wantKnown {
+			t.Errorf("mapOSVariant(%q) = (%q,%v), want (%q,%v)", tt.image, got, known, tt.variant, tt.wantKnown)
+		}
+	}
+}
+
+func TestKernelSupportsVirtiofs(t *testing.T) {
+	cases := map[string]bool{
+		"6.8.0-generic":  true,
+		"5.4.0":          true,
+		"5.3.18":         false,
+		"4.15.0-generic": false,
+		"":               true,
+		"garbage":        true,
+	}
+	for release, want := range cases {
+		if got := kernelSupportsVirtiofs(release); got != want {
+			t.Errorf("kernelSupportsVirtiofs(%q) = %v, want %v", release, got, want)
+		}
+	}
+}
+
+func TestBuildVirtInstallArgs(t *testing.T) {
+	args := buildVirtInstallArgs("web", 2048, 2, "/img/web.qcow2", "/img/web-cloud-init.iso", "ubuntu24.04", "default", nil, true)
+	joined := strings.Join(args, " ")
+	for _, want := range []string{
+		"--name web",
+		"--memory 2048",
+		"--vcpus 2",
+		"--disk path=/img/web.qcow2,format=qcow2",
+		"--disk path=/img/web-cloud-init.iso,device=cdrom",
+		"--os-variant ubuntu24.04",
+		"--network network=default",
+		"--graphics none",
+		"--noautoconsole",
+		"--import",
+	} {
+		if !strings.Contains(joined, want) {
+			t.Errorf("args missing %q: %v", want, joined)
+		}
+	}
+}
+
+func TestBuildVirtInstallArgsWithMounts(t *testing.T) {
+	mounts := []config.Mount{{Source: "/host/code", Target: "/home/ubuntu/code"}}
+	args := buildVirtInstallArgs("web", 2048, 2, "/d", "/i", "ubuntu24.04", "default", mounts, true)
+	joined := strings.Join(args, " ")
+	want := "--filesystem source=/host/code,target=home-ubuntu-code,driver.type=virtiofs"
+	if !strings.Contains(joined, want) {
+		t.Errorf("missing virtiofs filesystem arg %q in %v", want, joined)
+	}
+}
+
+func TestIsMAC(t *testing.T) {
+	if !isMAC("52:54:00:ab:cd:ef") {
+		t.Error("valid MAC rejected")
+	}
+	for _, bad := range []string{"not-a-mac", "52:54:00", "default", "virtio"} {
+		if isMAC(bad) {
+			t.Errorf("%q accepted as MAC", bad)
+		}
+	}
+}

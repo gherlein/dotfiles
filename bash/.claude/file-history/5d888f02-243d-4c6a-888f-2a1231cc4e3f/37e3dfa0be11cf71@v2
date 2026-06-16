@@ -1,0 +1,29 @@
+package cloudinit
+
+import (
+	"bytes"
+	"fmt"
+	"text/template"
+)
+
+// hasGoTemplate reports whether the document uses Go template syntax.
+func hasGoTemplate(data []byte) bool {
+	return bytes.Contains(data, []byte("{{"))
+}
+
+// renderTemplate runs the document through text/template with data only when it
+// contains Go template markers. Documents without "{{" are returned unchanged.
+func renderTemplate(data []byte, tmplData any) ([]byte, error) {
+	if !hasGoTemplate(data) {
+		return data, nil
+	}
+	tmpl, err := template.New("cloud-init").Option("missingkey=error").Parse(string(data))
+	if err != nil {
+		return nil, fmt.Errorf("parsing cloud-init template: %w", err)
+	}
+	var buf bytes.Buffer
+	if err := tmpl.Execute(&buf, tmplData); err != nil {
+		return nil, fmt.Errorf("rendering cloud-init template: %w", err)
+	}
+	return buf.Bytes(), nil
+}

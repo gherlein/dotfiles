@@ -1,0 +1,16 @@
+#cloud-config
+# Base template: common CLI tooling. Substitute SSH keys via govirt.
+users:
+  - name: ubuntu
+    sudo: ALL=(ALL) NOPASSWD:ALL
+    shell: /bin/bash
+    ssh_authorized_keys:
+      - ${SSH_PUBLIC_KEY}
+package_update: true
+packages:
+  - curl
+  - wget
+  - vim
+  - htop
+  - git
+  - ca-certificates

@@ -1,0 +1,58 @@
+package cloudinit
+
+import (
+	"context"
+	"fmt"
+	"io"
+	"net/http"
+	"strings"
+	"time"
+)
+
+// defaultGitHubBaseURL is the host SSH public keys are fetched from.
+const defaultGitHubBaseURL = "https://github.com"
+
+// KeyFetcher retrieves SSH public keys for GitHub users.
+//
+// BaseURL and Client are exposed so tests can point at an httptest server. The
+// production zero value (via NewKeyFetcher) talks to github.com with TLS
+// verification enabled and a bounded timeout.
+type KeyFetcher struct {
+	Client  *http.Client
+	BaseURL string
+}
+
+// NewKeyFetcher returns a fetcher with secure defaults.
+func NewKeyFetcher() *KeyFetcher {
+	return &KeyFetcher{
+		Client:  &http.Client{Timeout: 15 * time.Second},
+		BaseURL: defaultGitHubBaseURL,
+	}
+}
+
+// Fetch returns the SSH public keys published at <base>/<githubUser>.keys.
+// An empty key set is treated as an error.
+func (f *KeyFetcher) Fetch(ctx context.Context, githubUser string) (string, error) {
+	url := fmt.Sprintf("%s/%s.keys", strings.TrimRight(f.BaseURL, "/"), githubUser)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return "", fmt.Errorf("building key request for %s: %w", githubUser, err)
+	}
+	resp, err := f.Client.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("fetching keys for %s: %w", githubUser, err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("no SSH keys found for %s: verify GitHub username at github.com/%s.keys", githubUser, githubUser)
+	}
+	body, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
+	if err != nil {
+		return "", fmt.Errorf("reading keys for %s: %w", githubUser, err)
+	}
+	keys := strings.TrimSpace(string(body))
+	if keys == "" {
+		return "", fmt.Errorf("no SSH keys found for %s: verify GitHub username at github.com/%s.keys", githubUser, githubUser)
+	}
+	return keys, nil
+}

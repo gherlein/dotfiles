@@ -1,0 +1,19 @@
+{
+  "vm": {
+    "name": "do-server",
+    "do_size": "s-2vcpu-4gb",
+    "do_region": "nyc3",
+    "do_image": "ubuntu-24-04-x64",
+    "ssh_cidr": "0.0.0.0/0",
+    "web_cidr": "0.0.0.0/0",
+    "users": [
+      {"username": "ubuntu", "github_username": "your-github-username"}
+    ]
+  },
+  "dns": {
+    "hostname": "app",
+    "domain": "example.com",
+    "ttl": 300,
+    "cname_aliases": ["www"]
+  }
+}

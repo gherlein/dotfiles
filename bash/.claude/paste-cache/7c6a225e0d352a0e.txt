@@ -1,0 +1,43 @@
+sudo apt-get install -y nfs-kernel-server
+Reading package lists... Done
+Building dependency tree... Done
+Reading state information... Done
+nfs-kernel-server is already the newest version (1:2.6.4-3ubuntu5.1).
+0 upgraded, 0 newly installed, 0 to remove and 71 not upgraded.
+sudo cp /home/gherlein/dotfiles/goloo/.config/goloo/stacks/devbox/host-setup/host-shadow-paths /etc/host-shadow-paths
+Installed /etc/host-shadow-paths from repo template
+sudo cp /home/gherlein/dotfiles/goloo/.config/goloo/stacks/devbox/host-setup/shadow-export-gen /usr/local/bin/shadow-export-gen
+sudo chmod +x /usr/local/bin/shadow-export-gen
+sudo shadow-export-gen
+Exporting to VM network: 10.0.2.0/24
+Exports updated:
+/                 10.0.2.0/24(sync,wdelay,hide,crossmnt,no_subtree_check,fsid=0,sec=sys,ro,secure,root_squash,no_all_squash)
+/home/gherlein/h/src
+        10.0.2.0/24(sync,wdelay,hide,no_subtree_check,sec=sys,rw,secure,no_root_squash,no_all_squash)
+/home/gherlein/dotfiles/bash/.claude
+        10.0.2.0/24(sync,wdelay,hide,no_subtree_check,sec=sys,rw,secure,no_root_squash,no_all_squash)
+/home/gherlein/.config
+        10.0.2.0/24(sync,wdelay,hide,no_subtree_check,sec=sys,rw,secure,no_root_squash,no_all_squash)
+sudo systemctl enable --now nfs-kernel-server
+Synchronizing state of nfs-kernel-server.service with SysV service script with /usr/lib/systemd/systemd-sysv-install.
+Executing: /usr/lib/systemd/systemd-sysv-install enable nfs-kernel-server
+sudo systemctl status nfs-kernel-server --no-pager
+● nfs-server.service - NFS server and services
+     Loaded: loaded (/usr/lib/systemd/system/nfs-server.service; enabled; preset: enabled)
+    Drop-In: /run/systemd/generator/nfs-server.service.d
+             └─order-with-mounts.conf
+     Active: active (exited) since Sun 2026-06-14 10:57:38 PDT; 8h ago
+   Main PID: 4046432 (code=exited, status=0/SUCCESS)
+        CPU: 4ms
+
+Jun 14 10:57:38 helios systemd[1]: Starting nfs-server.service - NFS…s...
+Jun 14 10:57:38 helios exportfs[4046431]: exportfs: can't open /etc/e…ing
+Jun 14 10:57:38 helios systemd[1]: Finished nfs-server.service - NFS…ces.
+Hint: Some lines were ellipsized, use -l to show in full.
+
+Host setup complete. Run 'make ufw-allow' if ufw is active.
+Then run 'make create-vm' to launch the VM.
+helios:~/dotfiles/goloo/.config/goloo/stacks/devbox> make create-vm
+goloo create localdev
+Error: config file not found: create /home/gherlein/.config/goloo/stacks/localdev/config.json
+make: *** [Makefile:73: create-vm] Error 1

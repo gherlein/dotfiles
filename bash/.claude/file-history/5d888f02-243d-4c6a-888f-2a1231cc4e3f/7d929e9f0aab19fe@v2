@@ -1,0 +1,151 @@
+package images
+
+import (
+	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"fmt"
+	"io"
+	"net/http"
+	"net/http/httptest"
+	"os"
+	"path/filepath"
+	"testing"
+)
+
+func TestResolveURL(t *testing.T) {
+	cases := map[string]string{
+		"24.04": "https://cloud-images.ubuntu.com/noble/current/noble-server-cloudimg-amd64.img",
+		"22.04": "https://cloud-images.ubuntu.com/jammy/current/jammy-server-cloudimg-amd64.img",
+		"20.04": "https://cloud-images.ubuntu.com/focal/current/focal-server-cloudimg-amd64.img",
+	}
+	for image, want := range cases {
+		got, err := ResolveURL(image)
+		if err != nil {
+			t.Fatalf("ResolveURL(%q): %v", image, err)
+		}
+		if got != want {
+			t.Errorf("ResolveURL(%q) = %q, want %q", image, got, want)
+		}
+	}
+	if _, err := ResolveURL("18.04"); err == nil {
+		t.Error("expected error for unknown shorthand")
+	}
+}
+
+func TestParseChecksum(t *testing.T) {
+	content := "abc123  *noble-server-cloudimg-amd64.img\ndef456  other.img\n"
+	got, ok := parseChecksum(content, "noble-server-cloudimg-amd64.img")
+	if !ok || got != "abc123" {
+		t.Errorf("parseChecksum = %q,%v", got, ok)
+	}
+	if _, ok := parseChecksum(content, "missing.img"); ok {
+		t.Error("expected not found")
+	}
+}
+
+// imageServer serves a fake noble image plus an optional SHA256SUMS.
+func imageServer(t *testing.T, body []byte, sums string) *httptest.Server {
+	t.Helper()
+	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.URL.Path == "/noble/current/noble-server-cloudimg-amd64.img":
+			w.Write(body)
+		case r.URL.Path == "/noble/current/SHA256SUMS":
+			if sums == "" {
+				http.NotFound(w, r)
+				return
+			}
+			fmt.Fprint(w, sums)
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+}
+
+func TestEnsureDownloadsAndVerifies(t *testing.T) {
+	body := []byte("fake-qcow2-bytes")
+	sum := sha256.Sum256(body)
+	sums := fmt.Sprintf("%s  *noble-server-cloudimg-amd64.img\n", hex.EncodeToString(sum[:]))
+	srv := imageServer(t, body, sums)
+	defer srv.Close()
+
+	cache := t.TempDir()
+	m := &Manager{CacheDir: cache, Client: srv.Client(), BaseURL: srv.URL, Progress: io.Discard}
+
+	path, err := m.Ensure(context.Background(), "24.04")
+	if err != nil {
+		t.Fatalf("Ensure: %v", err)
+	}
+	got, _ := os.ReadFile(path)
+	if string(got) != string(body) {
+		t.Errorf("cached content mismatch")
+	}
+	if path != filepath.Join(cache, "noble-server-cloudimg-amd64.img") {
+		t.Errorf("unexpected cache path %q", path)
+	}
+}
+
+func TestEnsureCacheHitSkipsDownload(t *testing.T) {
+	cache := t.TempDir()
+	existing := filepath.Join(cache, "noble-server-cloudimg-amd64.img")
+	if err := os.WriteFile(existing, []byte("cached"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	// Server that fails if hit, proving the cache short-circuits.
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		t.Errorf("unexpected request: %s", r.URL.Path)
+		http.Error(w, "no", 500)
+	}))
+	defer srv.Close()
+	m := &Manager{CacheDir: cache, Client: srv.Client(), BaseURL: srv.URL, Progress: io.Discard}
+
+	path, err := m.Ensure(context.Background(), "24.04")
+	if err != nil {
+		t.Fatalf("Ensure: %v", err)
+	}
+	if path != existing {
+		t.Errorf("got %q, want %q", path, existing)
+	}
+}
+
+func TestEnsureChecksumMismatch(t *testing.T) {
+	body := []byte("real-bytes")
+	sums := "deadbeef  *noble-server-cloudimg-amd64.img\n"
+	srv := imageServer(t, body, sums)
+	defer srv.Close()
+
+	cache := t.TempDir()
+	m := &Manager{CacheDir: cache, Client: srv.Client(), BaseURL: srv.URL, Progress: io.Discard}
+
+	if _, err := m.Ensure(context.Background(), "24.04"); err == nil {
+		t.Fatal("expected checksum mismatch error")
+	}
+	if _, err := os.Stat(filepath.Join(cache, "noble-server-cloudimg-amd64.img")); !os.IsNotExist(err) {
+		t.Error("partial download should be removed on mismatch")
+	}
+}
+
+func TestEnsureNoChecksumProceeds(t *testing.T) {
+	body := []byte("real-bytes")
+	srv := imageServer(t, body, "") // SHA256SUMS 404s
+	defer srv.Close()
+
+	cache := t.TempDir()
+	m := &Manager{CacheDir: cache, Client: srv.Client(), BaseURL: srv.URL, Progress: io.Discard}
+
+	path, err := m.Ensure(context.Background(), "24.04")
+	if err != nil {
+		t.Fatalf("Ensure: %v", err)
+	}
+	if _, err := os.Stat(path); err != nil {
+		t.Errorf("image not cached when checksum unavailable: %v", err)
+	}
+}
+
+func TestDefaultCacheDirEnvOverride(t *testing.T) {
+	t.Setenv("GOVIRT_IMAGE_CACHE", "/custom/cache")
+	if got := DefaultCacheDir(); got != "/custom/cache" {
+		t.Errorf("DefaultCacheDir = %q", got)
+	}
+}

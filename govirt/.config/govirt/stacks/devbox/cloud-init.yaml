@@ -1,14 +1,17 @@
 #cloud-config
-# devbox local development VM — provisioned by govirt + Multipass.
+# devbox local development VM — provisioned by govirt (libvirt/KVM).
 # Generated from REQUIREMENTS.md (§4) and VM-SHARED-MOUNTS.md.
 #
 # Host-IP note: the shadow scripts derive the NFS server address from the VM's
-# default-route gateway at runtime (= the Multipass bridge / host address).
-# This avoids hard-coding the QEMU 10.0.2.2 default, which Multipass on Linux
-# does not use.
+# default-route gateway at runtime (= the libvirt bridge / host address).
+#
+# The primary in-VM user comes from config.json (vm.users[0].username) via the
+# {{ $u }} template variable below — by convention this matches the host user
+# that runs `govirt create`, so files on host-mounted paths keep the same uid.
+{{- $u := (index .VM.Users 0).Username }}
 
 users:
-  - name: ubuntu
+  - name: {{ $u }}
     sudo: ALL=(ALL) NOPASSWD:ALL
     shell: /bin/bash
     ssh_authorized_keys:
@@ -252,11 +255,12 @@ write_files:
       WantedBy=multi-user.target
 
   # ----------------------------------------------------------------------
-  # Bash environment for the ubuntu user
+  # Bash environment for the primary user
   # ----------------------------------------------------------------------
-  - path: /home/ubuntu/.bashrc.d/dev-env.sh
-    owner: ubuntu:ubuntu
+  - path: /home/{{ $u }}/.bashrc.d/dev-env.sh
+    owner: {{ $u }}:{{ $u }}
     permissions: '0644'
+    defer: true
     content: |
       # Go
       export GOROOT=/usr/local/go
@@ -293,14 +297,14 @@ runcmd:
   # --- Required directories -------------------------------------------------
   - mkdir -p /mnt/host
   - mkdir -p /mnt/rw
-  - sudo -u ubuntu mkdir -p /home/ubuntu/go/bin /home/ubuntu/go/src /home/ubuntu/go/pkg
-  - sudo -u ubuntu mkdir -p /home/ubuntu/.npm-global
-  - sudo -u ubuntu mkdir -p /home/ubuntu/.bashrc.d
+  - sudo -u {{ $u }} mkdir -p /home/{{ $u }}/go/bin /home/{{ $u }}/go/src /home/{{ $u }}/go/pkg
+  - sudo -u {{ $u }} mkdir -p /home/{{ $u }}/.npm-global
+  - sudo -u {{ $u }} mkdir -p /home/{{ $u }}/.bashrc.d
   - ln -sf /usr/bin/fdfind /usr/local/bin/fd
 
   # --- Source .bashrc.d from .bashrc ---------------------------------------
   - |
-    cat >> /home/ubuntu/.bashrc << 'EOF'
+    cat >> /home/{{ $u }}/.bashrc << 'EOF'
 
     # Source all files in .bashrc.d
     if [ -d ~/.bashrc.d ]; then
@@ -309,7 +313,7 @@ runcmd:
       done
     fi
     EOF
-    chown ubuntu:ubuntu /home/ubuntu/.bashrc
+    chown {{ $u }}:{{ $u }} /home/{{ $u }}/.bashrc
 
   # --- GitHub CLI -----------------------------------------------------------
   - |
@@ -329,25 +333,25 @@ runcmd:
 
   # --- NVM + Node.js LTS ----------------------------------------------------
   - |
-    NVM_DIR=/home/ubuntu/.nvm
+    NVM_DIR=/home/{{ $u }}/.nvm
     mkdir -p $NVM_DIR
-    chown ubuntu:ubuntu $NVM_DIR
-    sudo -u ubuntu bash -c '
-      export NVM_DIR=/home/ubuntu/.nvm
+    chown {{ $u }}:{{ $u }} $NVM_DIR
+    sudo -u {{ $u }} bash -c '
+      export NVM_DIR=/home/{{ $u }}/.nvm
       curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.0/install.sh | bash
       . "$NVM_DIR/nvm.sh"
       nvm install --lts
       nvm alias default node
       ln -s "$NVM_DIR/versions/node/$(. $NVM_DIR/nvm.sh && nvm version default)" "$NVM_DIR/default"
     '
-    ln -sf $(sudo -u ubuntu bash -c '. /home/ubuntu/.nvm/nvm.sh && which node') /usr/local/bin/node
-    ln -sf $(sudo -u ubuntu bash -c '. /home/ubuntu/.nvm/nvm.sh && which npm') /usr/local/bin/npm
+    ln -sf $(sudo -u {{ $u }} bash -c '. /home/{{ $u }}/.nvm/nvm.sh && which node') /usr/local/bin/node
+    ln -sf $(sudo -u {{ $u }} bash -c '. /home/{{ $u }}/.nvm/nvm.sh && which npm') /usr/local/bin/npm
 
   # --- npm global prefix + global packages ---------------------------------
-  - sudo -u ubuntu npm config set prefix '/home/ubuntu/.npm-global'
+  - sudo -u {{ $u }} npm config set prefix '/home/{{ $u }}/.npm-global'
   - |
-    sudo -u ubuntu bash -c '
-      export NVM_DIR=/home/ubuntu/.nvm
+    sudo -u {{ $u }} bash -c '
+      export NVM_DIR=/home/{{ $u }}/.nvm
       . "$NVM_DIR/nvm.sh"
       NODE_OPTIONS="--max-old-space-size=4096" npm install -g \
         typescript ts-node pnpm eslint prettier
@@ -373,7 +377,7 @@ runcmd:
 
   # --- uv (Python package manager) -----------------------------------------
   - |
-    sudo -u ubuntu bash -c '
+    sudo -u {{ $u }} bash -c '
       for i in 1 2 3; do
         curl -LsSf https://astral.sh/uv/install.sh | sh && break || \
           (echo "Attempt $i failed, retrying..." && sleep 5)
@@ -381,25 +385,25 @@ runcmd:
     '
 
   # --- WeasyPrint via uv ----------------------------------------------------
-  - sudo -u ubuntu /home/ubuntu/.local/bin/uv tool install weasyprint
+  - sudo -u {{ $u }} /home/{{ $u }}/.local/bin/uv tool install weasyprint
 
   # --- Claude Code ----------------------------------------------------------
   - |
-    sudo -u ubuntu bash -c '
-      export PATH="/home/ubuntu/.npm-global/bin:$PATH"
-      export NVM_DIR=/home/ubuntu/.nvm
+    sudo -u {{ $u }} bash -c '
+      export PATH="/home/{{ $u }}/.npm-global/bin:$PATH"
+      export NVM_DIR=/home/{{ $u }}/.nvm
       . "$NVM_DIR/nvm.sh"
       curl -fsSL https://claude.ai/install.sh | bash
     '
 
   # --- opencode -------------------------------------------------------------
-  - sudo -u ubuntu bash -c 'curl -fsSL https://opencode.ai/install | bash'
+  - sudo -u {{ $u }} bash -c 'curl -fsSL https://opencode.ai/install | bash'
 
   # --- Go tools -------------------------------------------------------------
   - |
-    sudo -u ubuntu bash -c '
+    sudo -u {{ $u }} bash -c '
       export GOROOT=/usr/local/go
-      export GOPATH=/home/ubuntu/go
+      export GOPATH=/home/{{ $u }}/go
       export PATH="$GOROOT/bin:$GOPATH/bin:$PATH"
       go install golang.org/x/tools/cmd/goimports@latest
       go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
@@ -408,7 +412,7 @@ runcmd:
     '
 
   # --- Fix ownership --------------------------------------------------------
-  - chown -R ubuntu:ubuntu /home/ubuntu
+  - chown -R {{ $u }}:{{ $u }} /home/{{ $u }}
 
   # --- Enable optional auto-mount service ----------------------------------
   - systemctl daemon-reload

@@ -1,0 +1,5 @@
+{"type":"last-prompt","lastPrompt":"find qwen2.5-1.5b-instruct.rkllm","leafUuid":"ffdd1aea-fed7-4934-a00a-b98179e8d990","sessionId":"ce4dec3e-2d20-4492-baf6-87da1954d6ce"}
+{"type":"ai-title","aiTitle":"Debug BrightSign SDK setup failure in Docker","sessionId":"ce4dec3e-2d20-4492-baf6-87da1954d6ce"}
+{"type":"mode","mode":"normal","sessionId":"ce4dec3e-2d20-4492-baf6-87da1954d6ce"}
+{"type":"permission-mode","permissionMode":"bypassPermissions","sessionId":"ce4dec3e-2d20-4492-baf6-87da1954d6ce"}
+{"type":"pr-link","sessionId":"ce4dec3e-2d20-4492-baf6-87da1954d6ce","prNumber":6,"prUrl":"https://github.com/BrightSign-Playground/brightsign-bazel-ai-poc/pull/6","prRepository":"BrightSign-Playground/brightsign-bazel-ai-poc","timestamp":"2026-06-15T20:06:11.952Z"}

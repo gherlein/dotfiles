@@ -1,0 +1,236 @@
+// Package images downloads and caches Ubuntu cloud images used by the local
+// libvirt provider. Cached images are never deleted automatically.
+package images
+
+import (
+	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"fmt"
+	"io"
+	"net/http"
+	"os"
+	"path/filepath"
+	"strings"
+	"time"
+)
+
+// DefaultBaseURL is the Ubuntu cloud image host.
+const DefaultBaseURL = "https://cloud-images.ubuntu.com"
+
+// release maps an image shorthand to its codename and image file name.
+type release struct {
+	codename string
+	file     string
+}
+
+var releases = map[string]release{
+	"24.04": {"noble", "noble-server-cloudimg-amd64.img"},
+	"22.04": {"jammy", "jammy-server-cloudimg-amd64.img"},
+	"20.04": {"focal", "focal-server-cloudimg-amd64.img"},
+}
+
+// ResolveURL returns the canonical download URL for an image shorthand using the
+// default Ubuntu host.
+func ResolveURL(image string) (string, error) {
+	url, _, _, err := resolve(DefaultBaseURL, image)
+	return url, err
+}
+
+func resolve(base, image string) (imageURL, checksumURL, filename string, err error) {
+	r, ok := releases[image]
+	if !ok {
+		return "", "", "", fmt.Errorf("unknown image shorthand %q: supported values are 24.04, 22.04, 20.04", image)
+	}
+	prefix := fmt.Sprintf("%s/%s/current", strings.TrimRight(base, "/"), r.codename)
+	return prefix + "/" + r.file, prefix + "/SHA256SUMS", r.file, nil
+}
+
+// Manager downloads and caches cloud images.
+type Manager struct {
+	CacheDir string
+	Client   *http.Client
+	BaseURL  string
+	// Progress receives human-readable download progress. Defaults to os.Stderr.
+	Progress io.Writer
+}
+
+// DefaultCacheDir returns $GOVIRT_IMAGE_CACHE or ~/.cache/govirt/images.
+func DefaultCacheDir() string {
+	if v := os.Getenv("GOVIRT_IMAGE_CACHE"); v != "" {
+		return v
+	}
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return filepath.Join(os.TempDir(), "govirt", "images")
+	}
+	return filepath.Join(home, ".cache", "govirt", "images")
+}
+
+// NewManager returns a Manager with secure defaults.
+func NewManager() *Manager {
+	return &Manager{
+		CacheDir: DefaultCacheDir(),
+		Client:   &http.Client{Timeout: 30 * time.Minute},
+		BaseURL:  DefaultBaseURL,
+		Progress: os.Stderr,
+	}
+}
+
+// Ensure returns the local path to the cached image for the given shorthand,
+// downloading and verifying it on a cache miss.
+func (m *Manager) Ensure(ctx context.Context, image string) (string, error) {
+	imageURL, checksumURL, filename, err := resolve(m.baseURL(), image)
+	if err != nil {
+		return "", err
+	}
+	cachePath := filepath.Join(m.CacheDir, filename)
+	if _, err := os.Stat(cachePath); err == nil {
+		return cachePath, nil
+	}
+	if err := os.MkdirAll(m.CacheDir, 0o755); err != nil {
+		return "", fmt.Errorf("creating image cache dir: %w", err)
+	}
+
+	tmp := cachePath + ".part"
+	sum, err := m.download(ctx, imageURL, tmp)
+	if err != nil {
+		os.Remove(tmp)
+		return "", err
+	}
+
+	if expected, ok := m.fetchChecksum(ctx, checksumURL, filename); ok {
+		if !strings.EqualFold(expected, sum) {
+			os.Remove(tmp)
+			return "", fmt.Errorf("checksum mismatch for %s: expected %s, got %s", filename, expected, sum)
+		}
+	} else {
+		fmt.Fprintf(m.progress(), "warning: no checksum available for %s; skipping verification\n", filename)
+	}
+
+	if err := os.Rename(tmp, cachePath); err != nil {
+		os.Remove(tmp)
+		return "", fmt.Errorf("finalizing cached image: %w", err)
+	}
+	return cachePath, nil
+}
+
+// download streams imageURL to dst, reporting progress, and returns the SHA-256
+// of the downloaded bytes.
+func (m *Manager) download(ctx context.Context, imageURL, dst string) (string, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, imageURL, nil)
+	if err != nil {
+		return "", err
+	}
+	resp, err := m.client().Do(req)
+	if err != nil {
+		return "", fmt.Errorf("downloading %s: %w", imageURL, err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("downloading %s: HTTP %d", imageURL, resp.StatusCode)
+	}
+
+	f, err := os.Create(dst)
+	if err != nil {
+		return "", err
+	}
+	defer f.Close()
+
+	hasher := sha256.New()
+	pr := &progressReader{r: resp.Body, total: resp.ContentLength, w: m.progress(), name: filepath.Base(imageURL)}
+	if _, err := io.Copy(io.MultiWriter(f, hasher), pr); err != nil {
+		return "", fmt.Errorf("writing image: %w", err)
+	}
+	pr.finish()
+	return hex.EncodeToString(hasher.Sum(nil)), nil
+}
+
+// fetchChecksum returns the expected SHA-256 for filename from a SHA256SUMS
+// document, or ok=false if it cannot be retrieved.
+func (m *Manager) fetchChecksum(ctx context.Context, checksumURL, filename string) (string, bool) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, checksumURL, nil)
+	if err != nil {
+		return "", false
+	}
+	resp, err := m.client().Do(req)
+	if err != nil || resp.StatusCode != http.StatusOK {
+		if resp != nil {
+			resp.Body.Close()
+		}
+		return "", false
+	}
+	defer resp.Body.Close()
+	body, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
+	if err != nil {
+		return "", false
+	}
+	return parseChecksum(string(body), filename)
+}
+
+// parseChecksum extracts the hex digest for filename from SHA256SUMS content.
+func parseChecksum(content, filename string) (string, bool) {
+	for _, line := range strings.Split(content, "\n") {
+		fields := strings.Fields(line)
+		if len(fields) != 2 {
+			continue
+		}
+		name := strings.TrimPrefix(fields[1], "*")
+		if name == filename {
+			return fields[0], true
+		}
+	}
+	return "", false
+}
+
+func (m *Manager) client() *http.Client {
+	if m.Client != nil {
+		return m.Client
+	}
+	return http.DefaultClient
+}
+
+func (m *Manager) baseURL() string {
+	if m.BaseURL != "" {
+		return m.BaseURL
+	}
+	return DefaultBaseURL
+}
+
+func (m *Manager) progress() io.Writer {
+	if m.Progress != nil {
+		return m.Progress
+	}
+	return os.Stderr
+}
+
+// progressReader reports download progress as bytes flow through it.
+type progressReader struct {
+	r        io.Reader
+	total    int64
+	read     int64
+	w        io.Writer
+	name     string
+	lastPct  int
+	reported bool
+}
+
+func (p *progressReader) Read(b []byte) (int, error) {
+	n, err := p.r.Read(b)
+	p.read += int64(n)
+	if p.total > 0 {
+		pct := int(p.read * 100 / p.total)
+		if pct != p.lastPct {
+			p.lastPct = pct
+			fmt.Fprintf(p.w, "\rdownloading %s: %d%%", p.name, pct)
+			p.reported = true
+		}
+	}
+	return n, err
+}
+
+func (p *progressReader) finish() {
+	if p.reported {
+		fmt.Fprintf(p.w, "\rdownloading %s: done\n", p.name)
+	}
+}

@@ -1,0 +1,2 @@
+- [goraic project](project-goraic.md) — open-source NATS-mesh coding agent in `/gorai-all/goraic`; the first practical example of the broader gorai mesh
+- [go-llms library](external-go-llms.md) — external Go LLM provider library at `/external/go-llms`, adopted by goraic in v0.3 in place of an in-house sibling lib

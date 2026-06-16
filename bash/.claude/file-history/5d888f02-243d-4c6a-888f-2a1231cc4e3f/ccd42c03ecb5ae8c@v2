@@ -1,0 +1,159 @@
+package libvirt
+
+import (
+	"bytes"
+	"context"
+	"fmt"
+	"os/exec"
+	"strings"
+)
+
+// Runner executes external commands. It is an interface so tests can supply
+// canned output without invoking real binaries.
+type Runner interface {
+	// Run executes a command, discarding stdout.
+	Run(ctx context.Context, name string, args ...string) error
+	// Output executes a command and returns its stdout (stderr is discarded).
+	Output(ctx context.Context, name string, args ...string) ([]byte, error)
+}
+
+// execRunner runs commands via os/exec. Arguments are passed as an explicit
+// slice (no shell), preventing command injection.
+type execRunner struct{}
+
+func (execRunner) Run(ctx context.Context, name string, args ...string) error {
+	cmd := exec.CommandContext(ctx, name, args...)
+	var stderr bytes.Buffer
+	cmd.Stderr = &stderr
+	if err := cmd.Run(); err != nil {
+		msg := strings.TrimSpace(stderr.String())
+		if msg != "" {
+			return fmt.Errorf("%s %s: %s: %w", name, strings.Join(args, " "), msg, err)
+		}
+		return fmt.Errorf("%s %s: %w", name, strings.Join(args, " "), err)
+	}
+	return nil
+}
+
+func (execRunner) Output(ctx context.Context, name string, args ...string) ([]byte, error) {
+	cmd := exec.CommandContext(ctx, name, args...)
+	out, err := cmd.Output()
+	if err != nil {
+		return nil, fmt.Errorf("%s %s: %w", name, strings.Join(args, " "), err)
+	}
+	return out, nil
+}
+
+// parseDomifaddr extracts the first IPv4 address from `virsh domifaddr` output.
+// Returns "" if no address is present yet.
+func parseDomifaddr(out string) string {
+	for _, line := range strings.Split(out, "\n") {
+		fields := strings.Fields(line)
+		// Name MAC Protocol Address
+		if len(fields) < 4 {
+			continue
+		}
+		if strings.EqualFold(fields[2], "ipv4") {
+			addr := fields[3]
+			if i := strings.IndexByte(addr, '/'); i >= 0 {
+				addr = addr[:i]
+			}
+			return addr
+		}
+	}
+	return ""
+}
+
+// domain is a name/state pair from `virsh list`.
+type domain struct {
+	Name  string
+	State string
+}
+
+// parseList parses `virsh list --all` into domains. The state column may contain
+// spaces (e.g. "shut off").
+func parseList(out string) []domain {
+	var domains []domain
+	lines := strings.Split(out, "\n")
+	for _, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		if trimmed == "" {
+			continue
+		}
+		// Skip header and separator rows.
+		if strings.HasPrefix(trimmed, "Id") || strings.HasPrefix(trimmed, "---") {
+			continue
+		}
+		fields := strings.Fields(line)
+		// Id Name State... (Id may be "-")
+		if len(fields) < 3 {
+			continue
+		}
+		domains = append(domains, domain{
+			Name:  fields[1],
+			State: strings.Join(fields[2:], " "),
+		})
+	}
+	return domains
+}
+
+// parseDominfoState extracts the State field from `virsh dominfo` output.
+func parseDominfoState(out string) string {
+	for _, line := range strings.Split(out, "\n") {
+		if strings.HasPrefix(line, "State:") {
+			return strings.TrimSpace(strings.TrimPrefix(line, "State:"))
+		}
+	}
+	return ""
+}
+
+// parseDomiflistMAC extracts the first interface MAC from `virsh domiflist`.
+func parseDomiflistMAC(out string) string {
+	for _, line := range strings.Split(out, "\n") {
+		fields := strings.Fields(line)
+		if len(fields) < 5 {
+			continue
+		}
+		mac := fields[len(fields)-1]
+		if isMAC(mac) {
+			return mac
+		}
+	}
+	return ""
+}
+
+// parseDnsmasqLease finds the IP leased to mac in a dnsmasq leases file.
+func parseDnsmasqLease(content, mac string) string {
+	mac = strings.ToLower(mac)
+	for _, line := range strings.Split(content, "\n") {
+		fields := strings.Fields(line)
+		// timestamp MAC IP hostname clientid
+		if len(fields) < 3 {
+			continue
+		}
+		if strings.ToLower(fields[1]) == mac {
+			return fields[2]
+		}
+	}
+	return ""
+}
+
+// isMAC reports whether s looks like aa:bb:cc:dd:ee:ff.
+func isMAC(s string) bool {
+	parts := strings.Split(s, ":")
+	if len(parts) != 6 {
+		return false
+	}
+	for _, p := range parts {
+		if len(p) != 2 {
+			return false
+		}
+		for _, c := range p {
+			isHex := (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F')
+			if !isHex {
+				return false
+			}
+		}
+	}
+	return true
+}

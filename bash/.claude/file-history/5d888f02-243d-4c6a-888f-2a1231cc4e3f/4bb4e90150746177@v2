@@ -1,0 +1,221 @@
+package digitalocean
+
+import (
+	"context"
+	"fmt"
+	"io"
+	"os"
+	"os/exec"
+	"syscall"
+
+	"github.com/gherlein/govirt/internal/config"
+	"github.com/gherlein/govirt/internal/provider"
+)
+
+// Provider is the DigitalOcean VMProvider implementation. The API is resolved
+// lazily from the DIGITALOCEAN_TOKEN environment variable on first use so that
+// constructing a Provider never requires a token; tests inject a fake API
+// directly.
+type Provider struct {
+	api  API
+	poll pollConfig
+	Out  io.Writer
+}
+
+// New returns a Provider with production defaults. The DigitalOcean API client
+// is built lazily on first use from the DIGITALOCEAN_TOKEN environment variable.
+func New() *Provider {
+	return &Provider{
+		poll: defaultDropletPoll,
+		Out:  os.Stderr,
+	}
+}
+
+// Name implements provider.VMProvider.
+func (p *Provider) Name() string { return "do" }
+
+// ensureAPI lazily builds the godo-backed API from the environment if one has
+// not been injected.
+func (p *Provider) ensureAPI() error {
+	if p.api != nil {
+		return nil
+	}
+	api, err := newAPIFromEnv()
+	if err != nil {
+		return err
+	}
+	p.api = api
+	return nil
+}
+
+// Create provisions a droplet, attaches a firewall, creates DNS records, and
+// records the result in cfg.DO. The processed cloud-init document at
+// cloudInitPath is passed as the droplet UserData.
+func (p *Provider) Create(ctx context.Context, cfg *config.Config, cloudInitPath string) error {
+	if cfg.VM == nil {
+		return fmt.Errorf("config missing vm section")
+	}
+	if err := config.ValidateName(cfg.VM.Name); err != nil {
+		return err
+	}
+	if err := p.ensureAPI(); err != nil {
+		return err
+	}
+
+	userData, err := os.ReadFile(cloudInitPath)
+	if err != nil {
+		return fmt.Errorf("reading processed cloud-init: %w", err)
+	}
+
+	dropletID, ip, err := p.createDroplet(ctx, cfg, string(userData))
+	if err != nil {
+		return err
+	}
+
+	firewallID, err := p.createFirewall(ctx, cfg, dropletID)
+	if err != nil {
+		return err
+	}
+
+	records, err := p.createDNSRecords(ctx, cfg, ip)
+	if err != nil {
+		return err
+	}
+
+	cfg.DO = &config.DOState{
+		DropletID:  dropletID,
+		PublicIP:   ip,
+		FirewallID: firewallID,
+		DNSRecords: records,
+	}
+	if cfg.DNS != nil {
+		cfg.DO.FQDN = cfg.DNS.Hostname + "." + cfg.DNS.Domain
+	}
+	return nil
+}
+
+// Delete removes DNS records, the firewall, and the droplet, then clears cfg.DO.
+func (p *Provider) Delete(ctx context.Context, cfg *config.Config) error {
+	if cfg.DO == nil {
+		return nil
+	}
+	if err := p.ensureAPI(); err != nil {
+		return err
+	}
+
+	// DNS and firewall cleanup are best-effort: a stale record or firewall must
+	// not block droplet teardown. This matches the non-fatal cleanup contract
+	// used by the AWS and libvirt providers.
+	if err := p.deleteDNSRecords(ctx, cfg); err != nil {
+		fmt.Fprintf(os.Stderr, "warning: deleting DNS records: %v\n", err)
+	}
+	if cfg.DO.FirewallID != "" {
+		if _, err := p.api.Firewalls().Delete(ctx, cfg.DO.FirewallID); err != nil {
+			fmt.Fprintf(os.Stderr, "warning: deleting firewall %s: %v\n", cfg.DO.FirewallID, err)
+		}
+	}
+	// Droplet deletion is the core operation; if it fails, leave state intact so
+	// the user can retry rather than orphaning a running droplet.
+	if cfg.DO.DropletID != 0 {
+		if _, err := p.api.Droplets().Delete(ctx, cfg.DO.DropletID); err != nil {
+			return fmt.Errorf("deleting droplet %d: %w", cfg.DO.DropletID, err)
+		}
+	}
+	cfg.DO = nil
+	return nil
+}
+
+// Status reports the droplet state and current public IP.
+func (p *Provider) Status(ctx context.Context, cfg *config.Config) (*provider.VMStatus, error) {
+	if cfg.DO == nil || cfg.DO.DropletID == 0 {
+		return nil, fmt.Errorf("VM not found: check 'govirt list --do' for available VMs")
+	}
+	if err := p.ensureAPI(); err != nil {
+		return nil, err
+	}
+	droplet, _, err := p.api.Droplets().Get(ctx, cfg.DO.DropletID)
+	if err != nil {
+		return nil, fmt.Errorf("getting droplet %d: %w", cfg.DO.DropletID, err)
+	}
+	ip, _ := droplet.PublicIPv4()
+	return &provider.VMStatus{
+		Name:     droplet.Name,
+		State:    droplet.Status,
+		IP:       ip,
+		Provider: p.Name(),
+	}, nil
+}
+
+// List returns all droplets visible to the account.
+func (p *Provider) List(ctx context.Context) ([]provider.VMStatus, error) {
+	if err := p.ensureAPI(); err != nil {
+		return nil, err
+	}
+	droplets, _, err := p.api.Droplets().List(ctx, nil)
+	if err != nil {
+		return nil, fmt.Errorf("listing droplets: %w", err)
+	}
+	var result []provider.VMStatus
+	for i := range droplets {
+		d := &droplets[i]
+		ip, _ := d.PublicIPv4()
+		result = append(result, provider.VMStatus{
+			Name:     d.Name,
+			State:    d.Status,
+			IP:       ip,
+			Provider: p.Name(),
+		})
+	}
+	return result, nil
+}
+
+// Stop performs a graceful droplet shutdown.
+func (p *Provider) Stop(ctx context.Context, cfg *config.Config) error {
+	if cfg.DO == nil || cfg.DO.DropletID == 0 {
+		return fmt.Errorf("VM not found: check 'govirt list --do' for available VMs")
+	}
+	if err := p.ensureAPI(); err != nil {
+		return err
+	}
+	if _, _, err := p.api.DropletActions().Shutdown(ctx, cfg.DO.DropletID); err != nil {
+		return fmt.Errorf("shutting down droplet %d: %w", cfg.DO.DropletID, err)
+	}
+	return nil
+}
+
+// Start powers the droplet on.
+func (p *Provider) Start(ctx context.Context, cfg *config.Config) error {
+	if cfg.DO == nil || cfg.DO.DropletID == 0 {
+		return fmt.Errorf("VM not found: check 'govirt list --do' for available VMs")
+	}
+	if err := p.ensureAPI(); err != nil {
+		return err
+	}
+	if _, _, err := p.api.DropletActions().PowerOn(ctx, cfg.DO.DropletID); err != nil {
+		return fmt.Errorf("powering on droplet %d: %w", cfg.DO.DropletID, err)
+	}
+	return nil
+}
+
+// SSH replaces the current process with an interactive ssh session to the
+// droplet's public IP, using the first configured user.
+func (p *Provider) SSH(ctx context.Context, cfg *config.Config) error {
+	if cfg.VM == nil || len(cfg.VM.Users) == 0 {
+		return fmt.Errorf("no users defined")
+	}
+	if cfg.DO == nil || cfg.DO.PublicIP == "" {
+		return fmt.Errorf("no IP for %s: check 'govirt status %s --do'", cfg.VM.Name, cfg.VM.Name)
+	}
+	user := cfg.VM.Users[0].Username
+	sshPath, err := exec.LookPath("ssh")
+	if err != nil {
+		return fmt.Errorf("ssh not found: %w", err)
+	}
+	argv := []string{"ssh", "-o", "StrictHostKeyChecking=no", user + "@" + cfg.DO.PublicIP}
+	return syscall.Exec(sshPath, argv, os.Environ())
+}
+
+var (
+	_ provider.VMProvider = (*Provider)(nil)
+	_ provider.DNSSwapper = (*Provider)(nil)
+)

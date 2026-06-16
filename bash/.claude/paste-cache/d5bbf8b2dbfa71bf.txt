@@ -1,0 +1,34 @@
+helios:~/dotfiles/govirt/.config/govirt/stacks/devbox> make
+devbox VM management
+
+Host setup (run once, before creating the VM):
+  make host-setup        Run all host setup steps in sequence
+  make install-libvirt   Install libvirt/KVM toolchain for govirt local provider
+  make install-nfs       Install nfs-kernel-server
+  make setup-paths       Install /etc/host-shadow-paths
+  make install-export-gen Install /usr/local/bin/shadow-export-gen
+  make export-nfs        Run shadow-export-gen to (re)generate /etc/exports
+  make enable-libvirt    Enable and start libvirtd and the default network
+  make enable-nfs        Enable and start nfs-kernel-server
+  make ufw-allow         Allow NFS through ufw (if ufw is active)
+
+VM lifecycle:
+  make create-vm         govirt create devbox
+  make delete-vm         govirt destroy devbox
+  make ssh-vm            govirt ssh devbox
+  make status-vm         govirt status devbox
+helios:~/dotfiles/govirt/.config/govirt/stacks/devbox> make create-vm
+govirt create devbox
+downloading noble-server-cloudimg-amd64.img: done
+error: creating VM disk: qemu-img create -f qcow2 -b /home/gherlein/.cache/govirt/images/noble-server-cloudimg-amd64.img -F qcow2 /var/lib/libvirt/images/devbox.qcow2 80G: qemu-img: /var/lib/libvirt/images/devbox.qcow2:Could not create '/var/lib/libvirt/images/devbox.qcow2': Permission denied: exit status 1
+make: *** [Makefile:95: create-vm] Error 1
+helios:~/dotfiles/govirt/.config/govirt/stacks/devbox> id
+uid=1000(gherlein) gid=1000(gherlein) groups=1000(gherlein),4(adm),20(dialout),24(cdrom),27(sudo),30(dip),44(video),46(plugdev),100(users),114(lpadmin),129(libvirt),980(ollama),983(docker),992(render),993(kvm)
+helios:~/dotfiles/govirt/.config/govirt/stacks/devbox> make create-vm
+govirt create devbox
+downloading noble-server-cloudimg-amd64.img: done
+error: creating VM disk: qemu-img create -f qcow2 -b /home/gherlein/.cache/govirt/images/noble-server-cloudimg-amd64.img -F qcow2 /var/lib/libvirt/images/devbox.qcow2 80G: qemu-img: /var/lib/libvirt/images/devbox.qcow2:Could not create '/var/lib/libvirt/images/devbox.qcow2': Permission denied: exit status 1
+make: *** [Makefile:99: create-vm] Error 1
+helios:~/dotfiles/govirt/.config/govirt/stacks/devbox> id
+uid=1000(gherlein) gid=1000(gherlein) groups=1000(gherlein),4(adm),20(dialout),24(cdrom),27(sudo),30(dip),44(video),46(plugdev),100(users),114(lpadmin),129(libvirt),980(ollama),983(docker),992(render),993(kvm)
+helios:~/dotfiles/govirt/.config/govirt/stacks/devbox>

@@ -1,0 +1,28 @@
+package main
+
+import (
+	"strings"
+
+	"github.com/gherlein/govirt/internal/config"
+)
+
+// defaultCloudInit builds a minimal #cloud-config document when a stack has no
+// cloud-init.yaml of its own. Each VM user is created with sudo access and an
+// SSH key placeholder that the cloud-init processor substitutes.
+func defaultCloudInit(cfg *config.Config) string {
+	var b strings.Builder
+	b.WriteString("#cloud-config\n")
+	b.WriteString("users:\n")
+	for i, u := range cfg.VM.Users {
+		placeholder := "${SSH_PUBLIC_KEY}"
+		if i > 0 {
+			placeholder = "${SSH_PUBLIC_KEY_" + strings.ToUpper(u.Username) + "}"
+		}
+		b.WriteString("  - name: " + u.Username + "\n")
+		b.WriteString("    sudo: ALL=(ALL) NOPASSWD:ALL\n")
+		b.WriteString("    shell: /bin/bash\n")
+		b.WriteString("    ssh_authorized_keys:\n")
+		b.WriteString("      - " + placeholder + "\n")
+	}
+	return b.String()
+}

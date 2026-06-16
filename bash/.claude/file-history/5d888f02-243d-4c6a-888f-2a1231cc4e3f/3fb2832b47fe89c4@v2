@@ -1,0 +1,71 @@
+package main
+
+import (
+	"strings"
+	"testing"
+
+	"github.com/gherlein/govirt/internal/config"
+)
+
+func TestHostsBlock(t *testing.T) {
+	got := hostsBlock("web", "192.168.122.5", "web.example.com")
+	for _, want := range []string{"# govirt:web", "192.168.122.5\tweb web.example.com", "# /govirt:web"} {
+		if !strings.Contains(got, want) {
+			t.Errorf("block missing %q:\n%s", want, got)
+		}
+	}
+	noFQDN := hostsBlock("web", "10.0.0.1", "")
+	if strings.Contains(noFQDN, "example.com") {
+		t.Errorf("unexpected fqdn:\n%s", noFQDN)
+	}
+}
+
+func TestRemoveHostsBlock(t *testing.T) {
+	existing := "127.0.0.1 localhost\n# govirt:web\n192.168.122.5\tweb\n# /govirt:web\n10.0.0.2 other\n"
+	got := removeHostsBlock(existing, "web")
+	if strings.Contains(got, "govirt:web") || strings.Contains(got, "192.168.122.5") {
+		t.Errorf("block not removed:\n%s", got)
+	}
+	if !strings.Contains(got, "127.0.0.1 localhost") || !strings.Contains(got, "10.0.0.2 other") {
+		t.Errorf("unrelated lines lost:\n%s", got)
+	}
+}
+
+func TestUpsertHostsBlockReplaces(t *testing.T) {
+	existing := "127.0.0.1 localhost\n# govirt:web\n1.1.1.1\tweb\n# /govirt:web\n"
+	block := hostsBlock("web", "2.2.2.2", "")
+	got := upsertHostsBlock(existing, "web", block)
+	if strings.Contains(got, "1.1.1.1") {
+		t.Errorf("old IP not replaced:\n%s", got)
+	}
+	if !strings.Contains(got, "2.2.2.2") {
+		t.Errorf("new IP missing:\n%s", got)
+	}
+	if strings.Count(got, "# govirt:web") != 1 {
+		t.Errorf("duplicate blocks:\n%s", got)
+	}
+}
+
+func TestDefaultCloudInit(t *testing.T) {
+	cfg := &config.Config{VM: &config.VMConfig{
+		Name: "web",
+		Users: []config.User{
+			{Username: "ubuntu", GitHubUsername: "alice"},
+			{Username: "deploy", GitHubUsername: "deploy-bot"},
+		},
+	}}
+	got := defaultCloudInit(cfg)
+	if !strings.HasPrefix(got, "#cloud-config") {
+		t.Errorf("missing header:\n%s", got)
+	}
+	for _, want := range []string{
+		"- name: ubuntu",
+		"- ${SSH_PUBLIC_KEY}",
+		"- name: deploy",
+		"- ${SSH_PUBLIC_KEY_DEPLOY}",
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("missing %q:\n%s", want, got)
+		}
+	}
+}

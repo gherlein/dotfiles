@@ -1,0 +1,1114 @@
+# goraic — Requirements (v0.3)
+
+> **Change from v0.2:** the in-house `gorai-llm-service` sibling library is
+> replaced by the external **`go-llms`** library (`github.com/lexlapax/go-llms`,
+> MIT-licensed, local checkout at `/external/go-llms`). Architecturally
+> nothing else moves — the NATS mesh, the RDL, the slash-command services,
+> and the AGENTS.md / Agent Skills standards are unchanged. The
+> LLM-related requirements (REQ-LLM-*, REQ-LLM-DEP-*) and the matching
+> sections (§4.3, §11, §12 #9, §14) have been rewritten; the rest of
+> the document is preserved.
+
+This is the authoritative requirements document for `goraic`, the gorai coding agent.
+It supersedes the prior `agent.json` configuration and recasts the agent as a mesh of
+**named services on NATS**, configured by a **Robot Definition Language (RDL)** file
+that is structurally identical to gorai's RDL (see `../gorai/pkg/config` in this
+workspace; canonical path `github.com/gorai/gorai/pkg/config`). LLM protocol
+translation is provided by the external **`go-llms`** library
+(`github.com/lexlapax/go-llms`); goraic supplies the NATS service wrapper and
+the ReAct command service that calls it (see §4.3 and §11).
+
+[VISION.md](VISION.md) is the architectural intent. This file is the contract that
+[docs/DESIGN.md](docs/DESIGN.md) and [PLAN.md](PLAN.md) must satisfy. Where this file
+and DESIGN.md disagree, **this file wins** — fix DESIGN.md.
+
+The shorthand binary name is `goraic` (`cmd/goraic`).
+
+---
+
+## 1. Purpose and scope
+
+`goraic` is an open-source coding agent that:
+
+1. Runs as a single binary with an embedded NATS server, OR connects to an external
+   NATS server shared with other `goraic` and `gorai` processes.
+2. Treats every internal component — LLM adapters, capability tools, coordinators,
+   role agents — as a **service on the NATS bus**, addressed by name.
+3. Drives the user experience through a **TUI** (scrollback-streaming, pinned status
+   line). All internal traffic goes to a log file; never to stdout.
+4. Replaces hardcoded roles (planner/coder/reviewer) with **user-defined slash-command
+   services**: `/plan`, `/code`, `/code-review`, `/write`, `/test`, `/design`, etc.
+   Each slash command is a named service in the RDL, bound to a specific LLM service
+   (and therefore a specific model).
+5. Runs slash-command invocations **concurrently** in goroutines so the user can queue
+   the next command without waiting for the previous to finish, and so commands can be
+   chained into pipelines that span multiple LLMs and multiple machines.
+
+Non-goals (v0.2): web UI; persistent multi-user server; replacing Claude Code as a
+hosted product; robot control (handled by gorai itself — `goraic` shares the same
+bus protocol so robot services and coding services are reachable from each other).
+
+---
+
+## 2. Architectural commitments
+
+These are the load-bearing decisions; everything else derives from them.
+
+**REQ-ARCH-1 — Single binary, mesh internally.** `goraic` ships as one executable. By
+default it starts an embedded NATS server (`github.com/gorai/gorai/pkg/embeddednats`).
+All internal services — LLM adapters, capability services, command services,
+coordinators — are goroutines that talk over NATS, never via direct Go calls.
+
+**REQ-ARCH-2 — gorai-NATS is the only contract.** Cross-service interactions use the
+gorai-NATS wire protocol (`TaskRequest`, `TaskResult`, `ToolDefinition`, `ToolCall`,
+`ToolCallRequest`, `ToolCallResponse`, `ProgressEvent`, `StatusMessage`). JSON on the
+wire; schemas committed under `docs/protocol/` and validated in tests.
+
+**REQ-ARCH-3 — Local vs external services are explicit.** A service is one of:
+
+- **Local** — compiled into the `goraic` binary; runs as a goroutine on the embedded
+  NATS server. The default for all services in the stock build.
+- **External (child process)** — declared with `external.enabled = true` and an
+  absolute `command`. The `goraic` runtime spawns the process and passes
+  `NATS_URL` so the child connects to the embedded (or configured) bus. Modeled
+  exactly on gorai's external-service requirement (`REQ-EXTERNAL-SVC-*`).
+- **External (remote, same bus)** — a service running in some *other* `goraic` or
+  `gorai` process on the same NATS server. From the calling service's point of view
+  it is just another subject prefix. Declared via a `remotes` block (optional) for
+  discovery hints and by *not* declaring the service locally.
+
+**REQ-ARCH-4 — One NATS, many machines.** A `goraic` instance may be configured to
+connect to an existing NATS URL instead of starting an embedded server. When two or
+more `goraic` (or `gorai`) processes share a NATS server, every service published on
+that bus is callable from every process. This is how work spreads across machines and
+LLMs (e.g., Claude on a laptop, Ollama on a workstation, GPT on a CI box).
+
+**REQ-ARCH-5 — TUI front, file-only logs.** The TUI is the only writer to stdout. All
+NATS traffic, LLM traces, service lifecycle, and errors go to the log file named in
+the RDL `log` block. The single permitted stderr write is one fatal line at startup
+if the log file cannot be opened.
+
+**REQ-ARCH-6 — Open-standard agent files.** `goraic` is built on two open
+standards and **MUST** comply with both:
+
+- **Project agentic instructions MUST follow the AGENTS.md specification at
+  https://agents.md/.** The repo-root `AGENTS.md` is the canonical place where a
+  project tells `goraic` (and any other agents.md-compatible coding agent) how
+  to build, test, lint, and behave inside the codebase. Nested `AGENTS.md`
+  files in subdirectories override the root file for work under that subtree
+  ("closest AGENTS.md to the edited file wins"), exactly as the spec requires.
+- **Skills MUST follow the Agent Skills specification at
+  https://agentskills.io/.** Every skill is a directory containing a `SKILL.md`
+  with the spec-defined YAML frontmatter (`name`, `description`, and the
+  optional `license`, `compatibility`, `metadata`, `allowed-tools` fields), and
+  may include the optional `scripts/`, `references/`, and `assets/`
+  subdirectories. Skills are loaded with the spec's three-stage **progressive
+  disclosure** model.
+
+Skills attach to **command services**, not to LLM adapters. Compatibility with
+Claude Code conventions (`CLAUDE.md`, `.claude/skills/`) is supported as a
+fallback discovery source only; it is **not** a substitute for spec compliance.
+A skill that loads from `.claude/skills/` is still validated against
+agentskills.io and rejected if non-conformant.
+
+---
+
+## 3. The Robot Definition Language (RDL)
+
+`agent.json` is removed. Configuration uses an RDL file structurally identical to
+gorai's RDL v2 (see `/external/gorai/pkg/config/config.go`, `RDL`, `ServiceConfig`,
+`LogConfig`, `RemoteConfig`).
+
+**REQ-RDL-1 — File and discovery.** Default config path is `./robot.json`. CLI flag
+`--config <path>` overrides. If neither is present `goraic` exits with a clear error
+naming the expected path.
+
+**REQ-RDL-2 — Wire-compatible types (not Go-type identity).** goraic's config
+loader defines its own Go types whose JSON shape **MUST match gorai's
+`pkg/config` types** for the fields they share (`version`, `robot`, `log`,
+`nats`, `services[].name|type|model|disabled|attributes|depends_on|external`,
+`remotes`). goraic extends the format with three additions: a top-level
+`defaults` block (required `command` field), and two new `services[].type`
+values (`command`, `prompt-log`). A gorai parser reading a goraic RDL ignores
+those additions; a goraic parser reading a gorai RDL works as long as
+`defaults.command` is satisfiable. A test asserts JSON-shape compatibility
+against a representative gorai-style RDL. The robot-section fields
+(`robot.name`, `robot.description`) are required by the schema but carry no
+operational meaning for a coding agent; the name appears in logs and status messages.
+**Rationale:** binding directly to gorai's Go types couples goraic's release
+cadence to gorai's. The wire is the contract.
+
+**REQ-RDL-3 — Service types recognised by goraic.** The `services[].type` enum is
+small and closed. Connection-to-an-LLM is a named service so that several
+commands can share one endpoint+credential configuration and an operator has a
+single place to rotate a key or repoint at a different Ollama host.
+
+| `type`        | Purpose                                                       |
+|---------------|---------------------------------------------------------------|
+| `llm`         | A configured LLM endpoint (protocol, endpoint URL, API-key env var, default model). Local to the binary; referenced by name from command services. |
+| `command`     | A slash-command role (`/plan`, `/code`, ...). The user-visible unit of work. Binds to an `llm` service by name. |
+| `coordinator` | Multi-step orchestrator that composes command services        |
+| `capability`  | Tool host (files, search, shell, repo, memory) — auto-registered; entries only present to disable or override |
+| `prompt-log`  | Subscribes to all task traffic and writes per-session JSONL   |
+
+All names are NATS-subject-safe (`^[a-z][a-z0-9_-]*$`). Duplicate names are rejected.
+
+**Rationale for `llm` as a first-class service type:** v0.1 hid the LLM behind a
+Go interface inside the agent; an interim cut of v0.2 inlined `provider`/`model`
+into each command's `attributes`. The inline form duplicates endpoint and
+credential config any time two commands point at the same provider, which is
+the common case (a typical RDL has several Anthropic-backed commands). Making
+`llm` a named service collapses that duplication, gives `/services` a real
+target to enumerate, and provides one validation point for "is `ANTHROPIC_API_KEY`
+set?" at startup. Cross-machine load spreading still works (REQ-DIST-2) — the
+*command* moves to the other machine, and the LLM service it depends on either
+moves with it or is reached over the bus by name.
+
+**REQ-RDL-4 — External services use gorai's shape.** When `services[].external` is set
+the runtime spawns the named command and passes `NATS_URL` in the environment, per
+`REQ-EXTERNAL-SVC-1..3` from gorai. Restart policy honours the gorai
+`external.restart` field.
+
+**REQ-RDL-5 — Remote NATS support.** A top-level `nats` block selects the bus:
+
+```json
+"nats": { "embedded": true }                         // default
+"nats": { "embedded": false, "url": "nats://host:4222" }   // join shared bus
+```
+
+When `embedded` is false, the `goraic` instance does NOT start a server; it connects
+as a client. All `services` declared in *this* RDL are then published onto that
+shared bus, and services declared elsewhere (by other `goraic` or `gorai`
+processes on the same bus) are discoverable by their NATS subject prefix.
+
+**REQ-RDL-6 — Minimal RDL.**
+
+```json
+{
+  "version": "2",
+  "robot": { "name": "goraic-local" }
+}
+```
+
+This starts the embedded NATS server, no other services. The CLI is then useless
+(no command services), but startup must succeed and exit cleanly.
+
+**REQ-RDL-7 — Representative RDL.** See §10 for a full example.
+
+---
+
+## 4. Services
+
+### 4.1 Local vs external
+
+**REQ-SVC-1.** A service is local when its `type` is implemented inside the goraic
+binary and `external` is absent. The runtime constructs it via a registered factory
+and runs it as a goroutine.
+
+**REQ-SVC-2.** A service is external when `external.enabled = true`. The runtime
+must NOT instantiate it in-process. It must spawn the named command and forward
+`NATS_URL`. Cross-service calls are unchanged — they go over NATS.
+
+**REQ-SVC-3.** A service is remote (no declaration needed in the local RDL) when it
+exists on the shared NATS bus from another process. Calling code uses its name as a
+subject prefix and the call works without local config, provided the caller's RDL
+opts into the shared bus per REQ-RDL-5.
+
+### 4.2 Heartbeats and discovery
+
+**REQ-SVC-4.** Every service publishes `StatusMessage` heartbeats on `<name>.status`
+with its type, model (if applicable), and the list of tools it exposes. This is the
+basis for the `/services` user-facing command (§7.4) and for tool discovery by
+command services.
+
+### 4.3 LLM services (in goraic) and provider library (`go-llms`)
+
+An LLM is a **named service** declared in the RDL (`type: "llm"`). It is local
+to the binary — its NATS-service wrapper compiles into `goraic` — but the
+per-protocol translation lives in the external **`go-llms`** library
+(`github.com/lexlapax/go-llms`, MIT-licensed; local development checkout at
+`/external/go-llms`). goraic's `internal/llmsvc` package is a single generic
+wrapper that takes any go-llms `pkg/llm/domain.Provider` and exposes it on
+the bus as a service of type `llm`.
+
+go-llms replaces the in-house `gorai-llm-service` library originally planned
+for this slot. Architecturally it occupies the same position (a library-only,
+no-NATS, no-binary provider abstraction) and supports all four protocols
+goraic targets — `anthropic`, `openai`, `ollama`, `gemini` — plus Vertex AI
+and OpenRouter, which are available for future RDL extension. The decision
+is documented in §11 along with maintenance-status caveats.
+
+**REQ-LLM-SVC-1 — RDL shape.** A service of `type: "llm"` declares the
+following `attributes`:
+
+| Attribute       | Required | Purpose                                                                                                                                              |
+|-----------------|----------|------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `protocol`      | yes      | Wire format. Enum: `anthropic \| openai \| ollama \| gemini \| mock \| remote`. Selects the go-llms per-provider constructor (`pkg/llm/provider.New<Protocol>Provider`) used by `internal/llmsvc`; `mock` uses go-llms's `MockProvider`. Use `remote` when inference runs on a separate host via `goraci-llm-svc` (see REQ-LLM-SVC-6). |
+| `endpoint`      | sometimes | Base URL. Optional (SaaS protocols default to their official URL; `ollama` defaults to `http://localhost:11434`). |
+| `api_key_env`   | optional | Name of an env var holding the API key. **Never the key itself.** Defaults per protocol (`ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `GEMINI_API_KEY`); ignored for `ollama`/`mock`. |
+| `headers_env`   | optional | Map of `header-name → env-var-name` for proxies/gateways that need extra headers. Values resolved from env at startup. |
+| `model`         | optional | Default model for callers that don't specify one. Command services may override.                                                                     |
+| `temperature`   | optional | Default temperature for callers that don't specify one.                                                                                              |
+| `max_tokens`    | optional | Default per-request max tokens.                                                                                                                      |
+| `timeout_seconds` | optional | Per-request timeout.                                                                                                                               |
+| `tls`           | optional | `{ ca_cert_file, insecure_skip_verify }` for private CAs. `insecure_skip_verify: true` produces a startup warning.                                   |
+
+**REQ-LLM-SVC-2 — Credentials are env-only.** The RDL schema **forbids** any
+field whose name matches `/api[_-]?key$/` from carrying a literal value; the
+only accepted shape is `api_key_env: <ENV_VAR_NAME>`. A loader test asserts
+the schema rejects a literal `api_key`. There is no inline-secret escape hatch.
+
+**REQ-LLM-SVC-3 — Startup fail-fast.** Every declared LLM service resolves its
+`api_key_env` (and any `headers_env` values) at startup. If the protocol
+requires credentials and the named env var is unset or empty, `goraic` exits
+with a non-zero status and a clear error naming the LLM service and the
+missing env var. There is no lazy first-request failure.
+
+**REQ-LLM-SVC-4 — Endpoint defaults are compiled-in per protocol.** The RDL
+stays minimal for the common SaaS case (declaring `protocol` + `model` is
+enough). Operators only set `endpoint` to override a default or to point at a
+private host.
+
+**REQ-LLM-SVC-5 — Local NATS exposure.** The runtime publishes each `llm`
+service on its own subject prefix derived from `name` (per existing gorai-NATS
+conventions). Command services dispatch completion requests to that subject.
+Heartbeats are emitted under `<name>.status` per REQ-SVC-4. Per REQ-DIST-2,
+an LLM service running on another node in the same NATS bus is reachable from
+remote commands without any extra config in the caller's RDL beyond a
+reference name.
+
+**REQ-LLM-SVC-6 — Remote protocol is a no-op local service.** When
+`attributes.protocol = "remote"`, `llmsvc.New` returns a `remoteService`
+that satisfies `bus.Service` but has an empty `Start()` — it subscribes to
+nothing and emits no heartbeats. The actual subscriber is `goraic-llm-svc`
+running on the remote host. This prevents the dual-subscriber fan-out problem
+that would occur if goraic's in-process llmsvc and the remote daemon both
+subscribed to `<name>.request` on a plain (non-queue) subject.
+
+The remote daemon MUST use a NATS queue group (`QueueSubscribe`) so that
+multiple daemon instances on the same subject load-balance rather than fan-out.
+
+Credential resolution (`REQ-LLM-SVC-3`) is skipped entirely for
+`protocol: "remote"` — no provider is constructed, no env vars are read.
+
+**REQ-LLM-1 — go-llms is an external Go library.**
+`github.com/lexlapax/go-llms`, MIT-licensed, pulled as a normal Go dependency
+in goraic's `go.mod`. For local development a `replace
+github.com/lexlapax/go-llms => /external/go-llms` directive MAY be added to
+work against the workspace checkout; release builds and CI MUST resolve to
+a pinned tagged release (current target: `v0.3.6`). go-llms is a
+provider-protocol library only: no NATS code, no goraic-specific service
+plumbing, no binary that goraic depends on. It uses raw `net/http` with
+manual JSON marshaling — it does **not** pull provider SDKs.
+
+**REQ-LLM-2 — go-llms layout that goraic depends on.** goraic's integration
+with go-llms is restricted to two import paths:
+
+```
+github.com/lexlapax/go-llms/
+  pkg/llm/domain/        Provider interface; Message, ContentPart,
+                         Response, Token, ResponseStream types; functional
+                         Option (WithTemperature, WithMaxTokens, WithModel, …)
+  pkg/llm/provider/      Per-protocol constructors:
+    anthropic.go           NewAnthropicProvider(apiKey, model, opts...)
+    openai.go              NewOpenAIProvider(apiKey, model, opts...)
+    gemini.go              NewGeminiProvider(apiKey, model, opts...)
+    ollama.go              NewOllamaProvider(model, opts...)      // no apiKey
+    mock.go                Mock provider for deterministic tests
+    multi.go,              MultiProvider (primary/fastest/consensus) —
+    consensus.go           reserved for v0.3 (see REQ-LLM-MULTI)
+  pkg/schema/domain/     JSON-Schema types used by GenerateWithSchema
+```
+
+Per-provider constructors return a `pkg/llm/domain.Provider`, the single
+unified interface goraic's LLM-service wrapper consumes. Provider-specific
+configuration (base URL, organization, safety settings, ...) is applied via
+setter methods on the concrete provider struct before it is wrapped, or via
+functional options on each call.
+
+**REQ-LLM-3 — Canonical Response at the library boundary; tool calls handled
+in the command service.** go-llms's `Provider` interface exposes
+`Generate(ctx, prompt, opts...)`, `GenerateMessage(ctx, messages, opts...)`,
+`GenerateWithSchema(ctx, prompt, schema, opts...)`, and
+`Stream`/`StreamMessage` variants. The returned `domain.Response` carries
+only `Content string` — go-llms does **not** expose native structured tool
+calls on the Provider boundary; its own Agent layer parses tool calls out
+of the text content. goraic does not use that Agent layer (REQ-LLM-AGENT);
+the goraic command service (REQ-CMD-7) runs its own ReAct loop, extracts
+tool calls from `Response.Content` using the same text-extraction patterns
+(OpenAI-style JSON, simple key/value, XML), and dispatches the resulting
+tool calls over NATS to capability services. Native structured tool calls
+returned by Anthropic/OpenAI/Gemini are flattened into text on their way
+out of go-llms; this trade-off is accepted in v0.2. v0.3 may extend
+`internal/llmsvc` to call provider APIs directly when richer tool-call
+fidelity is required.
+
+**REQ-LLM-4 — goraic stops embedding provider SDKs directly.** After adoption
+of go-llms, `goraic/internal/llm/{anthropic,ollama,mock}` is deleted. The
+replacement is a single `goraic/internal/llmsvc` package: a thin NATS-service
+wrapper that takes any go-llms `Provider` and exposes it as an LLM service
+on the bus. goraic's `go.mod` removes every direct provider SDK
+(`github.com/anthropics/anthropic-sdk-go`, `github.com/sashabaranov/go-openai`,
+Google Gemini/Vertex SDKs, etc.); the only LLM-related require is
+`github.com/lexlapax/go-llms`.
+
+**REQ-LLM-5 — Shared providers (in-process cache).** go-llms constructs a
+new provider client on each `New<Protocol>Provider(...)` call. When two
+`llm` services in the same RDL declare the same `(protocol, endpoint,
+api_key_env)` tuple, goraic's `internal/llmsvc` SHOULD cache the underlying
+go-llms `Provider` by that tuple and share it across services to avoid
+duplicate connection setup and to coalesce rate-limit budgeting. Two `llm`
+services that differ only in `model` are a legitimate "two LLMs, one
+endpoint" pattern; in that case the cache key omits `model` and the
+per-service model override is passed per-request via `domain.WithModel(...)`
+(go-llms's functional `Option` API supports per-call model overrides).
+
+**REQ-LLM-AGENT — go-llms's Agent layer is NOT used.** go-llms ships
+`pkg/agent/core.LLMAgent` with its own tool registry, sub-agent handoffs,
+and workflow patterns (sequential, parallel, conditional, loop). goraic
+does **not** use any of these. The goraic command service IS the agent
+(REQ-CMD-7) because (a) goraic agents discover tools via NATS `*.status`
+heartbeats from capability services rather than from a Go-side registry,
+and (b) goraic agents are themselves NATS-addressable services routable
+across machines, whereas go-llms's agent registry is in-process only.
+goraic's integration with go-llms is restricted to:
+
+- `pkg/llm/domain` types: `Provider`, `Message`, `Response`, `Option`,
+  `Token`, `ResponseStream`, and the multimodal `ContentPart`/`Image`/
+  `File`/`Video`/`Audio` content types (the latter when goraic later
+  supports attachments).
+- `pkg/llm/provider` constructors: `New<Protocol>Provider(...)`.
+- `pkg/schema/domain.Schema` when a command service uses
+  `GenerateWithSchema` for structured artifact production.
+
+Imports of `github.com/lexlapax/go-llms/pkg/agent/...` or
+`pkg/llm/provider/multi`/`consensus` from anywhere under `goraic/` are
+forbidden by a security/lint test (extension of REQ-SEC-3).
+
+**REQ-LLM-MULTI — Multi-provider fallback is deferred.** go-llms ships
+`MultiProvider` with primary/fastest/consensus strategies. goraic v0.2 does
+**not** expose this in the RDL; each `type: "llm"` service maps to exactly
+one underlying provider. v0.3 may add a `multi` protocol that takes an
+ordered list of LLM service names and a strategy attribute.
+
+### 4.4 Capability services (auto-registered)
+
+The five capability services — `files`, `search`, `shell`, `repo`, `memory` — are
+compiled into the goraic binary and **auto-register at startup**. They are NOT
+listed in a typical `robot.json`. The RDL only carries a `type: "capability"`
+entry when the operator wants to disable one or override its attributes.
+
+**REQ-CAP-1 — Closed set.** The known capability set is fixed:
+`{files, search, shell, repo, memory}`. The validator rejects a
+`type: "capability"` entry whose name is not in this set (catches typos like
+`shel` that would otherwise silently no-op).
+
+**REQ-CAP-2 — Disable.** An RDL entry with `disabled: true` causes the runtime
+to skip the capability's factory; the service does not start and does not
+publish heartbeats. `--safe` continues to work as a CLI alias for
+`shell.disabled=true`.
+
+**REQ-CAP-3 — Per-capability overrides via `attributes`.** A user MAY add an
+entry with `attributes: {...}` to override defaults (e.g.,
+`{"name":"shell","type":"capability","attributes":{"allowlist":["ls","cat"]}}`).
+The runtime passes the attributes to the factory; factories that don't yet
+honor a given attribute log a warning and use the default. CLI flags
+(`--safe`, `--allow-outside-working-dir`) remain the path for boot-time
+overrides; the RDL is the path for per-environment policy.
+
+**REQ-CAP-4 — No auto-discovery for LLMs (explicit policy).** Capability
+services auto-register because they have no per-user configuration — every
+goraic ships with the same `files` service. LLMs are the opposite: choosing
+which LLM to use is a deliberate operator decision involving API keys, costs,
+model quality, and data egress. goraic **does NOT** auto-detect an Ollama at
+`localhost:11434`, **does NOT** auto-pick a provider when `ANTHROPIC_API_KEY`
+is set, etc. Every LLM is declared explicitly in the RDL as a `type: "llm"`
+service (REQ-LLM-SVC-1).
+
+### 4.5 Prompt-log service (from enhancements.md)
+
+**REQ-SVC-5 — Prompt logging.** A service of type `prompt-log` subscribes to every
+`*.task` and `*.result` subject and writes each as a JSON line to
+`./.goraic/sessions/<YYYY-MM-DD>.jsonl` in the working directory. The file's schema
+is the gorai-NATS envelope; replay is `nats pub` of the captured lines. The
+`.goraic/` folder is auto-created and added to `.gitignore` on first write.
+
+---
+
+## 5. Slash-command services (the central new concept)
+
+This is the load-bearing change vs v0.1. **The user does not talk to "the agent"; the
+user talks to a chosen command service by typing its name as a slash command.** The
+RDL decides which model is behind each command.
+
+### 5.1 Mapping
+
+**REQ-CMD-1 — A command service is a named service of `type: "command"`.** Its `name`
+field is exactly the slash-command token the user will type (without the leading
+slash). So `name: "plan"` is invoked as `/plan ...`, `name: "code-review"` as
+`/code-review ...`, and so on.
+
+**REQ-CMD-2 — A command service references a declared LLM service.** The
+command's `attributes` name an existing `llm` service rather than inlining
+provider/endpoint/credential config:
+
+- `llm` (required) — the `name` of a service of `type: "llm"` declared elsewhere
+  in this RDL or reachable on the bus per REQ-DIST-2.
+
+Optional attributes that override the LLM service's defaults for invocations
+made by this command only:
+
+- `model` — overrides `attributes.model` on the LLM service (e.g., the LLM
+  service defaults to `claude-sonnet-4-6`, but `/explain` uses
+  `claude-haiku-4-5`).
+- `temperature` — overrides the LLM service's `temperature`.
+- `max_tokens` — overrides the LLM service's `max_tokens`.
+
+The inline `provider`/`api_key_env`/`base_url` attributes from earlier drafts
+are **not accepted**. A command service that declares any of those is a fatal
+RDL validation error with a migration message pointing at this section.
+Mapping one slash command to multiple models is still out of scope for v0.2 —
+declare a second command instead (e.g., `code-cloud` and `code-local`).
+
+**REQ-CMD-3 — Optional skills and permissions.** A command service may declare:
+
+- `attributes.skills`: a list of skill filenames or skill IDs to load into the
+  system prompt for this command.
+- `attributes.permissions`: one of `readonly | standard | broad` — gates the tools
+  exposed to this command via the capability services.
+- `attributes.system_prompt`: an optional inline system prompt override; if absent
+  a default is composed from the command name and loaded skills.
+
+**REQ-CMD-4 — Default command set.** The shipped example RDL declares, at minimum,
+these command services: `/plan`, `/design`, `/code`, `/code-review`, `/test`,
+`/write`, `/explain`. None of these names are hardcoded in goraic; they exist
+only because they appear in the RDL. The user is free to add `/refactor`,
+`/security-audit`, `/translate`, etc., by adding entries.
+
+### 5.2 Invocation
+
+**REQ-CMD-5 — Chat input parsing.** The TUI input parser:
+
+1. Trims leading whitespace.
+2. If the line begins with `/`, the token up to the next whitespace is the command
+   name; the rest is the **prompt**.
+3. If the command name resolves to a built-in (`/exit`, `/quit`, `/clear`,
+   `/help`, `/services`, `/cancel`, see §7), it runs the built-in.
+4. Otherwise the parser looks up the command service by name. If found, it
+   dispatches a `TaskRequest` to that command service on `<name>.task`. If not
+   found, it prints an error listing the available commands.
+
+**REQ-CMD-6 — Bare-prompt default (mandatory).** The RDL **must** set
+`defaults.command` to the name of one of the declared `command` services. If a
+chat input line does not begin with `/`, it is dispatched to that command
+service. A missing `defaults.command`, an unknown name, or a name whose target
+is not of `type: "command"` is a **fatal RDL validation error** at startup —
+`goraic` refuses to launch with a clear message naming the offending field. This
+makes the implicit-target behaviour explicit (no surprise "which model just
+answered me?") and forces every RDL to declare the operator's intent for bare
+prompts. There is no implicit "the agent."
+
+**REQ-CMD-7 — The command service is the agent.** A command service IS a ReAct
+agent service. It receives `TaskRequest`, runs a reasoning loop against its bound
+LLM, discovers tools from `*.status` heartbeats, dispatches tool calls to
+capability services, and returns a `TaskResult`. The existing `internal/agent`
+package becomes the implementation of command services (renamed accordingly).
+
+### 5.3 Concurrency and chaining
+
+**REQ-CMD-8 — Each invocation runs in its own goroutine.** Submitting a slash
+command does NOT block the prompt. The TUI returns to the input line immediately;
+progress and final output for the invocation stream into the scrollback as they
+arrive.
+
+**REQ-CMD-9 — Multiple commands in flight.** The user may submit several slash
+commands back to back. The status line shows one entry per active task with its
+command name, elapsed time, and current action. The scrollback preserves output
+ordering by completion; partial / interleaved output is allowed but each task's
+lines are prefixed with the task id (short suffix) so the user can disambiguate.
+There is no global queue; tasks run as soon as they are dispatched.
+
+**REQ-CMD-10 — Cancellation.** `/cancel <task-id>` cancels one task. `/cancel all`
+cancels every in-flight task. Ctrl-C while typing cancels the most recent task
+and confirms exit only on a second Ctrl-C at an empty prompt (existing behaviour
+preserved for the single-task case).
+
+**REQ-CMD-11 — Chaining (pipe syntax).** The chat parser recognises a single-line
+pipeline:
+
+```
+/plan write PLAN.md from DESIGN.md | /code-review review PLAN.md | /code implement phase 1 of PLAN.md
+```
+
+Each `|` separates one slash-command invocation. Pipelines run sequentially: the
+next stage starts when the previous stage's `TaskResult.Status == complete`. The
+prior stage's `FinalAnswer` is prepended to the next stage's prompt as
+`PriorContext` (existing protocol field). A failing stage stops the pipeline and
+prints the failure. The user prompt returns immediately after dispatch — the
+pipeline runs in its own goroutine like a single command.
+
+**REQ-CMD-12 — Parallel branches (optional, deferred).** A future extension is
+`&&` for sequential AND, `&` for parallel branches. **Out of scope for v0.2 unless
+trivially derivable from REQ-CMD-11.** The grammar in v0.2 is restricted to the
+pipe.
+
+**REQ-CMD-13 — Pipelines span machines.** Because each stage is a NATS dispatch by
+name, a pipeline transparently spans machines as soon as the corresponding command
+services are running on remote `goraic` instances connected to the same NATS bus.
+
+### 5.4 Worked example
+
+```
+/plan write a file PLAN.md that lays out implementation phases for the project in DESIGN.md
+```
+
+1. Parser splits `plan` and the prompt.
+2. Looks up command service `plan` in the RDL. Finds it bound (via
+   `attributes.llm`) to the LLM service `anthropic-sonnet` (also declared in
+   the RDL, with `attributes.protocol: "anthropic"` and
+   `attributes.model: "claude-sonnet-4-6"`).
+3. Dispatches `TaskRequest{Prompt: "write a file...", ...}` to `plan.task`.
+4. The `plan` command service receives it, builds messages (system prompt +
+   skills + user prompt), sends a completion request to `anthropic-sonnet.request`,
+   handles tool calls against `files.tools.write_file`, etc., and publishes the
+   final `TaskResult` on `plan.result`.
+5. The TUI surfaces progress and the final answer into the scrollback as it
+   arrives.
+6. The user can type `/code-review review PLAN.md` immediately — it dispatches in
+   parallel; results interleave; status line shows two active tasks.
+
+---
+
+## 6. Distributed execution
+
+**REQ-DIST-1 — A `goraic` instance must be runnable in one of three NATS modes.**
+
+| Mode               | RDL `nats` block                                               | Use                                                  |
+|--------------------|----------------------------------------------------------------|------------------------------------------------------|
+| Embedded (default) | `{ "embedded": true }` or omitted                              | Solo laptop use                                      |
+| Shared external    | `{ "embedded": false, "url": "nats://host:4222" }`             | Multiple `goraic`/`gorai` processes on a shared bus  |
+| Embedded + listen  | `{ "embedded": true, "listen": ":4222" }`                      | One `goraic` acts as the bus; others connect to it   |
+
+**REQ-DIST-2 — Mesh authority is the bus.** Whether a command or LLM service is
+local, external-child-process, or running on another machine is invisible to
+the caller. The only thing the caller does is publish to `<name>.task` (for
+commands) or `<llm>.request` (for LLMs). This makes heterogeneous fleets — a
+laptop with `/plan` bound to a Claude LLM service on the laptop, a workstation
+with a beefy-Ollama LLM service that several commands across the bus reference,
+a CI box with `/code-review` bound to a cheaper cloud LLM — work without any
+code change on the caller side. Operator runs the right services on the right
+machines; each command names the LLM service it depends on.
+
+**REQ-DIST-3 — LLM services are addressable by name across the bus.** A
+command's `attributes.llm` value may resolve to a service declared in this
+RDL or to one declared on another goraic instance reachable via the shared
+NATS bus (REQ-RDL-5). The RDL validator MAY accept a reference to a name not
+declared locally provided either (a) `nats.embedded` is false, or (b) the
+`remotes` block names the LLM service explicitly; otherwise an unknown
+`attributes.llm` is a fatal RDL validation error. To dedicate a machine to
+hosting one or more LLM services, run a goraic instance there whose RDL
+declares only `type: "llm"` services.
+
+**REQ-DIST-4 — No assumption of trust between processes.** When `goraic` connects
+to an external NATS, credentials for that bus come from a `nats.credentials` field
+or environment variable; no code path emits or logs credentials.
+
+---
+
+## 7. User interface
+
+### 7.1 TUI shape (unchanged from v0.1)
+
+**REQ-UI-1.** Scrollback-streaming output. While a turn is in flight, an inline
+status line (spinner + current action + in/out token counts + elapsed) is rendered
+directly below the user prompt and updates in place via \r\x1b[K (no scroll
+region, no alternate screen). The status line is cleared when the turn completes
+and replaced by the final answer; the next goraic> prompt then appears below.
+Real terminal copy-paste must continue to work in the transcript.
+
+**REQ-UI-2.** All internal output goes to the log file; nothing internal appears on
+the TUI.
+
+### 7.2 Prompt and history (from enhancements.md)
+
+**REQ-UI-3.** The input line is read with `chzyer/readline`. Up/Down arrows scroll
+through prompt history. History is loaded from `./.goraic/history` and appended
+on every accepted input. History entries are editable in place before resubmit.
+
+### 7.3 Multi-task display
+
+**REQ-UI-4.** While ≥1 task is in flight the status line cycles through the active
+tasks (or shows a compact stack if more than one) with command name, short task
+id, current action, and elapsed seconds. The transcript above is prefixed per task
+when more than one task is in flight to avoid interleaving confusion.
+
+### 7.4 Built-in commands
+
+`/exit`, `/quit` — leave the session (existing).
+`/clear` — reset the running conversation history (the `PriorContext` thread of
+the chat session). The next turn dispatches with an empty prior, so the
+status-line token bracket and context-window percentage reset to 0 on the
+next slash-command invocation. Rejected if a task is currently in flight.
+`/help` — list available commands (built-ins + every `command` service from the
+RDL, with their bound LLM).
+`/services` — list every service currently heartbeating on the bus, grouped by
+type (llm / command / capability / coordinator / prompt-log), with the model for
+LLMs and the latest seen timestamp. Implementation polls the `*.status` subjects
+already required by REQ-SVC-4. This satisfies the enhancements.md request.
+`/cancel <id|all>` — cancel as in REQ-CMD-10.
+`/history [N]` — print the last N prompts from `./.goraic/history`.
+
+Slash names listed above are reserved: a `command` service must not use any of
+them. The RDL validator rejects reserved-name collisions.
+
+---
+
+## 8. Agent files, skills, permissions, security
+
+`goraic` is built on two open standards. Section 8.1 covers project agentic
+instructions (the **AGENTS.md** standard at https://agents.md/). Section 8.2
+covers skills (the **Agent Skills** standard at https://agentskills.io/).
+Sections 8.3–8.4 cover the permission and security envelope that wraps both.
+
+### 8.1 Project agentic instructions — AGENTS.md (agents.md)
+
+**REQ-AGENTS-1 — AGENTS.md is the canonical project-instructions file.**
+`goraic` MUST load `AGENTS.md` per the open specification at
+https://agents.md/. The file is plain Markdown at the repository root; it
+contains whatever project-overview, build, test, code-style, security, and
+"do-not-touch" guidance the project author considers necessary. There are no
+required headings or fields — `goraic` MUST NOT impose any schema beyond what
+agents.md itself defines.
+
+**REQ-AGENTS-2 — Nearest-AGENTS.md-wins.** When a command service is about to
+act on a file at path `P`, the loader walks from `dir(P)` up to the repo root
+collecting every `AGENTS.md` encountered. The **nearest** (deepest) file
+overrides shallower ones for any guidance that conflicts. This is the
+agents.md precedence rule and is mandatory; it is what makes monorepos work.
+
+**REQ-AGENTS-3 — Repo-root AGENTS.md is the session baseline.** When the
+session starts, or for any task that does not target a specific file (`/plan`,
+`/design`, free-form chat), the repo-root `AGENTS.md` from the current working
+directory tree is treated as the baseline. `goraic` MUST inject the relevant
+`AGENTS.md` content into the command service's system prompt at task dispatch
+time.
+
+**REQ-AGENTS-4 — User prompt overrides files.** Per the agents.md spec, an
+explicit instruction in the user's prompt overrides anything written in
+`AGENTS.md`. The system prompt MUST be structured so the user prompt is the
+last and most authoritative slot.
+
+**REQ-AGENTS-5 — CLAUDE.md compatibility fallback.** If no `AGENTS.md` is
+present at a given level of the tree but a `CLAUDE.md` is, `goraic` MAY load
+`CLAUDE.md` as a fallback. `AGENTS.md`, if present, always wins. A nearby
+`CLAUDE.md` never overrides a shallower `AGENTS.md`. Compatibility is a
+convenience for repositories that have not yet adopted agents.md; it is not
+the goraic-native path.
+
+**REQ-AGENTS-6 — Reload on change.** Between task invocations, the loader
+re-stats the `AGENTS.md` files it last loaded and reloads any whose mtime
+changed. Edits to `AGENTS.md` MUST take effect on the next task without
+restarting `goraic`.
+
+### 8.2 Skills — agentskills.io
+
+**REQ-SKILL-1 — Skills MUST conform to the Agent Skills specification.**
+Every skill `goraic` loads MUST be a directory containing a `SKILL.md` file in
+the format defined at https://agentskills.io/specification. The YAML
+frontmatter MUST include the required fields:
+
+- `name` — 1–64 chars, lowercase `[a-z0-9-]`, no leading/trailing or
+  consecutive hyphens; MUST equal the parent directory name.
+- `description` — 1–1024 chars, non-empty.
+
+The optional fields `license`, `compatibility`, `metadata`, and `allowed-tools`
+MUST be accepted and surfaced to command services; unknown fields MUST NOT
+cause load failures (forward-compatibility).
+
+**REQ-SKILL-2 — Optional resource subdirectories.** A skill folder MAY contain
+`scripts/`, `references/`, and `assets/` subdirectories. `goraic` MUST NOT
+auto-execute anything in `scripts/`; execution happens only when the command
+service calls a capability service that invokes the script. `references/` and
+`assets/` are static files the LLM may request through the file-read
+capability.
+
+**REQ-SKILL-3 — Progressive disclosure (mandatory three stages).** Skill
+loading MUST follow the agentskills.io progressive-disclosure model:
+
+1. **Discovery.** At session start, the loader scans every skill source
+   (REQ-SKILL-4) and indexes `name` + `description` only. Only these two
+   fields appear in the skill catalog presented to the LLM.
+2. **Activation.** When a skill is named in a command service's
+   `attributes.skills`, listed on a `/skill` invocation, or selected by the
+   LLM from the catalog during a task, the full `SKILL.md` body is loaded
+   into the command service's system prompt for that task.
+3. **Execution.** Files under `scripts/`, `references/`, or `assets/` load
+   only when the LLM explicitly references them via the file-read or
+   shell-exec capability service.
+
+**REQ-SKILL-4 — Discovery sources and layering.** The loader searches the
+following sources, lowest priority first; later sources override earlier ones
+when a `name` collides:
+
+1. Built-in skills compiled into the `goraic` binary (`internal/skills/builtin`).
+2. User-global skills: `~/.config/goraic/skills/<name>/SKILL.md` (and
+   `~/.goraic/skills/<name>/SKILL.md` for backward compatibility).
+3. Project-local skills: `./.goraic/skills/<name>/SKILL.md`.
+4. Claude-Code compatibility sources (fallback only):
+   `~/.claude/skills/<name>/SKILL.md` and `./.claude/skills/<name>/SKILL.md`.
+5. Paths named in a command service's `attributes.skill_paths`.
+
+Claude sources are read at low priority and every loaded skill — regardless of
+source — MUST pass agentskills.io validation. A non-conformant file is
+rejected with a logged error and excluded from the catalog; it MUST NOT make
+the session fail.
+
+**REQ-SKILL-5 — Skills attach to command services, not LLMs.** A command
+service's `attributes.skills` lists skill `name` values to pre-activate for
+every task that command handles. A skill referenced in `attributes.skills`
+that does not exist in any discovery source is a **fatal RDL validation
+error** at startup, with a message naming the missing skill.
+
+**REQ-SKILL-6 — `allowed-tools` is advisory until enforced.** The
+spec-defined `allowed-tools` field is parsed and stored on the loaded skill.
+For v0.2 it is exposed to command services as metadata only; v0.3 may use it
+to further restrict the capability services a command may call when this
+skill is active. v0.2 MUST NOT silently grant tools beyond what the command
+service's `permissions` mode already allows.
+
+**REQ-SKILL-7 — Validation CLI.** `goraic skills list` MUST print the active
+skill catalog (name, description, source, source path). `goraic skills
+validate [path]` MUST run agentskills.io conformance checks on a skill
+directory and exit non-zero on any violation. Reuse of the upstream
+`skills-ref validate` rules is acceptable.
+
+### 8.3 Permissions
+
+**REQ-PERM-1.** Permission modes (`readonly | standard | broad`) gate the
+tools the command service is willing to invoke. Gating happens at the
+**command service**, not at the capability service, because permissions are
+per-role. The `allowed-tools` frontmatter on an active skill (REQ-SKILL-6) MAY
+narrow this set further but MUST NOT widen it.
+
+### 8.4 Security
+
+**REQ-SEC-1.** No credentials in logs, ever. API keys come from the environment;
+their names may be logged but their values must not.
+
+**REQ-SEC-2.** External services are processes, not containers (REQ-EXTERNAL-SVC-1
+from gorai). Absolute paths only.
+
+**REQ-SEC-3.** No `net/http` import in the `goraic` binary outside the LLM provider
+packages. (Existing rule, preserved by the security test.)
+
+**REQ-SEC-4.** Skill loading MUST audit `SKILL.md` files for hidden Unicode
+threats (bidirectional override characters, zero-width characters,
+homoglyph-prone confusables) before activation. A skill whose `SKILL.md`
+contains a critical finding is **blocked** from activation and logged; the
+session continues with that skill excluded. `goraic audit skills` MUST
+support a `--strip` flag that rewrites offending files to remove dangerous
+characters in place. (This is the pi-go audit pattern; we adopt it
+verbatim because the agentskills.io spec does not address supply-chain risk.)
+
+---
+
+## 9. Migration from v0.1
+
+**REQ-MIG-1.** Loading `agent.json` is no longer supported. The CLI prints a clear
+migration message if it finds `./agent.json` and no `./robot.json` is present,
+including a sample minimal `robot.json` the user can copy.
+
+**REQ-MIG-2.** The `behavior` service type from v0.1 is **renamed to `command`**.
+The semantics are richer (one LLM binding per command, slash-command exposure) but
+existing RDL entries can be ported by changing `type: "behavior"` to
+`type: "command"` and ensuring the `name` is the desired slash-command token.
+
+**REQ-MIG-3.** The hardcoded `planner / coder / reviewer` coordinator pipeline is
+not deleted but is reframed as **one possible composition of command services**
+(`/plan`, `/code`, `/code-review`). The `coordinator` service type remains for
+when a single user prompt should fan out across a fixed sequence; otherwise the
+user composes pipelines with the pipe syntax (REQ-CMD-11).
+
+**REQ-MIG-4.** `internal/llm/*` packages are deleted in favour of importing
+`github.com/lexlapax/go-llms` from `internal/llmsvc`. Direct provider-SDK
+requires (`anthropic-sdk-go`, `go-openai`, etc.) are removed from `go.mod`
+in the same commit. The `internal/agent` package is renamed conceptually to
+"command service" (file-level rename is a code-side concern; the public
+surface is the new RDL `type: "command"`).
+
+---
+
+## 10. Worked RDL example
+
+```json
+{
+  "version": "2",
+  "robot": {
+    "name": "goraic-dev",
+    "description": "Local goraic with cloud + local LLMs and remote helpers"
+  },
+  "log": {
+    "file": "~/.local/share/gorai/goraic.log",
+    "level": "info",
+    "max_size_mb": 64,
+    "max_backups": 3
+  },
+  "nats": { "embedded": true, "listen": "127.0.0.1:4222" },
+  "defaults": { "command": "code" },
+
+  "services": [
+    { "name": "anthropic-sonnet", "type": "llm",
+      "attributes": {
+        "protocol": "anthropic",
+        "model": "claude-sonnet-4-6"
+      } },
+
+    { "name": "openai-gpt5", "type": "llm",
+      "attributes": {
+        "protocol": "openai",
+        "model": "gpt-5"
+      } },
+
+    { "name": "ollama-coder", "type": "llm",
+      "attributes": {
+        "protocol": "ollama",
+        "endpoint": "http://localhost:11434",
+        "model": "qwen3-coder:30b",
+        "temperature": 0.2
+      } },
+
+    { "name": "plan",        "type": "command",
+      "attributes": {
+        "llm": "anthropic-sonnet",
+        "permissions": "read-only",
+        "skills": ["writing-plans", "systematic-debugging"]
+      } },
+
+    { "name": "design",      "type": "command",
+      "attributes": {
+        "llm": "anthropic-sonnet",
+        "permissions": "read-only",
+        "skills": ["architecture-first"]
+      } },
+
+    { "name": "code",        "type": "command",
+      "attributes": {
+        "llm": "ollama-coder",
+        "permissions": "standard",
+        "skills": ["test-driven-development", "edge-case-discovery"]
+      } },
+
+    { "name": "code-review", "type": "command",
+      "attributes": {
+        "llm": "openai-gpt5",
+        "permissions": "read-only",
+        "skills": ["code-review"]
+      } },
+
+    { "name": "test",        "type": "command",
+      "attributes": {
+        "llm": "ollama-coder",
+        "permissions": "standard",
+        "skills": ["test-as-guardrails"]
+      } },
+
+    { "name": "write",       "type": "command",
+      "attributes": {
+        "llm": "anthropic-sonnet",
+        "permissions": "read-only",
+        "skills": ["documentation"]
+      } },
+
+    { "name": "explain",     "type": "command",
+      "attributes": {
+        "llm": "ollama-coder",
+        "permissions": "read-only"
+      } },
+
+    { "name": "prompt-log",  "type": "prompt-log",
+      "attributes": { "dir": ".goraic/sessions" } }
+  ],
+
+  "remotes": [
+    { "name": "buildbox",
+      "address": "nats://buildbox.lan:4222",
+      "services": ["ollama-large", "code-large"] }
+  ]
+}
+```
+
+Note how three LLM services (`anthropic-sonnet`, `openai-gpt5`,
+`ollama-coder`) back seven commands — exactly the kind of fan-in the v0.2
+inline form duplicated. A second machine `buildbox.lan` runs its own goraic
+instance against the same NATS URL with additional LLM services (e.g.
+`ollama-large` backed by a beefy GPU) and additional command services
+(e.g. `code-large` bound to `ollama-large`). The laptop's chat dispatches
+`/code-large` over NATS; the buildbox handles it transparently. Work spreads
+across the bus either by moving command services to another node, or by
+hosting LLM services on a dedicated node and pointing remote commands at
+them by name.
+
+---
+
+## 11. The `go-llms` dependency
+
+The previous draft of this section described an in-house sibling library
+(`github.com/emergingrobotics/gorai-llm-service`) that goraic would author and
+maintain. That library is **not built**. goraic instead adopts the existing
+external library `github.com/lexlapax/go-llms`, which already satisfies the
+same architectural role.
+
+**REQ-LLM-DEP-1 — External library, MIT-licensed.**
+`github.com/lexlapax/go-llms` is pulled as a normal Go dependency under MIT
+license terms (compatible with goraic's own license). The local development
+checkout lives at `/external/go-llms` and MAY be wired via
+`replace github.com/lexlapax/go-llms => /external/go-llms` in `goraic`'s
+`go.mod` for workspace work. Release builds and CI MUST resolve to a pinned
+tagged release (current target: `v0.3.6`, Go 1.24+).
+
+**REQ-LLM-DEP-2 — Pinned version, no `main` tracking.** Upstream go-llms is
+in maintenance mode — its author has announced that active development has
+moved to a Rust successor (`rs-llmspell`) and that the Go library will
+receive only opportunistic fixes. Tracking `main` is therefore unacceptable;
+goraic's `go.mod` MUST pin a tagged release. The integration test suite
+MUST exercise the smallest possible subset of the go-llms API that goraic
+depends on (see REQ-LLM-AGENT for the allowed surface) so that a future
+fork or replacement is a mechanical change rather than a redesign.
+
+**REQ-LLM-DEP-3 — Fork-readiness.** goraic's use of go-llms is restricted to
+`pkg/llm/domain` (types) and `pkg/llm/provider` (per-protocol constructors).
+If upstream becomes unresponsive to a security-critical or correctness fix,
+goraic MAY fork into `github.com/emergingrobotics/go-llms` and switch the
+import path with a single global rename. No code anywhere under `goraic/`
+outside `internal/llmsvc` may import any go-llms package directly.
+
+**REQ-LLM-DEP-4 — Wire-level isolation through `internal/llmsvc`.** All
+construction of go-llms providers, all calls to `Generate*`/`Stream*`, and
+all translation between goraic's TaskRequest/TaskResult envelope (the
+gorai-NATS protocol) and go-llms's `Message`/`Response` types occur
+exclusively in `goraic/internal/llmsvc`. This package is the single seam
+where go-llms appears in goraic and the single place to swap implementations
+if the dependency is forked, replaced, or extended with direct provider
+calls for richer tool-call fidelity.
+
+**REQ-LLM-DEP-5 — Provider-SDK absence test.** A test asserts that `goraic`'s
+`go.mod` lists no direct provider SDK (`github.com/anthropics/anthropic-sdk-go`,
+`github.com/sashabaranov/go-openai`, Google Gemini/Vertex SDKs, etc.) and
+that no source file under `goraic/` outside `internal/llmsvc` imports
+`github.com/lexlapax/go-llms/...` or any provider SDK. This is the
+post-migration form of the legacy "no `net/http` outside `/llm`" rule
+(REQ-SEC-3).
+
+**REQ-LLM-DEP-6 — Protocol envelope is goraic's, not go-llms's.** The wire
+format that goraic publishes on NATS is the gorai-NATS envelope
+(`TaskRequest`, `TaskResult`, `ToolCallRequest`, `ToolCallResponse`,
+`ProgressEvent`, `StatusMessage`) per REQ-ARCH-2. `internal/llmsvc`
+translates between that envelope and go-llms's `domain.Message`/
+`domain.Response` at the seam; the gorai-NATS schemas under
+`goraic/docs/protocol/*.schema.json` remain the authoritative contract for
+inter-service traffic. go-llms types never appear on the bus.
+
+---
+
+## 12. Acceptance criteria
+
+A v0.2 build of `goraic` is accepted when, against a representative RDL like §10:
+
+1. `goraic chat` (with no `--config`) errors clearly because `./robot.json` is
+   missing.
+1a. An RDL with no `defaults.command`, or with `defaults.command` pointing at a
+    non-existent or non-`command` service, fails validation at startup with a
+    clear message naming the field.
+2. With the RDL above present, `goraic chat` starts; the TUI shows the prompt.
+3. `/help` lists `plan, design, code, code-review, test, write, explain` plus
+   built-ins.
+4. `/services` lists every LLM, capability, and command service, with `last seen`
+   timestamps that update in real time.
+5. `/plan write PLAN.md from DESIGN.md` dispatches; the prompt returns
+   immediately; the status line shows the running plan task; the file
+   `PLAN.md` is written by the time the task completes.
+6. Submitting `/code-review review PLAN.md` while `/plan` is still running runs
+   both tasks concurrently; both completions appear in the scrollback.
+7. The pipeline `/plan ... | /code ...` runs the two stages sequentially with
+   `PriorContext` threaded.
+8. Pointing `nats` at an external URL where another goraic instance runs an
+   LLM service (e.g., `ollama-large`), then declaring a command bound to that
+   LLM name, makes the command transparently use the remote LLM. The local
+   machine never imports that LLM's SDK.
+8a. A command service that declares the legacy inline `provider`/`api_key_env`/
+    `base_url` attributes fails RDL validation with a clear message pointing
+    at REQ-CMD-2 and naming the offending attribute. A command's
+    `attributes.llm` that names an undeclared LLM service (and is not present
+    via a `remotes` block) also fails validation with a clear message.
+8b. An `llm` service whose `protocol` requires credentials and whose declared
+    `api_key_env` is unset at startup causes `goraic` to exit non-zero with
+    a message naming the service and the env var.
+9. `goraic/internal/llm/{anthropic,ollama,mock}` no longer exists; replaced by
+   `goraic/internal/llmsvc` (a single generic wrapper around any
+   `github.com/lexlapax/go-llms` `Provider`). The security test for
+   "no `net/http` outside `/llm`" is replaced by two tests: (a) no provider-SDK
+   imports are present anywhere in `goraic` (`anthropic-sdk-go`,
+   `go-openai`, Gemini/Vertex SDKs), and (b) `github.com/lexlapax/go-llms/...`
+   is imported only from `internal/llmsvc` (no other goraic package may
+   import go-llms; in particular `pkg/agent`, `pkg/agent/tools`,
+   `pkg/agent/workflow`, and `pkg/llm/provider/multi`|`consensus` are
+   forbidden everywhere — see REQ-LLM-AGENT).
+10. The build is one `make build` away; tests pass via `make test`; race detector
+    is on for packages with concurrency; no test is skipped or stubbed.
+
+---
+
+## 13. Open questions (call out, do not silently decide)
+
+- **Pipeline error semantics:** does a `degraded` stage continue the pipeline or
+  stop it? Default proposal: stop with a visible reason; user can override with
+  `/option pipeline-on-degraded continue`.
+- **Tool discovery across remotes:** does a local command service automatically
+  see tools advertised by a remote capability service on the same bus? Default
+  proposal: yes, since heartbeats are bus-wide, but mark behind a flag for v0.2
+  to keep blast radius small.
+- **Pipeline grammar beyond `|`:** out of scope for v0.2 unless a real workflow
+  forces it. Revisit in v0.3 with concrete use cases.
+- **Persistent multi-session memory:** the `memory` capability service exists,
+  but persistence across `goraic` runs is not specified here. Treat as a v0.3
+  topic.
+
+These are tagged here so DESIGN.md and PLAN.md can either resolve them or carry
+them forward as TODOs — they must not be silently decided by the implementor.
+
+---
+
+## 14. What this means for the rest of the docs
+
+- **DESIGN.md** — update the "Configuration" section to the RDL above, drop the
+  `agent.json` reference, add command services, replace the `gorai-llm-service`
+  dependency with the `github.com/lexlapax/go-llms` dependency described in §11,
+  document the concurrency model for command dispatch, and add a dedicated
+  section describing how AGENTS.md (per https://agents.md/) and the Agent
+  Skills standard (per https://agentskills.io/) are loaded, layered, and
+  injected into command service system prompts.
+- **PLAN.md** — most phases survive, but Phases 5–7 (LLM adapters) and Phase 9
+  (Agent Service) are restructured around the **go-llms** integration in
+  `internal/llmsvc` and around command services. Phase 12 (Coordinator)
+  becomes optional. A new phase covers the RDL migration (drop `agent.json`,
+  adopt `pkg/config`) and a new phase covers the chat parser + concurrency
+  model. The phase that previously stood up the `gorai-llm-service` sibling
+  repo is **removed**; its work is replaced by a much smaller "wire up
+  go-llms" task inside `goraic`.
+- **go.mod** — remove the `replace
+  github.com/emergingrobotics/gorai-llm-service => ../gorai-llm-service`
+  directive and the indirect provider-SDK requires
+  (`github.com/anthropics/anthropic-sdk-go`,
+  `github.com/sashabaranov/go-openai`). Add `require
+  github.com/lexlapax/go-llms vX.Y.Z` (pinned), plus an optional local
+  `replace github.com/lexlapax/go-llms => /external/go-llms` for workspace
+  development.
+- **agent.json** — delete; replace with `robot.json` at the repo root as the
+  shipped example RDL.
+- **README.md** — currently a stub about pi computation; rewrite to describe
+  goraic, the RDL, and the slash-command workflow once the implementation lands.
+
+---
+
+*Source of truth for goraic. Update this file before changing the design; update
+the design before changing the implementation.*

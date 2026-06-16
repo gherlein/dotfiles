@@ -1,0 +1,65 @@
+#!/usr/bin/env bash
+#
+# hdmiplay - detect active V4L2 capture devices and play one with low latency.
+#
+# Scans /dev/video* for devices that actually enumerate video-capture formats
+# (skipping metadata-only nodes), lets the user pick one, then runs the
+# low-delay ffplay pipeline against the chosen device.
+
+set -euo pipefail
+
+if ! command -v v4l2-ctl >/dev/null 2>&1; then
+  echo "hdmiplay: v4l2-ctl not found. Install it with: sudo apt install v4l-utils" >&2
+  exit 1
+fi
+
+if ! command -v ffplay >/dev/null 2>&1; then
+  echo "hdmiplay: ffplay not found. Install it with: sudo apt install ffmpeg" >&2
+  exit 1
+fi
+
+# Collect capture-capable devices and their card names.
+devices=()
+labels=()
+for dev in /dev/video*; do
+  [ -e "$dev" ] || continue
+  if ! formats=$(v4l2-ctl -d "$dev" --list-formats 2>/dev/null); then
+    continue
+  fi
+  # A real capture device enumerates at least one pixel format (e.g. 'MJPG').
+  if ! echo "$formats" | grep -q "'"; then
+    continue
+  fi
+  card=$(v4l2-ctl -d "$dev" --info 2>/dev/null | sed -n "s/.*Card type *: *//p" | head -1)
+  [ -n "$card" ] || card="unknown device"
+  devices+=("$dev")
+  labels+=("$card")
+done
+
+if [ "${#devices[@]}" -eq 0 ]; then
+  echo "hdmiplay: no active video capture devices found under /dev/video*." >&2
+  echo "          Is a capture device or webcam plugged in?" >&2
+  exit 1
+fi
+
+# Choose the device.
+if [ "${#devices[@]}" -eq 1 ]; then
+  choice="${devices[0]}"
+  echo "hdmiplay: using the only capture device: $choice (${labels[0]})"
+else
+  echo "Active video capture devices:"
+  for i in "${!devices[@]}"; do
+    printf "  %d) %s  (%s)\n" "$((i + 1))" "${devices[$i]}" "${labels[$i]}"
+  done
+  read -rp "Select a device [1-${#devices[@]}]: " sel
+  if ! [[ "$sel" =~ ^[0-9]+$ ]] || [ "$sel" -lt 1 ] || [ "$sel" -gt "${#devices[@]}" ]; then
+    echo "hdmiplay: invalid selection '$sel'." >&2
+    exit 1
+  fi
+  choice="${devices[$((sel - 1))]}"
+fi
+
+echo "hdmiplay: opening $choice ..."
+exec ffplay -f v4l2 -input_format mjpeg -video_size 1920x1080 -framerate 60 \
+  -fflags nobuffer -flags low_delay -probesize 32 -analyzeduration 0 \
+  -sync ext "$choice"

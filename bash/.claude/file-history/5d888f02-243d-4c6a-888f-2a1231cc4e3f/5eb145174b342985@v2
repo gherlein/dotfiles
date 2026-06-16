@@ -1,0 +1,64 @@
+package libvirt
+
+import (
+	"context"
+	"os"
+	"time"
+)
+
+// dnsmasqLeasesPath is the libvirt dnsmasq lease file for a given network.
+func dnsmasqLeasesPath(network string) string {
+	return "/var/lib/libvirt/dnsmasq/" + network + ".leases"
+}
+
+// lookupIP performs a single IP lookup for a VM: first via the DHCP lease
+// source, then by matching the domain MAC against the dnsmasq lease file.
+// Returns "" when no address is known yet.
+func lookupIP(ctx context.Context, r Runner, name, network string) string {
+	if out, err := r.Output(ctx, "virsh", "domifaddr", name, "--source", "lease"); err == nil {
+		if ip := parseDomifaddr(string(out)); ip != "" {
+			return ip
+		}
+	}
+	// Fallback: resolve the interface MAC, then scan the dnsmasq lease file.
+	out, err := r.Output(ctx, "virsh", "domiflist", name)
+	if err != nil {
+		return ""
+	}
+	mac := parseDomiflistMAC(string(out))
+	if mac == "" {
+		return ""
+	}
+	content, err := os.ReadFile(dnsmasqLeasesPath(network))
+	if err != nil {
+		return ""
+	}
+	return parseDnsmasqLease(string(content), mac)
+}
+
+// pollConfig controls IP/SSH polling cadence. Exposed for tests.
+type pollConfig struct {
+	interval time.Duration
+	timeout  time.Duration
+}
+
+var defaultIPPoll = pollConfig{interval: 2 * time.Second, timeout: 60 * time.Second}
+
+// pollIP repeatedly calls lookupIP until an address is found or the timeout
+// elapses. Returns "" on timeout.
+func pollIP(ctx context.Context, r Runner, name, network string, pc pollConfig) string {
+	deadline := time.Now().Add(pc.timeout)
+	for {
+		if ip := lookupIP(ctx, r, name, network); ip != "" {
+			return ip
+		}
+		if time.Now().After(deadline) {
+			return ""
+		}
+		select {
+		case <-ctx.Done():
+			return ""
+		case <-time.After(pc.interval):
+		}
+	}
+}

@@ -1,0 +1,187 @@
+package cloudinit
+
+import (
+	"context"
+	"fmt"
+	"strings"
+
+	"github.com/gherlein/govirt/internal/config"
+	"gopkg.in/yaml.v3"
+)
+
+// KeyProvider fetches SSH public keys for a GitHub user. *KeyFetcher satisfies it.
+type KeyProvider interface {
+	Fetch(ctx context.Context, githubUser string) (string, error)
+}
+
+// Process produces the final cloud-init document for a VM:
+//
+//  1. SSH public key placeholders are substituted from GitHub.
+//  2. Go template syntax (when present) is rendered against the config.
+//  3. For local VMs with mounts, runcmd/write_files entries are injected so the
+//     host directories are mounted in the guest.
+//
+// injectMounts is true only for the local provider (virtiofs mounts are
+// meaningless on cloud providers).
+func Process(ctx context.Context, cfg *config.Config, raw []byte, keys KeyProvider, injectMounts bool) ([]byte, error) {
+	if cfg.VM == nil || len(cfg.VM.Users) == 0 {
+		return nil, fmt.Errorf("cloud-init processing requires at least one vm user")
+	}
+
+	keysByUser, err := fetchAllKeys(ctx, cfg.VM.Users, keys)
+	if err != nil {
+		return nil, err
+	}
+
+	out := substituteKeys(raw, cfg.VM.Users, keysByUser)
+
+	out, err = renderTemplate(out, cfg)
+	if err != nil {
+		return nil, err
+	}
+
+	if injectMounts && len(cfg.VM.Mounts) > 0 {
+		out, err = injectMountConfig(out, cfg.VM.Mounts)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return out, nil
+}
+
+func fetchAllKeys(ctx context.Context, users []config.User, keys KeyProvider) (map[string]string, error) {
+	byUser := make(map[string]string, len(users))
+	for _, u := range users {
+		k, err := keys.Fetch(ctx, u.GitHubUsername)
+		if err != nil {
+			return nil, err
+		}
+		byUser[u.Username] = k
+	}
+	return byUser, nil
+}
+
+// substituteKeys replaces ${SSH_PUBLIC_KEY} (first user) and
+// ${SSH_PUBLIC_KEY_<USERNAME>} placeholders. Multi-line key values are expanded
+// preserving the indentation/prefix of the placeholder line so that YAML list
+// items remain valid.
+func substituteKeys(raw []byte, users []config.User, keysByUser map[string]string) []byte {
+	replacements := make(map[string]string, len(users)+1)
+	if len(users) > 0 {
+		replacements["${SSH_PUBLIC_KEY}"] = keysByUser[users[0].Username]
+	}
+	for _, u := range users {
+		token := "${SSH_PUBLIC_KEY_" + strings.ToUpper(u.Username) + "}"
+		replacements[token] = keysByUser[u.Username]
+	}
+
+	lines := strings.Split(string(raw), "\n")
+	var result []string
+	for _, line := range lines {
+		token, idx := firstPlaceholder(line, replacements)
+		if idx < 0 {
+			result = append(result, line)
+			continue
+		}
+		prefix := line[:idx]
+		suffix := line[idx+len(token):]
+		value := replacements[token]
+		keyLines := strings.Split(strings.TrimRight(value, "\n"), "\n")
+		for i, kl := range keyLines {
+			if i == 0 {
+				result = append(result, prefix+kl+suffix)
+			} else {
+				result = append(result, prefix+kl)
+			}
+		}
+	}
+	return []byte(strings.Join(result, "\n"))
+}
+
+// firstPlaceholder returns the earliest-occurring placeholder token on the line
+// and its byte index, or ("", -1) if none are present.
+func firstPlaceholder(line string, replacements map[string]string) (string, int) {
+	bestToken := ""
+	bestIdx := -1
+	for token := range replacements {
+		if i := strings.Index(line, token); i >= 0 {
+			if bestIdx < 0 || i < bestIdx {
+				bestIdx = i
+				bestToken = token
+			}
+		}
+	}
+	return bestToken, bestIdx
+}
+
+// MountTag derives a virtiofs mount tag from a target path: slashes become
+// hyphens and any leading hyphen is stripped. The same tag is used both for the
+// virt-install --filesystem target and the in-guest mount command so they match.
+func MountTag(target string) string {
+	tag := strings.ReplaceAll(target, "/", "-")
+	return strings.TrimPrefix(tag, "-")
+}
+
+// injectMountConfig merges runcmd and write_files entries for each mount into
+// the cloud-init document. The "#cloud-config" header is preserved; existing
+// runcmd/write_files lists are appended to rather than replaced.
+func injectMountConfig(raw []byte, mounts []config.Mount) ([]byte, error) {
+	header, body := splitCloudConfigHeader(raw)
+
+	var doc map[string]any
+	if strings.TrimSpace(string(body)) == "" {
+		doc = map[string]any{}
+	} else if err := yaml.Unmarshal(body, &doc); err != nil {
+		return nil, fmt.Errorf("parsing cloud-init for mount injection: %w", err)
+	}
+	if doc == nil {
+		doc = map[string]any{}
+	}
+
+	runcmd := toList(doc["runcmd"])
+	writeFiles := toList(doc["write_files"])
+	for _, m := range mounts {
+		tag := MountTag(m.Target)
+		runcmd = append(runcmd,
+			fmt.Sprintf("mkdir -p %s", m.Target),
+			fmt.Sprintf("mount -t virtiofs %s %s", tag, m.Target),
+		)
+		writeFiles = append(writeFiles, map[string]any{
+			"path":    "/etc/fstab",
+			"append":  true,
+			"content": fmt.Sprintf("%s   %s   virtiofs   defaults   0   0\n", tag, m.Target),
+		})
+	}
+	doc["runcmd"] = runcmd
+	doc["write_files"] = writeFiles
+
+	merged, err := yaml.Marshal(doc)
+	if err != nil {
+		return nil, fmt.Errorf("encoding cloud-init after mount injection: %w", err)
+	}
+	return append([]byte(header), merged...), nil
+}
+
+// splitCloudConfigHeader separates a leading "#cloud-config" comment line (with
+// its trailing newline) from the rest of the document so it survives a
+// marshal/unmarshal round trip.
+func splitCloudConfigHeader(raw []byte) (header string, body []byte) {
+	s := string(raw)
+	if !strings.HasPrefix(s, "#cloud-config") {
+		return "", raw
+	}
+	if nl := strings.IndexByte(s, '\n'); nl >= 0 {
+		return s[:nl+1], []byte(s[nl+1:])
+	}
+	return s + "\n", nil
+}
+
+func toList(v any) []any {
+	if v == nil {
+		return nil
+	}
+	if list, ok := v.([]any); ok {
+		return list
+	}
+	return []any{v}
+}

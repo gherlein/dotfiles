@@ -1,0 +1,7 @@
+# /etc/host-shadow-paths
+# Canonical list of directories exported read-write to the VM.
+# One absolute path per line. Blank lines and # comments are ignored.
+# After editing: run shadow-export-gen on the host, then shadow-sync in the VM.
+/home/gherlein/h/src
+/home/gherlein/.claude
+/home/gherlein/.config

@@ -1,0 +1,43 @@
+package main
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+
+	agentdomain "github.com/lexlapax/go-llms/pkg/agent/domain"
+	ldomain "github.com/lexlapax/go-llms/pkg/llm/domain"
+)
+
+const maximumResultLength = 500
+
+// PrintingHook implements agentdomain.Hook and prints agent activity to stdout.
+type PrintingHook struct{}
+
+var _ agentdomain.Hook = (*PrintingHook)(nil)
+
+func (h *PrintingHook) BeforeGenerate(_ context.Context, _ []ldomain.Message) {}
+
+func (h *PrintingHook) AfterGenerate(_ context.Context, response ldomain.Response, err error) {
+	if err != nil || response.Content == "" {
+		return
+	}
+	fmt.Printf("[LLM] %s\n\n", response.Content)
+}
+
+func (h *PrintingHook) BeforeToolCall(_ context.Context, tool string, params map[string]interface{}) {
+	paramsJSON, _ := json.Marshal(params)
+	fmt.Printf("[TOOL CALL] %s %s\n", tool, string(paramsJSON))
+}
+
+func (h *PrintingHook) AfterToolCall(_ context.Context, tool string, result interface{}, err error) {
+	if err != nil {
+		fmt.Printf("[TOOL RESULT] %s error: %v\n\n", tool, err)
+		return
+	}
+	resultStr := fmt.Sprintf("%v", result)
+	if len(resultStr) > maximumResultLength {
+		resultStr = resultStr[:maximumResultLength] + "..."
+	}
+	fmt.Printf("[TOOL RESULT] %s %s\n\n", tool, resultStr)
+}

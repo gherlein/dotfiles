@@ -1,0 +1,14 @@
+#cloud-config
+users:
+  - name: ubuntu
+    sudo: ALL=(ALL) NOPASSWD:ALL
+    shell: /bin/bash
+    ssh_authorized_keys:
+      - ${SSH_PUBLIC_KEY}
+package_update: true
+packages:
+  - build-essential
+  - git
+  - ripgrep
+  - tmux
+  - jq

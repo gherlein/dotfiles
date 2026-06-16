@@ -1,0 +1,17 @@
+#cloud-config
+# Node dev template: Node.js 22 plus pnpm and yarn.
+users:
+  - name: ubuntu
+    sudo: ALL=(ALL) NOPASSWD:ALL
+    shell: /bin/bash
+    ssh_authorized_keys:
+      - ${SSH_PUBLIC_KEY}
+package_update: true
+packages:
+  - curl
+  - git
+  - ca-certificates
+runcmd:
+  - curl -fsSL https://deb.nodesource.com/setup_22.x | bash -
+  - apt-get install -y nodejs
+  - npm install -g pnpm yarn

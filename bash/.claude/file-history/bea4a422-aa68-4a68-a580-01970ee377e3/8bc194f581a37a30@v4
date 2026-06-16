@@ -1,0 +1,124 @@
+package main
+
+import (
+	"context"
+	"flag"
+	"fmt"
+	"log/slog"
+	"os"
+	"os/signal"
+	"syscall"
+
+	"github.com/lexlapax/go-llms/pkg/agent/core"
+	agentdomain "github.com/lexlapax/go-llms/pkg/agent/domain"
+	builtintools "github.com/lexlapax/go-llms/pkg/agent/builtins/tools"
+	_ "github.com/lexlapax/go-llms/pkg/agent/builtins/tools/file"
+	_ "github.com/lexlapax/go-llms/pkg/agent/builtins/tools/system"
+	"github.com/lexlapax/go-llms/pkg/llm/provider"
+)
+
+const (
+	defaultModel      = "gpt-oss:120b"
+	defaultOllamaHost = "http://localhost:11434"
+
+	systemPrompt = `You are a coding agent. Complete coding tasks using your tools step by step.
+
+To call a tool respond with ONLY compact JSON on one line, nothing else — no explanation, no backticks:
+{"tool": "tool_name", "params": {"key": "value"}}
+
+One tool call per message. Wait for each result before proceeding.
+When all work is done, respond with a plain-text summary (no JSON).
+
+Tools: file_read, file_write, file_list, execute_command.`
+)
+
+func main() {
+	taskFlag := flag.String("task", "", "task description for the coding agent")
+	modelFlag := flag.String("model", defaultModel, "Ollama model name")
+	ollamaHostFlag := flag.String("ollama-host", defaultOllamaHost, "Ollama host URL")
+	maxIterationsFlag := flag.Int("max-iterations", 20, "maximum agent loop iterations (informational)")
+	workdirFlag := flag.String("workdir", "", "working directory for file and shell operations (default: current directory)")
+	debugFlag := flag.Bool("debug", false, "enable debug logging")
+	flag.Parse()
+
+	_ = *maxIterationsFlag
+
+	task := *taskFlag
+	if task == "" && flag.NArg() > 0 {
+		task = flag.Arg(0)
+	}
+	if task == "" {
+		fmt.Fprintln(os.Stderr, "usage: coding-agent --task <description> | coding-agent <description>")
+		os.Exit(1)
+	}
+
+	workingDirectory := *workdirFlag
+	if workingDirectory == "" {
+		var err error
+		workingDirectory, err = os.Getwd()
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "[ERROR] failed to get working directory: %v\n", err)
+			os.Exit(1)
+		}
+	}
+
+	logLevel := slog.LevelWarn
+	if *debugFlag {
+		logLevel = slog.LevelDebug
+	}
+	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: logLevel}))
+	slog.SetDefault(logger)
+
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
+
+	ollamaHost := *ollamaHostFlag
+	if envHost := os.Getenv("OLLAMA_HOST"); envHost != "" && ollamaHost == defaultOllamaHost {
+		ollamaHost = envHost
+	}
+	p := newFixingProvider(provider.NewOllamaProvider(*modelFlag, provider.WithOllamaHost(ollamaHost)))
+
+	toolNames := []string{"file_read", "file_write", "execute_command", "file_list"}
+	tools := make([]agentdomain.Tool, 0, len(toolNames))
+	for _, name := range toolNames {
+		tool, ok := builtintools.GetTool(name)
+		if !ok {
+			fmt.Fprintf(os.Stderr, "[ERROR] builtin tool %q not found in registry\n", name)
+			os.Exit(1)
+		}
+		tools = append(tools, tool)
+	}
+
+	deps := core.LLMDeps{
+		Provider: p,
+		Logger:   logger,
+	}
+	agent := core.NewLLMAgent("coding-agent", "A coding agent", deps)
+	agent.SetSystemPrompt(systemPrompt)
+	agent.WithHook(&PrintingHook{})
+	for _, tool := range tools {
+		agent.AddTool(tool)
+	}
+
+	state := agentdomain.NewState()
+	state.Set("user_input", task)
+	if workingDirectory != "" {
+		state.Set("working_directory", workingDirectory)
+	}
+
+	fmt.Printf("[TASK] %s\n\n", task)
+
+	resultState, err := agent.Run(ctx, state)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "[ERROR] %v\n", err)
+		os.Exit(1)
+	}
+
+	output, ok := resultState.Get("output")
+	if !ok {
+		output, ok = resultState.Get("result")
+	}
+	if ok && output != nil {
+		fmt.Printf("[DONE] %v\n", output)
+	}
+}

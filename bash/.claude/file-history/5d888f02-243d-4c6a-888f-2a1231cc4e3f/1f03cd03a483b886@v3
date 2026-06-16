@@ -1,0 +1,150 @@
+package main
+
+import (
+	"testing"
+
+	"github.com/gherlein/govirt/internal/config"
+)
+
+func TestParseArgsOrderIndependence(t *testing.T) {
+	cases := [][]string{
+		{"create", "web-server", "--aws"},
+		{"--aws", "create", "web-server"},
+		{"create", "--aws", "web-server"},
+	}
+	for _, argv := range cases {
+		a, err := parseArgs(argv)
+		if err != nil {
+			t.Fatalf("parseArgs(%v): %v", argv, err)
+		}
+		if a.command != "create" || a.name != "web-server" || a.provider != "aws" {
+			t.Errorf("parseArgs(%v) = %+v", argv, a)
+		}
+	}
+}
+
+func TestParseArgsFlagsAndValues(t *testing.T) {
+	a, err := parseArgs([]string{"create", "web", "--do", "-f", "/srv/stacks", "-u", "alice,bob", "-v"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if a.provider != "do" {
+		t.Errorf("provider = %q", a.provider)
+	}
+	if a.folder != "/srv/stacks" {
+		t.Errorf("folder = %q", a.folder)
+	}
+	if a.users != "alice,bob" {
+		t.Errorf("users = %q", a.users)
+	}
+	if !a.verbose {
+		t.Error("verbose not set")
+	}
+}
+
+func TestParseArgsDigitaloceanAlias(t *testing.T) {
+	a, _ := parseArgs([]string{"list", "--digitalocean"})
+	if a.provider != "do" {
+		t.Errorf("provider = %q, want do", a.provider)
+	}
+}
+
+func TestParseArgsDNSSwap(t *testing.T) {
+	a, err := parseArgs([]string{"dns", "swap", "web-server"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if a.command != "dns" || a.subcommand != "swap" || a.name != "web-server" {
+		t.Errorf("got %+v", a)
+	}
+}
+
+func TestParseArgsMissingFlagValue(t *testing.T) {
+	if _, err := parseArgs([]string{"create", "web", "-f"}); err == nil {
+		t.Error("expected error for missing flag value")
+	}
+}
+
+func TestParseArgsUnknownFlag(t *testing.T) {
+	if _, err := parseArgs([]string{"create", "--bogus"}); err == nil {
+		t.Error("expected error for unknown flag")
+	}
+}
+
+func TestResolveStackFolderPrecedence(t *testing.T) {
+	home := "/home/user"
+	if got := resolveStackFolder("/explicit", "/cfgdir", "/envdir", home); got != "/explicit" {
+		t.Errorf("folder should win: %q", got)
+	}
+	if got := resolveStackFolder("", "/cfgdir", "/envdir", home); got != "/cfgdir/stacks" {
+		t.Errorf("dir should win: %q", got)
+	}
+	if got := resolveStackFolder("", "", "/envdir", home); got != "/envdir" {
+		t.Errorf("env should win: %q", got)
+	}
+	if got := resolveStackFolder("", "", "", home); got != "/home/user/.config/govirt/stacks" {
+		t.Errorf("default: %q", got)
+	}
+}
+
+func TestSelectProvider(t *testing.T) {
+	cases := []struct {
+		name string
+		flag string
+		cfg  *config.Config
+		want string
+	}{
+		{"explicit flag wins", "aws", &config.Config{Local: &config.LocalState{}}, "aws"},
+		{"do state", "", &config.Config{DO: &config.DOState{}}, "do"},
+		{"aws state", "", &config.Config{AWS: &config.AWSState{}}, "aws"},
+		{"do beats aws", "", &config.Config{AWS: &config.AWSState{}, DO: &config.DOState{}}, "do"},
+		{"local state present overrides cloud", "", &config.Config{AWS: &config.AWSState{}, Local: &config.LocalState{}}, "local"},
+		{"no state -> local", "", &config.Config{}, "local"},
+		{"dns only -> local", "", &config.Config{DNS: &config.DNSConfig{Domain: "x"}}, "local"},
+	}
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := selectProvider(tt.flag, tt.cfg); got != tt.want {
+				t.Errorf("selectProvider = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestMountWarning(t *testing.T) {
+	withMounts := &config.Config{VM: &config.VMConfig{
+		Name:   "web",
+		Mounts: []config.Mount{{Source: "/host", Target: "/mnt"}},
+	}}
+	noMounts := &config.Config{VM: &config.VMConfig{Name: "web"}}
+
+	if w := mountWarning(withMounts, "local"); w != "" {
+		t.Errorf("local provider should not warn: %q", w)
+	}
+	if w := mountWarning(noMounts, "aws"); w != "" {
+		t.Errorf("no mounts should not warn: %q", w)
+	}
+	for _, prov := range []string{"aws", "do"} {
+		if w := mountWarning(withMounts, prov); w == "" {
+			t.Errorf("%s provider with mounts should warn", prov)
+		}
+	}
+}
+
+func TestParseUsersOverride(t *testing.T) {
+	users := parseUsersOverride("alice,deploy-bot")
+	if len(users) != 2 {
+		t.Fatalf("got %d users", len(users))
+	}
+	if users[0].Username != "ubuntu" || users[0].GitHubUsername != "alice" {
+		t.Errorf("user 0 = %+v, want ubuntu/alice", users[0])
+	}
+	if users[1].Username != "deploy-bot" || users[1].GitHubUsername != "deploy-bot" {
+		t.Errorf("user 1 = %+v", users[1])
+	}
+
+	single := parseUsersOverride("gherlein")
+	if len(single) != 1 || single[0].Username != "ubuntu" || single[0].GitHubUsername != "gherlein" {
+		t.Errorf("single = %+v", single)
+	}
+}

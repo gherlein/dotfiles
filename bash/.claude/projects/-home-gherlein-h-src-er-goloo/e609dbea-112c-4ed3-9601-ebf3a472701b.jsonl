@@ -1,0 +1,4 @@
+{"type":"last-prompt","lastPrompt":"now add a command line flag --dir to be able to specify a different folder thant the default ~/.config/goloo","leafUuid":"3ba51cd9-9625-4aed-9232-8d879febba4f","sessionId":"e609dbea-112c-4ed3-9601-ebf3a472701b"}
+{"type":"ai-title","aiTitle":"Update goloo config path to ~/.config/goloo","sessionId":"e609dbea-112c-4ed3-9601-ebf3a472701b"}
+{"type":"mode","mode":"normal","sessionId":"e609dbea-112c-4ed3-9601-ebf3a472701b"}
+{"type":"permission-mode","permissionMode":"bypassPermissions","sessionId":"e609dbea-112c-4ed3-9601-ebf3a472701b"}

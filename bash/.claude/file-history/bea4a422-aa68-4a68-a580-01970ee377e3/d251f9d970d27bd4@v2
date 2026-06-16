@@ -1,0 +1,93 @@
+package main
+
+import (
+	"context"
+	"strings"
+
+	schemadomain "github.com/lexlapax/go-llms/pkg/schema/domain"
+
+	ldomain "github.com/lexlapax/go-llms/pkg/llm/domain"
+)
+
+// fixingProvider wraps a Provider and repairs common JSON tool-call malformations
+// that some Ollama models produce (e.g. trailing ']' instead of closing '}}').
+type fixingProvider struct {
+	inner ldomain.Provider
+}
+
+func newFixingProvider(inner ldomain.Provider) ldomain.Provider {
+	return &fixingProvider{inner: inner}
+}
+
+func (p *fixingProvider) Generate(ctx context.Context, prompt string, options ...ldomain.Option) (string, error) {
+	return p.inner.Generate(ctx, prompt, options...)
+}
+
+func (p *fixingProvider) GenerateMessage(ctx context.Context, messages []ldomain.Message, options ...ldomain.Option) (ldomain.Response, error) {
+	resp, err := p.inner.GenerateMessage(ctx, messages, options...)
+	if err != nil {
+		return resp, err
+	}
+	resp.Content = fixToolCallJSON(resp.Content)
+	return resp, nil
+}
+
+func (p *fixingProvider) GenerateWithSchema(ctx context.Context, prompt string, schema *schemadomain.Schema, options ...ldomain.Option) (interface{}, error) {
+	return p.inner.GenerateWithSchema(ctx, prompt, schema, options...)
+}
+
+func (p *fixingProvider) Stream(ctx context.Context, prompt string, options ...ldomain.Option) (ldomain.ResponseStream, error) {
+	return p.inner.Stream(ctx, prompt, options...)
+}
+
+func (p *fixingProvider) StreamMessage(ctx context.Context, messages []ldomain.Message, options ...ldomain.Option) (ldomain.ResponseStream, error) {
+	return p.inner.StreamMessage(ctx, messages, options...)
+}
+
+// fixToolCallJSON repairs malformed JSON tool calls in model responses.
+// Handles: trailing ']' that replaces the outer closing '}' of {"tool":...} objects.
+func fixToolCallJSON(content string) string {
+	idx := strings.Index(content, `{"tool"`)
+	if idx == -1 {
+		return content
+	}
+	// Count braces from the start of the JSON object.
+	depth := 0
+	inString := false
+	escape := false
+	for i := idx; i < len(content); i++ {
+		ch := content[i]
+		if escape {
+			escape = false
+			continue
+		}
+		if ch == '\\' && inString {
+			escape = true
+			continue
+		}
+		if ch == '"' {
+			inString = !inString
+			continue
+		}
+		if inString {
+			continue
+		}
+		if ch == '{' {
+			depth++
+		} else if ch == '}' {
+			depth--
+			if depth == 0 {
+				return content
+			}
+		}
+	}
+	// We scanned to the end with depth > 0 — the outer '}' is missing.
+	// If the content ends with ']', replace it with '}'.
+	trimmed := strings.TrimRight(content, " \t\n\r")
+	if strings.HasSuffix(trimmed, "]") {
+		return trimmed[:len(trimmed)-1] + "}"
+	}
+	// Append the missing closing braces.
+	suffix := strings.Repeat("}", depth)
+	return trimmed + suffix
+}

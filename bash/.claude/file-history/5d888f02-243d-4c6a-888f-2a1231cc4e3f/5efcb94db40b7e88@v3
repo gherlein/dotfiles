@@ -1,0 +1,347 @@
+// Command govirt provisions VMs locally (libvirt/KVM) or in the cloud (AWS EC2,
+// DigitalOcean) from a single JSON config and a standard cloud-init YAML.
+package main
+
+import (
+	"context"
+	"fmt"
+	"os"
+	"path/filepath"
+	"text/tabwriter"
+
+	"github.com/gherlein/govirt/internal/cloudinit"
+	"github.com/gherlein/govirt/internal/config"
+	"github.com/gherlein/govirt/internal/images"
+	"github.com/gherlein/govirt/internal/provider"
+	"github.com/gherlein/govirt/internal/provider/aws"
+	"github.com/gherlein/govirt/internal/provider/digitalocean"
+	"github.com/gherlein/govirt/internal/provider/libvirt"
+)
+
+// version is set via -ldflags at build time.
+var version = "dev"
+
+func main() {
+	if err := run(os.Args[1:]); err != nil {
+		fmt.Fprintln(os.Stderr, "error:", err)
+		os.Exit(1)
+	}
+}
+
+func run(argv []string) error {
+	args, err := parseArgs(argv)
+	if err != nil {
+		return err
+	}
+	if args.version {
+		fmt.Println("govirt", version)
+		return nil
+	}
+	if args.help || args.command == "" {
+		printUsage()
+		return nil
+	}
+
+	ctx := context.Background()
+	folder := resolveStackFolder(args.folder, args.dir, os.Getenv("GOVIRT_STACK_FOLDER"), homeDir())
+
+	switch args.command {
+	case "create":
+		return cmdCreate(ctx, args, folder)
+	case "destroy":
+		return cmdDestroy(ctx, args, folder)
+	case "list":
+		return cmdList(ctx, args)
+	case "ssh":
+		return cmdSimple(ctx, args, folder, "ssh")
+	case "status":
+		return cmdStatus(ctx, args, folder)
+	case "stop":
+		return cmdSimple(ctx, args, folder, "stop")
+	case "start":
+		return cmdSimple(ctx, args, folder, "start")
+	case "dns":
+		return cmdDNS(ctx, args, folder)
+	default:
+		return fmt.Errorf("unknown command %q (try 'govirt --help')", args.command)
+	}
+}
+
+// buildProvider constructs the concrete provider for a name.
+func buildProvider(name string, verbose bool) (provider.VMProvider, error) {
+	switch name {
+	case "local":
+		p := libvirt.New(images.NewManager())
+		p.Verbose = verbose
+		return p, nil
+	case "aws":
+		return aws.New(), nil
+	case "do":
+		return digitalocean.New(), nil
+	default:
+		return nil, fmt.Errorf("unknown provider %q", name)
+	}
+}
+
+// loadStackConfig loads and validates a stack config, applying a --users
+// override when present.
+func loadStackConfig(args parsedArgs, folder string) (*config.Config, string, error) {
+	if args.name == "" {
+		return nil, "", fmt.Errorf("%s requires a VM name", args.command)
+	}
+	// Validate the name at the CLI boundary, before it is joined into any
+	// filesystem path, to prevent path traversal via the stack name.
+	if err := config.ValidateName(args.name); err != nil {
+		return nil, "", err
+	}
+	cfgPath := config.ConfigPath(folder, args.name)
+	cfg, err := config.Load(cfgPath)
+	if err != nil {
+		return nil, "", err
+	}
+	if args.users != "" && cfg.VM != nil {
+		cfg.VM.Users = parseUsersOverride(args.users)
+	}
+	return cfg, cfgPath, nil
+}
+
+func cmdCreate(ctx context.Context, args parsedArgs, folder string) error {
+	cfg, cfgPath, err := loadStackConfig(args, folder)
+	if err != nil {
+		return err
+	}
+	if err := cfg.Validate(); err != nil {
+		return err
+	}
+	providerName := selectProvider(args.provider, cfg)
+	p, err := buildProvider(providerName, args.verbose)
+	if err != nil {
+		return err
+	}
+	if w := mountWarning(cfg, providerName); w != "" {
+		fmt.Fprintln(os.Stderr, w)
+	}
+
+	processed, err := processCloudInit(ctx, cfg, folder, args.name, providerName == "local")
+	if err != nil {
+		return err
+	}
+	tmp, err := os.CreateTemp("", "govirt-cloudinit-*.yaml")
+	if err != nil {
+		return err
+	}
+	defer os.Remove(tmp.Name())
+	if _, err := tmp.Write(processed); err != nil {
+		tmp.Close()
+		return err
+	}
+	tmp.Close()
+
+	if err := p.Create(ctx, cfg, tmp.Name()); err != nil {
+		return err
+	}
+
+	if providerName == "local" && !args.noHosts {
+		updateLocalHosts(cfg)
+	}
+	if err := config.Save(cfgPath, cfg); err != nil {
+		return err
+	}
+	fmt.Printf("created %s (%s)\n", args.name, providerName)
+
+	if args.verbose {
+		if tailer, ok := p.(libvirt.CloudInitTailer); ok {
+			if err := tailer.TailCloudInit(ctx, cfg); err != nil {
+				fmt.Fprintf(os.Stderr, "warning: could not stream cloud-init log: %v\n", err)
+			}
+		}
+	}
+	return nil
+}
+
+// processCloudInit reads the stack cloud-init.yaml (or generates a default) and
+// runs it through the processor.
+func processCloudInit(ctx context.Context, cfg *config.Config, folder, name string, local bool) ([]byte, error) {
+	ciPath := config.CloudInitPath(folder, name)
+	var raw []byte
+	if data, err := os.ReadFile(ciPath); err == nil {
+		raw = data
+	} else if os.IsNotExist(err) {
+		raw = []byte(defaultCloudInit(cfg))
+	} else {
+		return nil, fmt.Errorf("reading %s: %w", ciPath, err)
+	}
+	return cloudinit.Process(ctx, cfg, raw, cloudinit.NewKeyFetcher(), local)
+}
+
+// updateLocalHosts adds an /etc/hosts entry for a freshly created local VM. A
+// failure prints manual instructions and is non-fatal.
+func updateLocalHosts(cfg *config.Config) {
+	if cfg.Local == nil || cfg.Local.IP == "" {
+		return
+	}
+	fqdn := ""
+	if cfg.DNS != nil && cfg.DNS.Hostname != "" && cfg.DNS.Domain != "" {
+		fqdn = cfg.DNS.Hostname + "." + cfg.DNS.Domain
+	}
+	if err := addHostsEntry(cfg.VM.Name, cfg.Local.IP, fqdn); err != nil {
+		fmt.Fprintf(os.Stderr, "warning: could not update /etc/hosts: %v\n", err)
+		fmt.Fprintf(os.Stderr, "add manually:\n%s\n", hostsBlock(cfg.VM.Name, cfg.Local.IP, fqdn))
+		return
+	}
+	cfg.Local.HostsEntry = true
+}
+
+func cmdDestroy(ctx context.Context, args parsedArgs, folder string) error {
+	cfg, cfgPath, err := loadStackConfig(args, folder)
+	if err != nil {
+		return err
+	}
+	providerName := selectProvider(args.provider, cfg)
+	p, err := buildProvider(providerName, args.verbose)
+	if err != nil {
+		return err
+	}
+	hadHostsEntry := providerName == "local" && cfg.Local != nil && cfg.Local.HostsEntry
+	if err := p.Delete(ctx, cfg); err != nil {
+		return err
+	}
+	if hadHostsEntry {
+		if err := removeHostsEntry(args.name); err != nil {
+			fmt.Fprintf(os.Stderr, "warning: could not remove /etc/hosts entry: %v\n", err)
+		}
+	}
+	if err := config.Save(cfgPath, cfg); err != nil {
+		return err
+	}
+	fmt.Printf("destroyed %s (%s)\n", args.name, providerName)
+	return nil
+}
+
+func cmdList(ctx context.Context, args parsedArgs) error {
+	providerName := args.provider
+	if providerName == "" {
+		providerName = "local"
+	}
+	p, err := buildProvider(providerName, args.verbose)
+	if err != nil {
+		return err
+	}
+	vms, err := p.List(ctx)
+	if err != nil {
+		return err
+	}
+	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
+	fmt.Fprintln(w, "NAME\tSTATE\tIP\tPROVIDER")
+	for _, vm := range vms {
+		fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", vm.Name, vm.State, vm.IP, vm.Provider)
+	}
+	return w.Flush()
+}
+
+func cmdStatus(ctx context.Context, args parsedArgs, folder string) error {
+	cfg, _, err := loadStackConfig(args, folder)
+	if err != nil {
+		return err
+	}
+	providerName := selectProvider(args.provider, cfg)
+	p, err := buildProvider(providerName, args.verbose)
+	if err != nil {
+		return err
+	}
+	st, err := p.Status(ctx, cfg)
+	if err != nil {
+		return err
+	}
+	fmt.Printf("name:     %s\nstate:    %s\nprovider: %s\nip:       %s\n", st.Name, st.State, st.Provider, st.IP)
+	return nil
+}
+
+// cmdSimple handles ssh, stop, and start which load the stack and dispatch to a
+// single provider method.
+func cmdSimple(ctx context.Context, args parsedArgs, folder, op string) error {
+	cfg, cfgPath, err := loadStackConfig(args, folder)
+	if err != nil {
+		return err
+	}
+	providerName := selectProvider(args.provider, cfg)
+	p, err := buildProvider(providerName, args.verbose)
+	if err != nil {
+		return err
+	}
+	switch op {
+	case "ssh":
+		return p.SSH(ctx, cfg)
+	case "stop":
+		if err := p.Stop(ctx, cfg); err != nil {
+			return err
+		}
+	case "start":
+		if err := p.Start(ctx, cfg); err != nil {
+			return err
+		}
+	}
+	if err := config.Save(cfgPath, cfg); err != nil {
+		return err
+	}
+	fmt.Printf("%s %s (%s)\n", op, args.name, providerName)
+	return nil
+}
+
+func cmdDNS(ctx context.Context, args parsedArgs, folder string) error {
+	if args.subcommand != "swap" {
+		return fmt.Errorf("usage: govirt dns swap <name>")
+	}
+	cfg, cfgPath, err := loadStackConfig(args, folder)
+	if err != nil {
+		return err
+	}
+	providerName := selectProvider(args.provider, cfg)
+	if providerName == "local" {
+		return fmt.Errorf("dns swap requires a cloud deployment: pass --aws or --do, or create %s with a cloud provider first", args.name)
+	}
+	p, err := buildProvider(providerName, args.verbose)
+	if err != nil {
+		return err
+	}
+	swapper, ok := p.(provider.DNSSwapper)
+	if !ok {
+		return fmt.Errorf("provider %q does not support dns swap", providerName)
+	}
+	if err := swapper.SwapDNS(ctx, cfg); err != nil {
+		return err
+	}
+	if err := config.Save(cfgPath, cfg); err != nil {
+		return err
+	}
+	fmt.Printf("swapped DNS for %s (%s)\n", args.name, providerName)
+	return nil
+}
+
+func printUsage() {
+	fmt.Print(`govirt - provision VMs locally or in the cloud
+
+Usage:
+  govirt create <name> [--aws|--do|--local]   Create a VM
+  govirt destroy <name>                        Destroy a VM (auto-detects provider)
+  govirt list [--aws|--do]                     List VMs
+  govirt ssh <name>                            SSH into a VM
+  govirt status <name>                         Show VM status
+  govirt stop <name>                           Gracefully stop a VM
+  govirt start <name>                          Start a VM
+  govirt dns swap <name>                       Point DNS at the current VM IP (cloud only)
+
+Flags:
+  --aws                  Use AWS provider
+  --do, --digitalocean   Use DigitalOcean provider
+  --local                Use local libvirt provider
+  --dir PATH             Config directory (stacks at <dir>/stacks)
+  --folder, -f PATH      Stacks folder (overrides --dir)
+  --users, -u USERS      GitHub usernames for SSH key injection (comma-separated)
+  --no-hosts             Skip /etc/hosts management for local VMs
+  --verbose, -v          Verbose output
+  --version              Show version
+  --help, -h             Show this help
+
+Config dir: ` + filepath.Join(homeDir(), ".config", "govirt", "stacks") + "\n")
+}

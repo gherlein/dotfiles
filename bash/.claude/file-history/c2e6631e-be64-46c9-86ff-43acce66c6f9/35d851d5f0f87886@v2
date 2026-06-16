@@ -1,0 +1,844 @@
+# govirt Requirements
+
+## Overview
+
+`govirt` is a unified CLI tool for provisioning VMs locally (libvirt + virt-install + cloud-init) or in the cloud (AWS EC2, DigitalOcean), using a single JSON config file and a standard cloud-init YAML.
+
+It replicates all functionality of [goloo](https://github.com/emergingrobotics/goloo) — same commands, same config schema, same cloud-init variable substitution, same cloud provider support — with the local VM backend replaced from Canonical Multipass to libvirt/KVM.
+
+---
+
+## The Problem
+
+Same as goloo: you want identical server environments locally and in the cloud, from one config. The difference is that govirt targets systems where libvirt/KVM is the preferred local hypervisor (Linux hosts, servers, CI environments) rather than Multipass.
+
+---
+
+## Solution
+
+```bash
+govirt create devbox              # Local VM via libvirt/KVM
+govirt create devbox --aws        # AWS EC2 instance
+govirt create devbox --do         # DigitalOcean Droplet
+```
+
+Same config file, same cloud-init YAML, same commands — only the local backend differs.
+
+---
+
+## Commands
+
+```
+govirt create <name>             Create a local VM (libvirt)
+govirt create <name> --aws       Create an AWS EC2 instance
+govirt create <name> --do        Create a DigitalOcean Droplet
+govirt destroy <name>            Destroy VM (auto-detects provider)
+govirt list                      List local VMs
+govirt list --aws                List AWS VMs
+govirt list --do                 List DigitalOcean Droplets
+govirt ssh <name>                SSH into VM
+govirt status <name>             Show VM status
+govirt stop <name>               Stop VM (graceful shutdown)
+govirt start <name>              Start VM
+govirt dns swap <name>           Update DNS records to current VM IP (AWS and DigitalOcean)
+```
+
+### Flags
+
+| Flag | Description |
+|------|-------------|
+| `--aws` | Use AWS provider |
+| `--do`, `--digitalocean` | Use DigitalOcean provider |
+| `--local` | Use local libvirt provider |
+| `--dir PATH` | govirt config directory (default: `~/.config/govirt`); stacks at `<dir>/stacks/` |
+| `--folder`, `-f PATH` | Full path to stacks folder (overrides `--dir`) |
+| `--users`, `-u USERS` | GitHub usernames for SSH key injection (comma-separated) |
+| `--verbose`, `-v` | Show detailed progress |
+| `--no-hosts` | Skip /etc/hosts management for local VMs |
+| `--version` | Show version |
+| `--help`, `-h` | Show help |
+
+### Environment Variables
+
+| Variable | Description |
+|----------|-------------|
+| `GOVIRT_STACK_FOLDER` | Default base folder for configs (overridden by `--folder`/`-f`) |
+| `DIGITALOCEAN_TOKEN` | DigitalOcean API token (required when using `--do`) |
+| `GOVIRT_IMAGE_CACHE` | Directory to cache cloud images (default: `~/.cache/govirt/images`) |
+| `LIBVIRT_DEFAULT_URI` | Libvirt connection URI (default: `qemu:///system`) |
+
+---
+
+## Config File Format
+
+Identical to goloo. Each VM config lives in a named folder:
+
+```
+~/.config/govirt/stacks/
+└── web-server/
+    ├── config.json
+    └── cloud-init.yaml
+```
+
+### config.json schema
+
+Input sections (user-managed):
+
+```json
+{
+  "vm": {
+    "name": "web-server",
+    "cpus": 2,
+    "memory": "2G",
+    "disk": "20G",
+    "image": "24.04",
+    "mounts": [
+      {"source": "/home/user/code", "target": "/home/ubuntu/code"}
+    ],
+    "instance_type": "t3.small",
+    "os": "ubuntu-24.04",
+    "region": "us-east-1",
+    "vpc_id": "",
+    "subnet_id": "",
+    "do_size": "s-2vcpu-4gb",
+    "do_region": "nyc3",
+    "do_image": "ubuntu-24-04-x64",
+    "do_vpc_id": "",
+    "ssh_cidr": "0.0.0.0/0",
+    "web_cidr": "0.0.0.0/0",
+    "users": [
+      {"username": "ubuntu", "github_username": "alice"},
+      {"username": "deploy", "github_username": "deploy-bot"}
+    ]
+  },
+  "dns": {
+    "hostname": "web",
+    "domain": "example.com",
+    "ttl": 300,
+    "zone_id": "",
+    "is_apex_domain": true,
+    "cname_aliases": ["www"]
+  }
+}
+```
+
+State sections (govirt-managed, one per provider):
+
+```json
+{
+  "local": {
+    "ip": "192.168.122.5",
+    "hosts_entry": true,
+    "domain_name": "web-server",
+    "disk_path": "/var/lib/libvirt/images/web-server.qcow2",
+    "cloud_init_iso": "/var/lib/libvirt/images/web-server-cloud-init.iso",
+    "network": "default"
+  },
+  "aws": { ... },
+  "do": { ... }
+}
+```
+
+### vm section reference
+
+| Field | Default | Provider | Description |
+|-------|---------|----------|-------------|
+| `name` | (required) | All | VM name |
+| `cpus` | 2 | Local | Number of vCPUs |
+| `memory` | `"2G"` | Local | RAM allocation (e.g. `"2G"`, `"512M"`) |
+| `disk` | `"20G"` | Local | Root disk size |
+| `image` | `"24.04"` | Local | Ubuntu version shorthand (see Image Mapping) |
+| `mounts` | | Local | Host directory mounts `{"source", "target"}` |
+| `instance_type` | `"t3.micro"` | AWS | EC2 instance type |
+| `os` | `"ubuntu-24.04"` | AWS | AMI lookup key |
+| `region` | `"us-east-1"` | AWS | AWS region |
+| `vpc_id` | | AWS | Specific VPC (auto-discovered if empty) |
+| `subnet_id` | | AWS | Specific subnet (auto-discovered if empty) |
+| `do_size` | | DigitalOcean | Droplet size slug |
+| `do_region` | | DigitalOcean | Region slug |
+| `do_image` | | DigitalOcean | Image slug |
+| `do_vpc_id` | | DigitalOcean | VPC UUID (optional) |
+| `ssh_cidr` | `"0.0.0.0/0"` | DigitalOcean | CIDR for SSH firewall rule |
+| `web_cidr` | `"0.0.0.0/0"` | DigitalOcean | CIDR for HTTP/HTTPS firewall rules |
+| `users` | (required) | All | List of `{"username", "github_username"}` |
+
+---
+
+## Local VM Backend: libvirt + virt-install + cloud-init
+
+This is the primary difference from goloo. All cloud provider functionality (AWS, DigitalOcean) is carried over unchanged.
+
+### Prerequisites (Local)
+
+- `libvirt` daemon running (`libvirtd`)
+- `qemu-kvm` / `qemu-system-x86_64` installed
+- `virt-install` installed
+- `virsh` CLI available
+- `genisoimage` or `cloud-localds` available (for cloud-init ISO generation)
+- User in `libvirt` group or running with appropriate permissions
+
+### Image Management
+
+Govirt downloads Ubuntu cloud images (`.qcow2`) on first use and caches them locally.
+
+**Image cache directory**: `~/.cache/govirt/images/` (or `$GOVIRT_IMAGE_CACHE`)
+
+**Image mapping** (from `vm.image` shorthand):
+
+| `vm.image` | Download URL |
+|------------|-------------|
+| `24.04` | `https://cloud-images.ubuntu.com/noble/current/noble-server-cloudimg-amd64.img` |
+| `22.04` | `https://cloud-images.ubuntu.com/jammy/current/jammy-server-cloudimg-amd64.img` |
+| `20.04` | `https://cloud-images.ubuntu.com/focal/current/focal-server-cloudimg-amd64.img` |
+
+Cached images are never deleted automatically. Users can clear the cache manually.
+
+### Disk Creation
+
+For each VM, govirt creates a copy-on-write (CoW) overlay disk backed by the cached cloud image:
+
+```
+qemu-img create -f qcow2 -b <cached-base-image> -F qcow2 <vm-disk-path> <disk-size>
+```
+
+The VM disk is stored in the libvirt default storage pool directory (typically `/var/lib/libvirt/images/`) as `<vm-name>.qcow2`.
+
+Resizing: `qemu-img resize <vm-disk-path> <disk-size>` after creation if the size is larger than the base image.
+
+### cloud-init NoCloud ISO
+
+Libvirt does not natively inject cloud-init data the way Multipass does. Instead, govirt generates a NoCloud datasource ISO and attaches it as a second CD-ROM drive.
+
+The ISO contains two files:
+- `meta-data`: Instance identity
+- `user-data`: The processed cloud-init YAML (with SSH keys substituted)
+
+**meta-data format:**
+```yaml
+instance-id: govirt-<vm-name>
+local-hostname: <vm-name>
+```
+
+**ISO generation** (one of these commands, whichever is available):
+```bash
+# Option 1: cloud-localds (from cloud-image-utils)
+cloud-localds <output-iso> <user-data-file> <meta-data-file>
+
+# Option 2: genisoimage
+genisoimage -output <output-iso> -volid cidata -joliet -rock \
+    user-data meta-data
+```
+
+The cloud-init ISO is stored alongside the VM disk: `<vm-name>-cloud-init.iso`
+
+After the VM has booted and cloud-init has completed, the ISO is no longer needed but is kept for audit purposes. It is removed when the VM is destroyed.
+
+### VM Creation: virt-install
+
+```bash
+virt-install \
+    --name <vm-name> \
+    --memory <memory-MB> \
+    --vcpus <cpus> \
+    --disk path=<vm-disk-path>,format=qcow2 \
+    --disk path=<cloud-init-iso>,device=cdrom \
+    --os-variant ubuntu24.04 \
+    --network network=default \
+    --graphics none \
+    --noautoconsole \
+    --import
+```
+
+Key flags:
+- `--import`: Boot from existing disk (the cloud image), no OS install needed
+- `--noautoconsole`: Do not attach to serial console; return immediately
+- `--graphics none`: Headless VM
+- `--network network=default`: Use the libvirt default NAT network (or `--network bridge=<br>` if configured)
+
+**Memory conversion**: `vm.memory` field uses suffix notation (`"2G"`, `"512M"`). Convert to MB for `virt-install --memory`.
+
+**OS variant**: Map `vm.image` to `--os-variant` value:
+| `vm.image` | `--os-variant` |
+|------------|---------------|
+| `24.04` | `ubuntu24.04` |
+| `22.04` | `ubuntu22.04` |
+| `20.04` | `ubuntu20.04` |
+
+If `osinfo-db` does not have the exact variant, fall back to `ubuntu20.04` with a warning.
+
+### Host Directory Mounts (virtiofs)
+
+For each `mount` entry in `vm.mounts`:
+
+1. Add to `virt-install` invocation:
+   ```bash
+   --filesystem source=<host-source>,target=<tag>,driver.type=virtiofs
+   ```
+   where `<tag>` is a sanitized version of the target path (replace `/` with `-`, strip leading `-`).
+
+2. The cloud-init `user-data` must include a `runcmd` to mount it:
+   ```yaml
+   runcmd:
+     - mkdir -p <target>
+     - mount -t virtiofs <tag> <target>
+   ```
+   Govirt appends these runcmd entries to the processed cloud-init YAML automatically, based on the `mounts` config — users do not need to add them manually.
+
+3. Add `/etc/fstab` entry via `write_files` in cloud-init for persistence across reboots:
+   ```
+   <tag>   <target>   virtiofs   defaults   0   0
+   ```
+
+**Fallback to 9p**: If virtiofs is unavailable (host kernel < 5.4 or QEMU < 4.2), fall back to 9p/virtio-9p mounts and emit a warning.
+
+### IP Address Detection
+
+After `virt-install` returns, the VM may not have an IP immediately. Govirt polls for the IP using `virsh domifaddr`:
+
+```bash
+virsh domifaddr <vm-name> --source agent
+# or if guest agent not available:
+virsh domifaddr <vm-name> --source lease
+```
+
+Poll strategy:
+1. Try `virsh domifaddr --source lease` every 2 seconds, up to 60 seconds
+2. If no IP after 60 seconds, emit a warning and leave `local.ip` empty
+3. Log the IP to `local.ip` once found
+
+Alternative: Read DHCP leases from `/var/lib/libvirt/dnsmasq/default.leases` and match by MAC address obtained from `virsh domiflist <name>`.
+
+### cloud-init Completion Detection (verbose mode)
+
+In `--verbose` mode, tail the cloud-init log via `virsh console` or `ssh` (once IP is known):
+
+```bash
+# Via SSH once IP is known:
+ssh -o StrictHostKeyChecking=no ubuntu@<ip> \
+    "tail -f /var/log/cloud-init-output.log"
+```
+
+Poll for SSH availability after IP is detected before attempting to tail the log.
+
+### VM State Operations
+
+**Stop (graceful)**:
+```bash
+virsh shutdown <vm-name>
+```
+Wait up to 30 seconds for the domain to stop. If it doesn't stop, return an error (do not force-kill unless `--force` is added later).
+
+**Start**:
+```bash
+virsh start <vm-name>
+```
+After starting, poll for IP as during creation and update `local.ip`.
+
+**Destroy (delete)**:
+```bash
+virsh destroy <vm-name>       # force-stop if running
+virsh undefine <vm-name> --remove-all-storage
+```
+Also delete the cloud-init ISO file manually (it may not be in the libvirt storage pool).
+
+**Status**:
+```bash
+virsh dominfo <vm-name>       # state
+virsh domifaddr <vm-name>     # IP
+```
+
+Parse `virsh dominfo` XML or text output to get the domain state (running, shut off, paused, etc.).
+
+**List**:
+```bash
+virsh list --all
+```
+Parse output to get name and state. For each running VM, optionally fetch IP via `virsh domifaddr`.
+
+### SSH
+
+Direct SSH, not wrapped via `virsh console`:
+
+```bash
+ssh -o StrictHostKeyChecking=no <first-user-username>@<ip>
+```
+
+The SSH command replaces the govirt process (exec-style) so the terminal session is seamless. If `local.ip` is not set in state, attempt to look it up via `virsh domifaddr` first.
+
+### /etc/hosts Management
+
+Identical to goloo: after local VM creation, add/update `/etc/hosts` entry via `sudo tee`. Remove on destroy.
+
+Entry format:
+```
+# govirt:<vm-name>
+<ip>    <hostname> [<hostname>.<domain>]
+# /govirt:<vm-name>
+```
+
+Marker prefix changes from `goloo:` to `govirt:` to avoid conflicts.
+
+### LibvirtState (local state section)
+
+After `govirt create`:
+
+```json
+{
+  "local": {
+    "ip": "192.168.122.5",
+    "hosts_entry": true,
+    "domain_name": "web-server",
+    "disk_path": "/var/lib/libvirt/images/web-server.qcow2",
+    "cloud_init_iso": "/var/lib/libvirt/images/web-server-cloud-init.iso",
+    "network": "default"
+  }
+}
+```
+
+| Field | Description |
+|-------|-------------|
+| `ip` | Last known IP address |
+| `hosts_entry` | Whether /etc/hosts was updated |
+| `domain_name` | Libvirt domain name (equals `vm.name`) |
+| `disk_path` | Absolute path to the VM's qcow2 disk file |
+| `cloud_init_iso` | Absolute path to the NoCloud cloud-init ISO |
+| `network` | Libvirt network name used |
+
+---
+
+## Cloud-Init Processing
+
+Identical to goloo — no changes.
+
+### Variable Substitution
+
+| Variable | Value |
+|----------|-------|
+| `${SSH_PUBLIC_KEY}` | SSH public keys of the first user (fetched from GitHub) |
+| `${SSH_PUBLIC_KEY_<USERNAME>}` | SSH public keys for a specific user (uppercase username) |
+
+Keys fetched from `https://github.com/<username>.keys`.
+
+Go template syntax (`{{ .Field }}`) is also supported when the cloud-init YAML contains `{{`.
+
+### Mount Injection
+
+When `vm.mounts` is non-empty, govirt appends to the processed cloud-init YAML:
+
+```yaml
+runcmd:
+  - mkdir -p /home/ubuntu/code
+  - mount -t virtiofs home-ubuntu-code /home/ubuntu/code
+
+write_files:
+  - path: /etc/fstab
+    append: true
+    content: |
+      home-ubuntu-code   /home/ubuntu/code   virtiofs   defaults   0   0
+```
+
+This injection happens after user variable substitution, before writing the temp file.
+
+---
+
+## Provider Auto-Detection
+
+Same logic as goloo, adapted for govirt:
+
+1. If `--local` flag: use libvirt
+2. If `--aws` flag: use AWS
+3. If `--do` / `--digitalocean` flag: use DigitalOcean
+4. Otherwise, check saved state:
+   - Has `do` state section → DigitalOcean
+   - Has `aws` state section → AWS
+   - Default → libvirt
+
+---
+
+## AWS Provider
+
+Carried over from goloo verbatim. No changes:
+- CloudFormation stack management
+- EC2 instance creation with UserData (cloud-init)
+- AMI lookup via SSM Parameter Store
+- VPC/Subnet auto-discovery and creation
+- Route53 DNS record management
+- DNS swap (blue-green)
+
+---
+
+## DigitalOcean Provider
+
+Carried over from goloo verbatim. No changes:
+- Droplet creation
+- Firewall management
+- DigitalOcean DNS record management
+- DNS swap
+
+---
+
+## DNS Swap
+
+Identical to goloo `dns swap` command. Works for AWS and DigitalOcean. Not applicable to local VMs.
+
+---
+
+## Directory Structure
+
+```
+govirt/
+├── cmd/govirt/
+│   └── main.go              # CLI entry point
+├── internal/
+│   ├── config/
+│   │   ├── config.go        # Config types (LocalState extended)
+│   │   ├── loader.go        # Load, save, validate, defaults
+│   │   └── loader_test.go
+│   ├── cloudinit/
+│   │   ├── processor.go     # Variable substitution + mount injection
+│   │   ├── ssh.go           # GitHub key fetching
+│   │   ├── template.go      # Go template rendering
+│   │   ├── nocloud.go       # NoCloud ISO generation (NEW)
+│   │   └── processor_test.go
+│   ├── images/
+│   │   ├── manager.go       # Cloud image download + cache (NEW)
+│   │   └── manager_test.go
+│   └── provider/
+│       ├── interface.go     # VMProvider interface (unchanged)
+│       ├── libvirt/         # NEW: replaces multipass/
+│       │   ├── libvirt.go   # Shell out to virsh + virt-install
+│       │   ├── virsh.go     # virsh command wrappers
+│       │   ├── iso.go       # cloud-init ISO generation
+│       │   ├── network.go   # IP detection, network queries
+│       │   └── libvirt_test.go
+│       ├── aws/             # Unchanged from goloo
+│       │   ├── aws.go
+│       │   ├── clients.go
+│       │   ├── dns.go
+│       │   ├── network.go
+│       │   ├── sdk_*.go
+│       │   └── template.go
+│       └── digitalocean/    # Unchanged from goloo
+│           ├── digitalocean.go
+│           ├── client.go
+│           ├── dns.go
+│           ├── droplet.go
+│           └── firewall.go
+├── configs/                 # Shared cloud-init templates (same as goloo)
+│   ├── base.yaml
+│   ├── dev.yaml
+│   ├── python-dev.yaml
+│   ├── go-dev.yaml
+│   ├── node-dev.yaml
+│   └── claude-dev.yaml
+├── examples/                # Example stacks (same as goloo)
+│   ├── web-server/
+│   ├── dev-server/
+│   ├── aws-web-server/
+│   └── do-server/
+├── Makefile
+├── go.mod
+└── README.md
+```
+
+---
+
+## Go Module
+
+```
+module github.com/gherlein/govirt
+
+go 1.21
+```
+
+Dependencies (same as goloo plus libvirt tooling via CLI shelling):
+- `github.com/aws/aws-sdk-go-v2` (AWS provider — unchanged)
+- `github.com/digitalocean/godo` (DigitalOcean provider — unchanged)
+- `golang.org/x/oauth2` (DigitalOcean auth — unchanged)
+- No Go libvirt bindings needed: govirt shells out to `virsh` and `virt-install` CLI tools, mirroring how goloo shells out to `multipass`.
+
+---
+
+## Config Schema Changes from goloo
+
+The `Config` struct gains a richer `LocalState`:
+
+```go
+type LocalState struct {
+    IP           string `json:"ip,omitempty"`
+    HostsEntry   bool   `json:"hosts_entry,omitempty"`
+    DomainName   string `json:"domain_name,omitempty"`
+    DiskPath     string `json:"disk_path,omitempty"`
+    CloudInitISO string `json:"cloud_init_iso,omitempty"`
+    Network      string `json:"network,omitempty"`
+}
+```
+
+Everything else in `Config`, `VMConfig`, `DNSConfig`, `AWSState`, `DOState`, `User`, `Mount`, `DNSRecord` is identical to goloo.
+
+---
+
+## Provider Interface
+
+Identical to goloo `VMProvider` interface — no changes:
+
+```go
+type VMProvider interface {
+    Name() string
+    Create(ctx context.Context, cfg *config.Config, cloudInitPath string) error
+    Delete(ctx context.Context, cfg *config.Config) error
+    Status(ctx context.Context, cfg *config.Config) (*VMStatus, error)
+    List(ctx context.Context) ([]VMStatus, error)
+    SSH(ctx context.Context, cfg *config.Config) error
+    Stop(ctx context.Context, cfg *config.Config) error
+    Start(ctx context.Context, cfg *config.Config) error
+}
+```
+
+The libvirt provider satisfies this interface and is registered as `"libvirt"` internally, but exposed to users as the default local provider (no `--libvirt` flag needed; `--local` selects it).
+
+---
+
+## LibvirtProvider: Create Sequence
+
+1. Validate `vm.name`, `vm.users`, `vm.cpus`, `vm.memory`, `vm.disk`, `vm.image`
+2. Resolve and download cloud image if not cached (`internal/images`)
+3. Create CoW qcow2 overlay disk from cached image
+4. Resize disk to `vm.disk` if larger than base image
+5. Generate cloud-init NoCloud ISO (meta-data + processed user-data)
+   - meta-data: `instance-id: govirt-<name>`, `local-hostname: <name>`
+   - user-data: the `cloudInitPath` argument (already processed by caller)
+6. If `vm.mounts` is non-empty, inject mount runcmd into a temporary modified cloud-init file and regenerate the ISO
+7. Build and execute `virt-install` command
+8. Poll for IP via `virsh domifaddr` (up to 60s, every 2s)
+9. Populate `cfg.Local` with all state fields
+10. Return (caller saves state)
+
+---
+
+## LibvirtProvider: Delete Sequence
+
+1. Force-stop domain if running: `virsh destroy <name>` (ignore errors if already stopped)
+2. Undefine domain and remove storage: `virsh undefine <name> --remove-all-storage`
+3. Remove cloud-init ISO: `os.Remove(cfg.Local.CloudInitISO)`
+4. Set `cfg.Local = nil`
+5. Return
+
+---
+
+## Error Messages
+
+All errors actionable, following goloo patterns:
+
+```go
+var (
+    ErrLibvirtMissing      = errors.New("virsh not found: install libvirt (apt install libvirt-daemon-system)")
+    ErrVirtInstallMissing  = errors.New("virt-install not found: install virtinst (apt install virtinst)")
+    ErrGenISOmissing       = errors.New("neither cloud-localds nor genisoimage found: install cloud-image-utils or genisoimage")
+    ErrImageDownloadFailed = errors.New("failed to download cloud image: check network and retry")
+    ErrNoIP                = errors.New("VM started but no IP assigned within 60s: check libvirt network with 'virsh net-list'")
+    ErrDomainExists        = errors.New("VM already exists: destroy first with 'govirt destroy <name>'")
+    ErrDomainNotFound      = errors.New("VM not found: check 'govirt list' for available VMs")
+    ErrKVMUnavailable      = errors.New("KVM not available: check /dev/kvm exists and current user is in 'kvm' group")
+)
+```
+
+---
+
+## Prerequisites Check
+
+On `govirt create` (local), check before proceeding:
+
+1. `/dev/kvm` exists (KVM available)
+2. `virsh` is in PATH
+3. `virt-install` is in PATH
+4. At least one of `cloud-localds` or `genisoimage` is in PATH
+5. Current user can connect to `qemu:///system` (or `LIBVIRT_DEFAULT_URI`)
+
+If any check fails, print a clear error with the install command.
+
+---
+
+## Defaults
+
+| Field | Default |
+|-------|---------|
+| `vm.cpus` | `2` |
+| `vm.memory` | `"2G"` |
+| `vm.disk` | `"20G"` |
+| `vm.image` | `"24.04"` |
+| `vm.region` | `"us-east-1"` |
+| `vm.instance_type` | `"t3.micro"` |
+| `dns.ttl` | `300` |
+| libvirt network | `"default"` |
+| image cache dir | `~/.cache/govirt/images` |
+| stack folder | `~/.config/govirt/stacks` |
+
+---
+
+## Simultaneous Deployments
+
+Identical to goloo: separate `local`, `aws`, and `do` state sections allow one config to have active deployments on multiple providers simultaneously:
+
+```json
+{
+  "vm": { ... },
+  "local": { "ip": "192.168.122.5", "domain_name": "web-server", ... },
+  "aws":   { "public_ip": "54.1.2.3", ... },
+  "do":    { "public_ip": "192.241.0.1", ... }
+}
+```
+
+Delete each independently:
+```bash
+govirt destroy web-server --local
+govirt destroy web-server --aws
+govirt destroy web-server --do
+```
+
+---
+
+## cloud-init Template Library
+
+Same templates as goloo (copy verbatim):
+
+| Config | What it installs |
+|--------|-----------------|
+| `configs/base.yaml` | curl, wget, vim, htop, git |
+| `configs/dev.yaml` | build-essential, ripgrep, tmux, fzf, jq |
+| `configs/python-dev.yaml` | Python 3, pip, venv, uv |
+| `configs/go-dev.yaml` | Go 1.23, gopls, delve debugger |
+| `configs/node-dev.yaml` | Node.js 22, npm, pnpm, yarn |
+| `configs/claude-dev.yaml` | All of the above plus Docker |
+
+---
+
+## Security Considerations
+
+1. SSH keys fetched from GitHub over HTTPS only
+2. AWS credentials use standard AWS credential chain
+3. `config.json` files may contain sensitive state — gitignore by default
+4. Cloud-init ISO contains SSH public keys — store with mode 0600
+5. VM disk files: follow libvirt storage pool permissions (typically `root:libvirt-qemu`)
+6. `sudo tee` used for `/etc/hosts` management — same as goloo
+7. DigitalOcean token never written to disk or logged
+
+---
+
+## Testing Requirements
+
+### Unit Tests
+
+- Config loading, defaults, validation (`internal/config`)
+- Cloud-init variable substitution (`internal/cloudinit`)
+- Mount injection into cloud-init YAML (`internal/cloudinit`)
+- NoCloud ISO meta-data generation (`internal/cloudinit`)
+- Image URL resolution from shorthand (`internal/images`)
+- `virt-install` command argument building (`internal/provider/libvirt`)
+- `virsh domifaddr` output parsing (`internal/provider/libvirt`)
+- `virsh list` output parsing (`internal/provider/libvirt`)
+- `virsh dominfo` state parsing (`internal/provider/libvirt`)
+
+### Integration Tests (require libvirt)
+
+Manual test matrix:
+
+| Test | libvirt | AWS | DigitalOcean |
+|------|---------|-----|--------------|
+| Create with cloud-init | | | |
+| SSH into VM | | | |
+| Stop VM | | | |
+| Start VM | | | |
+| Status check | | | |
+| List VMs | | | |
+| Destroy VM | | | |
+| Host dir mount | | N/A | N/A |
+| DNS creation | N/A | | |
+| DNS deletion | N/A | | |
+| DNS swap | N/A | | |
+
+---
+
+## Implementation Phases
+
+### Phase 1: Project Setup
+- Initialize `github.com/gherlein/govirt` Go module
+- Copy directory structure from goloo
+- Update module paths
+- Stub out `internal/provider/libvirt/` package
+- Verify `go build ./...` succeeds
+
+### Phase 2: Config Types
+- Copy `internal/config/config.go` from goloo
+- Extend `LocalState` with libvirt fields (`DomainName`, `DiskPath`, `CloudInitISO`, `Network`)
+- Copy `internal/config/loader.go` from goloo
+- Add `~/.cache/govirt/images` default to loader
+- Update tests
+
+### Phase 3: Cloud-Init Processor
+- Copy `internal/cloudinit/processor.go`, `ssh.go`, `template.go` from goloo
+- Add `internal/cloudinit/nocloud.go`: generate NoCloud meta-data content
+- Add mount injection to processor (append virtiofs runcmd + fstab write_files)
+- Update tests
+
+### Phase 4: Image Manager
+- Implement `internal/images/manager.go`:
+  - Map image shorthand to download URL
+  - Download with progress reporting
+  - Verify SHA256 if checksum file is available
+  - Cache in `$GOVIRT_IMAGE_CACHE`
+  - Return path to cached image
+
+### Phase 5: LibvirtProvider
+- Implement `internal/provider/libvirt/`:
+  - `virsh.go`: wrappers for `virsh` commands (list, dominfo, domifaddr, destroy, undefine, start, shutdown)
+  - `iso.go`: generate NoCloud cloud-init ISO via `cloud-localds` or `genisoimage`
+  - `network.go`: IP detection via `virsh domifaddr`, DHCP lease fallback
+  - `libvirt.go`: main `Provider` struct implementing `VMProvider` interface
+- Unit tests for command building and output parsing
+
+### Phase 6: CLI
+- Copy `cmd/goloo/main.go` from goloo
+- Replace all `multipass.New()` with `libvirt.New()`
+- Update provider names ("multipass" → "libvirt")
+- Update binary name to `govirt`
+- Update stack folder default from `~/.config/goloo` to `~/.config/govirt`
+- Update environment variable prefix from `GOLOO_` to `GOVIRT_`
+- Update /etc/hosts marker from `goloo:` to `govirt:`
+- Update help text and error messages
+
+### Phase 7: Cloud Providers
+- Copy `internal/provider/aws/` from goloo verbatim (no changes)
+- Copy `internal/provider/digitalocean/` from goloo verbatim (no changes)
+- Wire into `getProvider()` in CLI
+
+### Phase 8: Integration and Polish
+- End-to-end tests against real libvirt
+- Error message review
+- Prerequisite checks
+- README
+
+---
+
+## Key Differences from goloo (Summary)
+
+| Aspect | goloo | govirt |
+|--------|-------|--------|
+| Local backend | Multipass | libvirt + virt-install + KVM |
+| Local VM tool | `multipass launch` | `virt-install --import` |
+| cloud-init delivery | Multipass native | NoCloud ISO (second disk) |
+| Image management | Multipass auto-downloads | govirt downloads qcow2 to `~/.cache/govirt/images` |
+| Host mounts | `multipass mount` | virtiofs (or 9p fallback) |
+| SSH to local VM | `multipass shell <name>` | `ssh ubuntu@<ip>` |
+| IP detection | `multipass info --format json` | `virsh domifaddr` |
+| Stop/Start | `multipass stop/start` | `virsh shutdown` / `virsh start` |
+| List | `multipass list --format json` | `virsh list --all` |
+| Delete | `multipass delete && purge` | `virsh destroy && undefine --remove-all-storage` |
+| State fields | `local.ip` | `local.ip` + `local.domain_name` + `local.disk_path` + `local.cloud_init_iso` + `local.network` |
+| Config dir | `~/.config/goloo` | `~/.config/govirt` |
+| Env var prefix | `GOLOO_` | `GOVIRT_` |
+| /etc/hosts marker | `# goloo:<name>` | `# govirt:<name>` |
+| AWS provider | unchanged | unchanged |
+| DigitalOcean provider | unchanged | unchanged |
+| cloud-init processing | unchanged | unchanged + mount injection |
+| Config schema | `LocalState{IP, HostsEntry}` | `LocalState{IP, HostsEntry, DomainName, DiskPath, CloudInitISO, Network}` |

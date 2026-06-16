@@ -1,0 +1,205 @@
+package cloudinit
+
+import (
+	"context"
+	"net/http"
+	"net/http/httptest"
+	"strings"
+	"testing"
+
+	"github.com/gherlein/govirt/internal/config"
+)
+
+// fakeKeys is a KeyProvider backed by a static map.
+type fakeKeys map[string]string
+
+func (f fakeKeys) Fetch(_ context.Context, githubUser string) (string, error) {
+	k, ok := f[githubUser]
+	if !ok {
+		return "", &keyError{githubUser}
+	}
+	return k, nil
+}
+
+type keyError struct{ user string }
+
+func (e *keyError) Error() string { return "no SSH keys found for " + e.user }
+
+func cfgWithUsers(users ...config.User) *config.Config {
+	return &config.Config{VM: &config.VMConfig{Name: "web", Users: users}}
+}
+
+func TestSubstituteFirstUserKey(t *testing.T) {
+	raw := []byte("#cloud-config\nusers:\n  - name: ubuntu\n    ssh_authorized_keys:\n      - ${SSH_PUBLIC_KEY}\n")
+	cfg := cfgWithUsers(config.User{Username: "ubuntu", GitHubUsername: "alice"})
+	keys := fakeKeys{"alice": "ssh-ed25519 AAAA"}
+	out, err := Process(context.Background(), cfg, raw, keys, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(out), "- ssh-ed25519 AAAA") {
+		t.Errorf("first user key not substituted:\n%s", out)
+	}
+	if strings.Contains(string(out), "${SSH_PUBLIC_KEY}") {
+		t.Errorf("placeholder remained:\n%s", out)
+	}
+}
+
+func TestSubstituteNamedUserKey(t *testing.T) {
+	raw := []byte("#cloud-config\nusers:\n  - name: deploy\n    ssh_authorized_keys:\n      - ${SSH_PUBLIC_KEY_DEPLOY}\n")
+	cfg := cfgWithUsers(
+		config.User{Username: "ubuntu", GitHubUsername: "alice"},
+		config.User{Username: "deploy", GitHubUsername: "deploy-bot"},
+	)
+	keys := fakeKeys{"alice": "ssh-ed25519 AAA-alice", "deploy-bot": "ssh-ed25519 BBB-deploy"}
+	out, err := Process(context.Background(), cfg, raw, keys, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(out), "BBB-deploy") {
+		t.Errorf("named user key not substituted:\n%s", out)
+	}
+}
+
+func TestSubstituteMultipleKeysExpand(t *testing.T) {
+	raw := []byte("      - ${SSH_PUBLIC_KEY}\n")
+	cfg := cfgWithUsers(config.User{Username: "ubuntu", GitHubUsername: "alice"})
+	keys := fakeKeys{"alice": "ssh-ed25519 KEY1\nssh-rsa KEY2"}
+	out, err := Process(context.Background(), cfg, raw, keys, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := string(out)
+	if !strings.Contains(got, "      - ssh-ed25519 KEY1") || !strings.Contains(got, "      - ssh-rsa KEY2") {
+		t.Errorf("multiple keys not expanded with indentation:\n%s", got)
+	}
+}
+
+func TestProcessUnknownUserError(t *testing.T) {
+	raw := []byte("#cloud-config\n")
+	cfg := cfgWithUsers(config.User{Username: "ubuntu", GitHubUsername: "ghost"})
+	_, err := Process(context.Background(), cfg, raw, fakeKeys{}, false)
+	if err == nil {
+		t.Fatal("expected error for unknown github user")
+	}
+}
+
+func TestMountInjection(t *testing.T) {
+	raw := []byte("#cloud-config\npackages:\n  - git\n")
+	cfg := &config.Config{VM: &config.VMConfig{
+		Name:   "web",
+		Users:  []config.User{{Username: "ubuntu", GitHubUsername: "alice"}},
+		Mounts: []config.Mount{{Source: "/host/code", Target: "/home/ubuntu/code"}},
+	}}
+	keys := fakeKeys{"alice": "ssh-ed25519 AAAA"}
+	out, err := Process(context.Background(), cfg, raw, keys, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := string(out)
+	if !strings.HasPrefix(got, "#cloud-config") {
+		t.Errorf("cloud-config header lost:\n%s", got)
+	}
+	for _, want := range []string{
+		"mkdir -p /home/ubuntu/code",
+		"mount -t virtiofs home-ubuntu-code /home/ubuntu/code",
+		"/etc/fstab",
+		"home-ubuntu-code   /home/ubuntu/code   virtiofs   defaults   0   0",
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("missing %q in:\n%s", want, got)
+		}
+	}
+}
+
+func TestNoMountInjectionWhenDisabled(t *testing.T) {
+	raw := []byte("#cloud-config\npackages:\n  - git\n")
+	cfg := &config.Config{VM: &config.VMConfig{
+		Name:   "web",
+		Users:  []config.User{{Username: "ubuntu", GitHubUsername: "alice"}},
+		Mounts: []config.Mount{{Source: "/host/code", Target: "/home/ubuntu/code"}},
+	}}
+	out, err := Process(context.Background(), cfg, raw, fakeKeys{"alice": "k"}, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(out), "virtiofs") {
+		t.Errorf("mounts injected though disabled:\n%s", out)
+	}
+}
+
+func TestMountInjectionMergesExistingRuncmd(t *testing.T) {
+	raw := []byte("#cloud-config\nruncmd:\n  - echo hello\n")
+	cfg := &config.Config{VM: &config.VMConfig{
+		Name:   "web",
+		Users:  []config.User{{Username: "ubuntu", GitHubUsername: "alice"}},
+		Mounts: []config.Mount{{Source: "/host", Target: "/mnt/data"}},
+	}}
+	out, err := Process(context.Background(), cfg, raw, fakeKeys{"alice": "k"}, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := string(out)
+	if !strings.Contains(got, "echo hello") {
+		t.Errorf("existing runcmd dropped:\n%s", got)
+	}
+	if !strings.Contains(got, "mount -t virtiofs mnt-data /mnt/data") {
+		t.Errorf("mount command not merged:\n%s", got)
+	}
+}
+
+func TestTemplateRendering(t *testing.T) {
+	raw := []byte("#cloud-config\nhostname: {{ .VM.Name }}\n")
+	cfg := cfgWithUsers(config.User{Username: "ubuntu", GitHubUsername: "alice"})
+	out, err := Process(context.Background(), cfg, raw, fakeKeys{"alice": "k"}, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(out), "hostname: web") {
+		t.Errorf("template not rendered:\n%s", out)
+	}
+}
+
+func TestMountTag(t *testing.T) {
+	cases := map[string]string{
+		"/home/ubuntu/code": "home-ubuntu-code",
+		"/mnt/data":         "mnt-data",
+		"/srv":              "srv",
+	}
+	for target, want := range cases {
+		if got := MountTag(target); got != want {
+			t.Errorf("MountTag(%q) = %q, want %q", target, got, want)
+		}
+	}
+}
+
+func TestFetchKeysHTTP(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/alice.keys":
+			w.Write([]byte("ssh-ed25519 AAAA\n"))
+		case "/empty.keys":
+			w.Write([]byte("  \n"))
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer srv.Close()
+
+	f := &KeyFetcher{Client: srv.Client(), BaseURL: srv.URL}
+
+	got, err := f.Fetch(context.Background(), "alice")
+	if err != nil {
+		t.Fatalf("Fetch alice: %v", err)
+	}
+	if got != "ssh-ed25519 AAAA" {
+		t.Errorf("got %q", got)
+	}
+
+	if _, err := f.Fetch(context.Background(), "ghost"); err == nil {
+		t.Error("expected error for 404")
+	}
+	if _, err := f.Fetch(context.Background(), "empty"); err == nil {
+		t.Error("expected error for empty key body")
+	}
+}

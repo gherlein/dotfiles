@@ -1,0 +1,216 @@
+// Package config defines the govirt configuration schema and its loading,
+// default-application, validation, and persistence logic.
+//
+// A config has two kinds of sections: input sections (vm, dns) written by the
+// user and never modified by govirt, and state sections (local, aws, do)
+// managed automatically by the providers.
+package config
+
+import (
+	"fmt"
+	"regexp"
+)
+
+// Config is the top-level config.json structure.
+type Config struct {
+	VM    *VMConfig   `json:"vm,omitempty"`
+	DNS   *DNSConfig  `json:"dns,omitempty"`
+	Local *LocalState `json:"local,omitempty"`
+	AWS   *AWSState   `json:"aws,omitempty"`
+	DO    *DOState    `json:"do,omitempty"`
+}
+
+// VMConfig is the user-authored vm input section.
+type VMConfig struct {
+	Name         string  `json:"name"`
+	Users        []User  `json:"users,omitempty"`
+	CPUs         int     `json:"cpus,omitempty"`
+	Memory       string  `json:"memory,omitempty"`
+	Disk         string  `json:"disk,omitempty"`
+	Image        string  `json:"image,omitempty"`
+	Mounts       []Mount `json:"mounts,omitempty"`
+	InstanceType string  `json:"instance_type,omitempty"`
+	OS           string  `json:"os,omitempty"`
+	Region       string  `json:"region,omitempty"`
+	VpcID        string  `json:"vpc_id,omitempty"`
+	SubnetID     string  `json:"subnet_id,omitempty"`
+	DOSize       string  `json:"do_size,omitempty"`
+	DORegion     string  `json:"do_region,omitempty"`
+	DOImage      string  `json:"do_image,omitempty"`
+	DOVpcID      string  `json:"do_vpc_id,omitempty"`
+	SSHCidr      string  `json:"ssh_cidr,omitempty"`
+	WebCidr      string  `json:"web_cidr,omitempty"`
+}
+
+// DNSConfig is the user-authored dns input section.
+type DNSConfig struct {
+	Hostname     string   `json:"hostname,omitempty"`
+	Domain       string   `json:"domain,omitempty"`
+	TTL          int      `json:"ttl,omitempty"`
+	IsApexDomain bool     `json:"is_apex_domain,omitempty"`
+	CNAMEAliases []string `json:"cname_aliases,omitempty"`
+	ZoneID       string   `json:"zone_id,omitempty"`
+}
+
+// LocalState is the govirt-managed state for a local libvirt VM.
+type LocalState struct {
+	IP           string `json:"ip,omitempty"`
+	HostsEntry   bool   `json:"hosts_entry,omitempty"`
+	DomainName   string `json:"domain_name,omitempty"`
+	DiskPath     string `json:"disk_path,omitempty"`
+	CloudInitISO string `json:"cloud_init_iso,omitempty"`
+	Network      string `json:"network,omitempty"`
+}
+
+// AWSState is the govirt-managed state for an AWS deployment.
+type AWSState struct {
+	PublicIP              string      `json:"public_ip,omitempty"`
+	InstanceID            string      `json:"instance_id,omitempty"`
+	StackID               string      `json:"stack_id,omitempty"`
+	StackName             string      `json:"stack_name,omitempty"`
+	SecurityGroup         string      `json:"security_group,omitempty"`
+	AMIID                 string      `json:"ami_id,omitempty"`
+	VpcID                 string      `json:"vpc_id,omitempty"`
+	SubnetID              string      `json:"subnet_id,omitempty"`
+	CreatedVPC            bool        `json:"created_vpc,omitempty"`
+	CreatedSubnet         bool        `json:"created_subnet,omitempty"`
+	InternetGatewayID     string      `json:"internet_gateway_id,omitempty"`
+	RouteTableID          string      `json:"route_table_id,omitempty"`
+	RouteTableAssociation string      `json:"route_table_association_id,omitempty"`
+	ZoneID                string      `json:"zone_id,omitempty"`
+	FQDN                  string      `json:"fqdn,omitempty"`
+	DNSRecords            []DNSRecord `json:"dns_records,omitempty"`
+}
+
+// DOState is the govirt-managed state for a DigitalOcean deployment.
+type DOState struct {
+	DropletID  int        `json:"droplet_id,omitempty"`
+	PublicIP   string     `json:"public_ip,omitempty"`
+	FQDN       string     `json:"fqdn,omitempty"`
+	FirewallID string     `json:"firewall_id,omitempty"`
+	DNSRecords []DORecord `json:"dns_records,omitempty"`
+}
+
+// User maps a VM account to a GitHub account used for SSH key lookup.
+type User struct {
+	Username       string `json:"username"`
+	GitHubUsername string `json:"github_username"`
+}
+
+// Mount is a host directory shared into a local VM.
+type Mount struct {
+	Source string `json:"source"`
+	Target string `json:"target"`
+}
+
+// DNSRecord tracks a Route53 record so it can be deleted on destroy.
+type DNSRecord struct {
+	Name string `json:"name"`
+	Type string `json:"type"`
+}
+
+// DORecord tracks a DigitalOcean DNS record (with its numeric ID) for deletion.
+type DORecord struct {
+	ID   int    `json:"id"`
+	Name string `json:"name"`
+	Type string `json:"type"`
+}
+
+// Defaults applied by ApplyDefaults.
+const (
+	DefaultCPUs         = 2
+	DefaultMemory       = "2G"
+	DefaultDisk         = "20G"
+	DefaultImage        = "24.04"
+	DefaultRegion       = "us-east-1"
+	DefaultInstanceType = "t3.micro"
+	DefaultOS           = "ubuntu-24.04"
+	DefaultTTL          = 300
+)
+
+var (
+	usernameRE = regexp.MustCompile(`^[a-z][a-z0-9_-]*$`)
+	githubRE   = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9-]*$`)
+)
+
+// ApplyDefaults fills unset input fields with their documented defaults.
+// It does not touch state sections.
+func (c *Config) ApplyDefaults() {
+	if c.VM == nil {
+		return
+	}
+	vm := c.VM
+	if vm.CPUs == 0 {
+		vm.CPUs = DefaultCPUs
+	}
+	if vm.Memory == "" {
+		vm.Memory = DefaultMemory
+	}
+	if vm.Disk == "" {
+		vm.Disk = DefaultDisk
+	}
+	if vm.Image == "" {
+		vm.Image = DefaultImage
+	}
+	if vm.Region == "" {
+		vm.Region = DefaultRegion
+	}
+	if vm.InstanceType == "" {
+		vm.InstanceType = DefaultInstanceType
+	}
+	if vm.OS == "" {
+		vm.OS = DefaultOS
+	}
+	if c.DNS != nil {
+		if c.DNS.TTL == 0 {
+			c.DNS.TTL = DefaultTTL
+		}
+		if c.DNS.Hostname == "" {
+			c.DNS.Hostname = vm.Name
+		}
+	}
+}
+
+// Validate enforces the documented validation rules on the input sections.
+func (c *Config) Validate() error {
+	if c.VM == nil {
+		return fmt.Errorf("config missing required 'vm' section")
+	}
+	if c.VM.Name == "" {
+		return fmt.Errorf("vm.name is required")
+	}
+	if len(c.VM.Users) == 0 {
+		return fmt.Errorf("vm.users must have at least one entry")
+	}
+	seen := make(map[string]bool, len(c.VM.Users))
+	for i, u := range c.VM.Users {
+		if !usernameRE.MatchString(u.Username) {
+			return fmt.Errorf("vm.users[%d].username %q is invalid: must match ^[a-z][a-z0-9_-]*$", i, u.Username)
+		}
+		if !githubRE.MatchString(u.GitHubUsername) {
+			return fmt.Errorf("vm.users[%d].github_username %q is invalid: must match ^[a-zA-Z0-9][a-zA-Z0-9-]*$", i, u.GitHubUsername)
+		}
+		if seen[u.Username] {
+			return fmt.Errorf("duplicate username %q in vm.users", u.Username)
+		}
+		seen[u.Username] = true
+	}
+	if c.DNS != nil {
+		if len(c.DNS.CNAMEAliases) > 0 && c.DNS.Domain == "" {
+			return fmt.Errorf("dns.cname_aliases requires dns.domain")
+		}
+		if c.DNS.IsApexDomain && c.DNS.Domain == "" {
+			return fmt.Errorf("dns.is_apex_domain requires dns.domain")
+		}
+	}
+	return nil
+}
+
+// ValidateName reports whether a VM name is safe to pass to shell-out tooling.
+// It reuses the username grammar, which excludes shell metacharacters.
+func ValidateName(name string) error {
+	if !usernameRE.MatchString(name) {
+		return fmt.Errorf("invalid VM name %q: must match ^[a-z][a-z0-9_-]*$", name)
+	}
+	return nil
+}

@@ -1,0 +1,26 @@
+.DEFAULT_GOAL := help
+
+.PHONY: help build test run-tests clean run
+
+help:
+	@echo "Targets:"
+	@echo "  build      - Build the binary (bin/coding-agent)"
+	@echo "  test       - Run tests"
+	@echo "  run-tests  - Alias for test"
+	@echo "  clean      - Remove build artifacts"
+	@echo "  run TASK=  - Run the coding agent with a task string"
+
+build:
+	go build -o bin/coding-agent ./...
+
+test:
+	go test ./...
+
+run-tests: test
+
+clean:
+	rm -rf bin/
+
+run:
+	@if [ -z "$(TASK)" ]; then echo "Usage: make run TASK=\"your task here\""; exit 1; fi
+	./bin/coding-agent --task "$(TASK)"
