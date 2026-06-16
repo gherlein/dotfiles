@@ -1,8 +1,0 @@
-helios:~/dotfiles/govirt/.config/govirt/stacks/devbox> make create-vm
-govirt create devbox
-error: virt-install --name devbox --memory 8192 --vcpus 8 --disk path=/var/lib/libvirt/images/devbox.qcow2,format=qcow2 --disk path=/var/lib/libvirt/images/devbox-cloud-init.iso,device=cdrom --os-variant ubuntu24.04 --network network=default --graphics none --noautoconsole --import: ERROR    internal error: process exited whileconnecting to monitor: 2026-06-15T20:34:18.543491Z qemu-system-x86_64: -blockdev {"driver":"file","filename":"/home/gherlein/.cache/govirt/images/noble-server-cloudimg-amd64.img","node-name":"libvirt-3-storage","auto-read-only":true,"discard":"unmap"}: Could not open '/home/gherlein/.cache/govirt/images/noble-server-cloudimg-amd64.img': Permission denied
-Domain installation does not appear to have been successful.
-If it was, you can restart your domain by running:
-  virsh --connect qemu:///system start devbox
-otherwise, please restart your installation.: exit status 1
-make: *** [Makefile:130: create-vm] Error 1

@@ -1,0 +1,7 @@
+{
+    "mcpServers": {
+        "codebase-memory-mcp": {
+            "command": "/home/gherlein/.local/bin/codebase-memory-mcp"
+        }
+    }
+}

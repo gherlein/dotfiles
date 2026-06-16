@@ -2,14 +2,15 @@
 
 ## IMPORTANT: Repository Purpose
 
-**THIS REPOSITORY IS A SOURCE TEMPLATE** -- it contains the configuration structure meant to be installed to `~/.claude` using the `./safe-install` script.
+**THIS IS THE SOURCE OF TRUTH FOR MY CLAUDE CODE CONFIG** -- it lives in the `dotfiles` repo (`bash` package) and is delivered to `~/.claude` with GNU Stow. `~/.claude` is a symlink to `dotfiles/bash/.claude`, so editing files here edits the live config directly.
 
 ### For AI Agents
 
 If you are an AI agent reading this file:
 
-- This is a source template, not the active configuration
-- The active configuration lives in `~/.claude/` after installation
+- This directory IS the active configuration (symlinked from `~/.claude`), and it is also version-controlled in the `dotfiles` repo
+- Edit files here; commit them in `dotfiles`; run `make restow` from the repo root to refresh symlinks
+- Runtime state (`projects/`, `sessions/`, `history.jsonl`, `cache/`, `.credentials.json`, etc.) is gitignored -- never commit it
 
 Also follow these instructions:
 
@@ -28,15 +29,15 @@ Disclaimer: This works for me — that's the entire guarantee. Built with AI in 
 
 ### For Human Users
 
-To install this configuration:
+To install or refresh this configuration on a machine:
 
 ```bash
-./safe-install
+cd ~/dotfiles && make stow      # first-time install (or: make restow to refresh)
 ```
 
-This will safely copy the contents to your `~/.claude` directory, backing up any existing configuration.
+Stow symlinks `dotfiles/bash/.claude` to `~/.claude`. Claude Code then reads `~/.claude/CLAUDE.md`, `~/.claude/skills/`, etc.
 
-After installation, Claude Code will read the configuration from `~/.claude/CLAUDE.md` and `~/.claude/skills/`.
+> Note: this config previously lived in the standalone `dot-agents` repo (installed via a `./safe-install` copy script). That repo is **deprecated** -- everything now lives here and ships via Stow.
 
 ## About Me
 
