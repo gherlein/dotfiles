@@ -5,6 +5,9 @@ If you are an AI agent reading this file:
 - This directory IS the active configuration (symlinked from `~/.claude`), and it is also version-controlled in the `dotfiles` repo
 - Edit files here; commit them in `dotfiles`; run `make restow` from the repo root to refresh symlinks
 - Runtime state (`projects/`, `sessions/`, `history.jsonl`, `cache/`, `.credentials.json`, etc.) is gitignored -- never commit it
+- Core skills are installed via the `gherlein` marketplace plugin, not from
+  this dotfiles repo. On a new machine, after `make stow`, run:
+  `/plugin install gherlein@gherlein-marketplace` then `/reload-plugins`
 
 Also follow these instructions:
 

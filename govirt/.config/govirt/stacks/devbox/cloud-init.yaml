@@ -6,7 +6,7 @@
 # default-route gateway at runtime (= the libvirt bridge / host address).
 #
 # The primary in-VM user comes from config.json (vm.users[0].username) via the
-# {{ $u }} template variable below — by convention this matches the host user
+# $u template variable below — by convention this matches the host user
 # that runs `govirt create`, so files on host-mounted paths keep the same uid.
 {{- $u := (index .VM.Users 0).Username }}
 

@@ -1,5 +1,4 @@
 {
-  "model": "sonnet",
   "hooks": {
     "PreToolUse": [
       {
@@ -60,6 +59,24 @@
       }
     ]
   },
+  "enabledPlugins": {
+    "gherlein@gherlein-marketplace": true
+  },
+  "extraKnownMarketplaces": {
+    "gherlein": {
+      "source": {
+        "source": "github",
+        "repo": "gherlein/claude-marketplace"
+      }
+    },
+    "gherlein-marketplace": {
+      "source": {
+        "source": "github",
+        "repo": "gherlein/claude-marketplace"
+      }
+    }
+  },
+  "tui": "fullscreen",
   "skipDangerousModePermissionPrompt": true,
   "theme": "dark"
 }
