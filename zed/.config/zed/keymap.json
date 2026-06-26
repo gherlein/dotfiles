@@ -7,24 +7,21 @@
 // from the command palette.
 [
   {
-    "context": "Workspace",
+    "context": "Editor",
     "bindings": {
-      // "shift shift": "file_finder::Toggle"
-    }
-  },
-  {
-    // "context": "Editor",
-    "bindings": {
-      "ctrl-x ctrl-s": "workspace::Save",
-      "ctrl-c": "editor::Copy",
-      "ctrl-v": "editor::Paste",
-      "super-c": "editor::Copy",
-      "super-v": "editor::Paste",
-      "super-x": "editor::Cut",
-      "super-s": "workspace::Save",
+      // Emacs-style line navigation. Note: ctrl-a overrides VSCode "select all".
       "ctrl-a": "editor::MoveToBeginningOfLine",
       "ctrl-e": "editor::MoveToEndOfLine",
+      // Standard cut/copy/paste.
+      "ctrl-x": "editor::Cut",
+      "ctrl-c": "editor::Copy",
+      "ctrl-v": "editor::Paste",
+      // macOS-style equivalents, harmless on Linux.
+      "super-x": "editor::Cut",
+      "super-c": "editor::Copy",
+      "super-v": "editor::Paste",
       "super-z": "editor::Undo",
+      "super-s": "workspace::Save",
       "super-f": "buffer_search::Deploy"
     }
   }
