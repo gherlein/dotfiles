@@ -109,20 +109,10 @@
     "buffer_font_family": "DejaVu Sans Mono",
     "buffer_font_weight": 500,
     "theme": {
-        "mode": "dark",
+        "mode": "light",
         "light": "One Light",
         "dark": "One Dark"
     },
     "always_treat_brackets_as_autoclosed": true,
-    "context_servers": {},
-    "experimental.theme_overrides": {
-        "background": "#2b2b2b",
-        "editor.background": "#282828",
-        "surface.background": "#2b2b2b",
-        "elevated_surface.background": "#333333",
-        "editor.gutter.background": "#282828",
-        "text": "#f0f0f0",
-        "editor.foreground": "#f0f0f0",
-        "text.muted": "#b0b0b0"
-    }
+    "context_servers": {}
 }
