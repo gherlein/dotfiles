@@ -44,10 +44,12 @@ case "$(hostname -s)" in
 esac
 term_bg "$TERM_HOST_COLOR"
 
-ssh() {
-    kitten ssh "$@"
-    term_bg "$TERM_HOST_COLOR"
-}
+if command -v kitten >/dev/null 2>&1; then
+    ssh() {
+        kitten ssh "$@"
+        term_bg "$TERM_HOST_COLOR"
+    }
+fi
 
 # fzf
 [ -f ~/.fzf.bash ] && source ~/.fzf.bash
