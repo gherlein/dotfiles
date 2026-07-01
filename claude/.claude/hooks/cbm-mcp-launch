@@ -1,8 +1,0 @@
-#!/bin/bash
-# MCP launcher for codebase-memory-mcp.
-# Exec the binary if installed on this machine; otherwise exit 0 so machines
-# that stow this config without the binary don't surface an MCP spawn error.
-BIN="$HOME/.local/bin/codebase-memory-mcp"
-if [ -x "$BIN" ]; then exec "$BIN" "$@"; fi
-if command -v codebase-memory-mcp >/dev/null 2>&1; then exec codebase-memory-mcp "$@"; fi
-exit 0
