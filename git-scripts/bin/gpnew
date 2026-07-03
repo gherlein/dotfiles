@@ -28,10 +28,30 @@ fi
 gh repo create "${ORG}/${REPO}" --private
 
 git init
-git add .
-git commit -m "Initial commit"
-git branch -M main
-git remote add origin "git@github.com:${ORG}/${REPO}.git"
-git push -u origin main
 
-gh repo edit "${ORG}/${REPO}" --default-branch main
+# Commit only if there is something to commit; an empty commit would abort
+# under `set -e` and skip the remote/push steps below.
+git add .
+if ! git diff --cached --quiet; then
+  git commit -m "Initial commit"
+fi
+
+# Push the branch we are actually on rather than forcing a rename to main,
+# which would clobber an existing feature branch.
+BRANCH="$(git rev-parse --abbrev-ref HEAD)"
+if [[ "${BRANCH}" == "master" ]]; then
+  git branch -M main
+  BRANCH="main"
+fi
+
+# Add the remote idempotently: gpnew may run in a repo that already has one.
+REMOTE_URL="git@github.com:${ORG}/${REPO}.git"
+if git remote get-url origin &>/dev/null; then
+  git remote set-url origin "${REMOTE_URL}"
+else
+  git remote add origin "${REMOTE_URL}"
+fi
+
+git push -u origin "${BRANCH}"
+
+gh repo edit "${ORG}/${REPO}" --default-branch "${BRANCH}"
