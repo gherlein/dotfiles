@@ -48,4 +48,7 @@ emacs/.emacs.d/ac-comphist.dat
 
 # Micro editor buffer state
 micro/.config/micro/buffers/
+
+# govirt stacks (local dev VM setup — host paths, NFS export config)
+govirt/.config/govirt/stacks/
 bin/

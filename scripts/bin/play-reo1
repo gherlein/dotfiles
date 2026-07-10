@@ -1,1 +1,16 @@
-ffplay -rtsp_transport tcp -fflags nobuffer -flags low_delay -framedrop -strict experimental -vf setpts=0 "rtsp://admin:RioGrande64@192.168.2.63:554/Preview_01_main"
+#!/bin/bash
+# Play the low-latency RTSP preview stream from the Reolink camera.
+# Credentials and host come from the environment (set in ~/.config/work.env).
+set -euo pipefail
+
+if [ -z "${REO_PASS:-}" ] || [ -z "${REO_HOST:-}" ]; then
+	echo "ERROR: REO_PASS and REO_HOST must be set in the environment." >&2
+	echo "Add them to ~/.config/work.env, e.g.:" >&2
+	echo "  export REO_HOST=192.168.2.63" >&2
+	echo "  export REO_PASS=<camera-password>" >&2
+	exit 1
+fi
+
+ffplay -rtsp_transport tcp -fflags nobuffer -flags low_delay -framedrop \
+	-strict experimental -vf setpts=0 \
+	"rtsp://admin:${REO_PASS}@${REO_HOST}:554/Preview_01_main"

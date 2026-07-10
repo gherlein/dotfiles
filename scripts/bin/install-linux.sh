@@ -17,6 +17,28 @@ ARCH="$(dpkg --print-architecture)"
 info "Detected architecture: $ARCH"
 
 # ---------------------------------------------------------------------------
+# Platform detection (Raspberry Pi / headless)
+# ---------------------------------------------------------------------------
+
+# A Pi cannot be identified by arch alone (a cloud ARM VM is also arm64), so
+# key off the board model. Device-tree is authoritative on modern Pi OS; the
+# cpuinfo grep is a fallback for older/32-bit images.
+is_raspberry_pi() {
+    if [[ -r /proc/device-tree/model ]] \
+        && tr -d '\0' < /proc/device-tree/model | grep -qi "raspberry pi"; then
+        return 0
+    fi
+    grep -qi "raspberry pi" /proc/cpuinfo 2>/dev/null
+}
+
+has_desktop() {
+    [[ -n "${XDG_CURRENT_DESKTOP:-}" || -n "${WAYLAND_DISPLAY:-}" || -n "${DISPLAY:-}" ]] \
+        || command -v gnome-shell &>/dev/null
+}
+
+if is_raspberry_pi; then IS_RPI=true; info "Raspberry Pi detected."; else IS_RPI=false; fi
+
+# ---------------------------------------------------------------------------
 # REMOVE SNAP COMPLETELY - Do this FIRST before installing anything
 # ---------------------------------------------------------------------------
 
@@ -43,13 +65,37 @@ echo "Select which sections to install (the base system/apt packages always run)
 echo ""
 
 if ask "Development toolchains (Go, TinyGo, Rust, protoc-gen-go, Node/npm, pnpm, AWS CLI)?"; then INSTALL_DEV=true; else INSTALL_DEV=false; fi
+
+if [[ "$IS_RPI" == "true" ]]; then
+    warn "Python/ML stack is heavy and CPU-only on a Pi (torch, transformers, jupyter) — say no unless you really need it."
+fi
 if ask "Python/ML stack (uv, torch/transformers/jupyter venv, pdf2md)?"; then INSTALL_PYTHON=true; else INSTALL_PYTHON=false; fi
-if ask "AMD GPU tools (amdgpu_top, ROCm drivers)?"; then INSTALL_AMD=true; else INSTALL_AMD=false; fi
+
+# AMD GPU tools have no meaning on a Pi (Broadcom VideoCore, no AMD hardware).
+if [[ "$IS_RPI" == "true" ]]; then
+    INSTALL_AMD=false
+    info "Raspberry Pi — skipping AMD GPU tools (no AMD hardware)."
+else
+    if ask "AMD GPU tools (amdgpu_top, ROCm drivers)?"; then INSTALL_AMD=true; else INSTALL_AMD=false; fi
+fi
+
 if ask "Container tooling (Docker, localdev/podman)?"; then INSTALL_CONTAINERS=true; else INSTALL_CONTAINERS=false; fi
 if ask "Networking/VPN (Tailscale, ZeroTier)?"; then INSTALL_NETWORK=true; else INSTALL_NETWORK=false; fi
 if ask "Monitoring stack (Prometheus, node_exporter, Grafana)?"; then INSTALL_MONITORING=true; else INSTALL_MONITORING=false; fi
+
+if [[ "$IS_RPI" == "true" ]]; then
+    warn "Ollama models generally exceed a Pi's memory — expect it to be slow or OOM."
+fi
 if ask "AI tools (Ollama)?"; then INSTALL_AI=true; else INSTALL_AI=false; fi
-if ask "GUI/desktop apps (Signal Desktop, Kitty terminal)?"; then INSTALL_GUI=true; else INSTALL_GUI=false; fi
+
+# GUI apps need a desktop session; a headless box (typical Pi) has none. The
+# Kitty gsettings step in particular fails without a dconf/GNOME session.
+if has_desktop; then
+    if ask "GUI/desktop apps (Signal Desktop, Kitty terminal)?"; then INSTALL_GUI=true; else INSTALL_GUI=false; fi
+else
+    INSTALL_GUI=false
+    info "No desktop environment detected — skipping GUI/desktop apps."
+fi
 
 echo ""
 
@@ -349,8 +395,13 @@ fi
 
 info "Installing localdev..."
 curl -fsSL https://raw.githubusercontent.com/gherlein/localdev/main/install.sh | bash
-podman pull ghcr.io/gherlein/localdev:latest
-ok "localdev installed."
+# The localdev image may not publish an arch matching this host (e.g. arm64 on
+# a Pi). Don't let a missing image abort the whole run under `set -e`.
+if podman pull "ghcr.io/gherlein/localdev:latest"; then
+    ok "localdev installed."
+else
+    warn "Could not pull ghcr.io/gherlein/localdev:latest for $ARCH — image may not exist for this architecture. localdev CLI is installed; the container image was skipped."
+fi
 
 else
     info "Skipping container tooling."
