@@ -235,6 +235,56 @@ else
 fi
 
 # ---------------------------------------------------------------------------
+# Dotfiles (clone this repo if needed, then deploy with GNU Stow)
+# ---------------------------------------------------------------------------
+
+# Runs by default so a fresh host gets its dotfiles automatically. Override:
+#   DEPLOY_DOTFILES=false   skip entirely
+#   DOTFILES_REPO=<url>     clone from a different remote (SSH by default)
+#   DOTFILES_DIR=<path>     clone/deploy location (default ~/dotfiles)
+DEPLOY_DOTFILES="${DEPLOY_DOTFILES:-true}"
+DOTFILES_REPO="${DOTFILES_REPO:-ssh://git@github.com/gherlein/dotfiles.git}"
+DOTFILES_DIR="${DOTFILES_DIR:-$HOME/dotfiles}"
+
+if [[ "$DEPLOY_DOTFILES" == "true" ]]; then
+    # If we're already running from inside a checkout of the dotfiles repo,
+    # deploy that one rather than cloning a second copy elsewhere.
+    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
+    REPO_ROOT="$(git -C "$SCRIPT_DIR" rev-parse --show-toplevel 2>/dev/null || true)"
+    if [[ -n "$REPO_ROOT" && -f "$REPO_ROOT/.stow-packages" ]]; then
+        DOTFILES_DIR="$REPO_ROOT"
+        info "Using existing dotfiles checkout at $DOTFILES_DIR"
+    elif [[ -d "$DOTFILES_DIR/.git" ]]; then
+        info "Dotfiles already present at $DOTFILES_DIR — pulling latest"
+        git -C "$DOTFILES_DIR" pull --ff-only \
+            || warn "Could not fast-forward $DOTFILES_DIR — leaving it as-is"
+    else
+        info "Cloning dotfiles repo into $DOTFILES_DIR (SSH auth to GitHub required)"
+        if git clone "$DOTFILES_REPO" "$DOTFILES_DIR"; then
+            ok "Cloned dotfiles into $DOTFILES_DIR"
+        else
+            warn "Clone of $DOTFILES_REPO failed — is your SSH key registered on GitHub? Skipping dotfiles deploy."
+            DOTFILES_DIR=""
+        fi
+    fi
+
+    if [[ -n "$DOTFILES_DIR" && -d "$DOTFILES_DIR" ]]; then
+        if command -v stow &>/dev/null; then
+            info "Deploying dotfiles with 'make stow' in $DOTFILES_DIR"
+            if make -C "$DOTFILES_DIR" stow; then
+                ok "Dotfiles deployed via stow."
+            else
+                warn "'make stow' reported an error — review the output above."
+            fi
+        else
+            warn "stow not found — skipping dotfiles deploy (it should be in the core apt packages)."
+        fi
+    fi
+else
+    info "Skipping dotfiles deployment (DEPLOY_DOTFILES=false)."
+fi
+
+# ---------------------------------------------------------------------------
 # Development toolchains (Go, TinyGo, Rust, protoc-gen-go, Node, pnpm, AWS CLI)
 # ---------------------------------------------------------------------------
 
@@ -329,7 +379,14 @@ nvm use --lts
 set -u
 
 info "Installing global npm packages..."
-npm install -g typescript aws-cdk @anthropic-ai/claude-code
+npm install -g typescript aws-cdk
+
+info "Installing Claude Code (native installer)..."
+if command -v claude &>/dev/null || [[ -x "$HOME/.local/bin/claude" ]]; then
+    info "Claude Code already installed."
+else
+    curl -fsSL https://claude.ai/install.sh | bash
+fi
 
 info "Installing pnpm..."
 if ! command -v pnpm &>/dev/null; then
