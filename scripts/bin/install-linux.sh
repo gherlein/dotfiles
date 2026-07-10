@@ -31,9 +31,15 @@ is_raspberry_pi() {
     grep -qi "raspberry pi" /proc/cpuinfo 2>/dev/null
 }
 
+# True only when an active local graphical session is present. We key off
+# session env vars, not installed binaries: a headless Pi may have a desktop
+# installed but boot to console (gnome-shell present, no session). DISPLAY
+# alone is untrustworthy because `ssh -X` forwards it onto a headless box, so
+# it only counts when this is not an SSH session.
 has_desktop() {
-    [[ -n "${XDG_CURRENT_DESKTOP:-}" || -n "${WAYLAND_DISPLAY:-}" || -n "${DISPLAY:-}" ]] \
-        || command -v gnome-shell &>/dev/null
+    [[ -n "${XDG_CURRENT_DESKTOP:-}" || -n "${WAYLAND_DISPLAY:-}" ]] && return 0
+    [[ -n "${DISPLAY:-}" && -z "${SSH_CONNECTION:-}" && -z "${SSH_TTY:-}" ]] && return 0
+    return 1
 }
 
 if is_raspberry_pi; then IS_RPI=true; info "Raspberry Pi detected."; else IS_RPI=false; fi
@@ -49,6 +55,46 @@ if is_raspberry_pi; then IS_RPI=true; info "Raspberry Pi detected."; else IS_RPI
 # Section selection
 # ---------------------------------------------------------------------------
 
+# ASSUME is "" (prompt interactively), "yes", or "no". In unattended runs every
+# section not preset via its INSTALL_* environment variable takes this default.
+ASSUME=""
+
+usage() {
+    cat <<EOF
+Usage: $(basename "$0") [-y|--yes] [-n|--no] [-h|--help]
+
+  -y, --yes   Unattended: install every section (except those disabled by
+              hardware/desktop detection). Overridable per section via env vars.
+  -n, --no    Unattended: install only the always-on base; skip every optional
+              section unless its env var is set to true.
+  -h, --help  Show this help and exit.
+
+Per-section env overrides (set to true or false to skip that prompt):
+  INSTALL_DEV INSTALL_PYTHON INSTALL_AMD INSTALL_CONTAINERS
+  INSTALL_NETWORK INSTALL_MONITORING INSTALL_AI INSTALL_GUI
+
+Example (headless install of dev tools only):
+  INSTALL_DEV=true $(basename "$0") -n
+EOF
+}
+
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        -y|--yes)  ASSUME=yes ;;
+        -n|--no)   ASSUME=no ;;
+        -h|--help) usage; exit 0 ;;
+        *) die "Unknown argument: $1 (try --help)" ;;
+    esac
+    shift
+done
+
+# A non-interactive stdin (piped install, cron, CI) cannot answer prompts, so
+# fall back to a safe default of "no" unless the caller picked a mode.
+if [[ -z "$ASSUME" && ! -t 0 ]]; then
+    ASSUME=no
+    warn "Non-interactive shell — defaulting optional sections to 'no'. Use -y or INSTALL_* env vars to enable them."
+fi
+
 ask() {
     local prompt="$1" reply
     while true; do
@@ -61,37 +107,61 @@ ask() {
     done
 }
 
+# resolve VAR "prompt" — set INSTALL_* to true/false. Precedence: an existing
+# environment value wins (validated); then the unattended ASSUME default;
+# otherwise prompt interactively.
+resolve() {
+    local var="$1" prompt="$2" val
+    # Assign val on its own line: bash rejects `${!var}` on the same `local`
+    # line that first sets var ("invalid indirect expansion").
+    val="${!var:-}"
+    if [[ -n "$val" ]]; then
+        [[ "$val" == "true" || "$val" == "false" ]] || die "$var must be 'true' or 'false', got '$val'."
+        info "$var=$val (from environment)"
+    elif [[ "$ASSUME" == "yes" ]]; then
+        printf -v "$var" true
+    elif [[ "$ASSUME" == "no" ]]; then
+        printf -v "$var" false
+    elif ask "$prompt"; then
+        printf -v "$var" true
+    else
+        printf -v "$var" false
+    fi
+}
+
 echo "Select which sections to install (the base system/apt packages always run):"
 echo ""
 
-if ask "Development toolchains (Go, TinyGo, Rust, protoc-gen-go, Node/npm, pnpm, AWS CLI)?"; then INSTALL_DEV=true; else INSTALL_DEV=false; fi
+resolve INSTALL_DEV "Development toolchains (Go, TinyGo, Rust, protoc-gen-go, Node/npm, pnpm, AWS CLI)?"
 
 if [[ "$IS_RPI" == "true" ]]; then
     warn "Python/ML stack is heavy and CPU-only on a Pi (torch, transformers, jupyter) — say no unless you really need it."
 fi
-if ask "Python/ML stack (uv, torch/transformers/jupyter venv, pdf2md)?"; then INSTALL_PYTHON=true; else INSTALL_PYTHON=false; fi
+resolve INSTALL_PYTHON "Python/ML stack (uv, torch/transformers/jupyter venv, pdf2md)?"
 
 # AMD GPU tools have no meaning on a Pi (Broadcom VideoCore, no AMD hardware).
 if [[ "$IS_RPI" == "true" ]]; then
     INSTALL_AMD=false
     info "Raspberry Pi — skipping AMD GPU tools (no AMD hardware)."
 else
-    if ask "AMD GPU tools (amdgpu_top, ROCm drivers)?"; then INSTALL_AMD=true; else INSTALL_AMD=false; fi
+    resolve INSTALL_AMD "AMD GPU tools (amdgpu_top, ROCm drivers)?"
 fi
 
-if ask "Container tooling (Docker, localdev/podman)?"; then INSTALL_CONTAINERS=true; else INSTALL_CONTAINERS=false; fi
-if ask "Networking/VPN (Tailscale, ZeroTier)?"; then INSTALL_NETWORK=true; else INSTALL_NETWORK=false; fi
-if ask "Monitoring stack (Prometheus, node_exporter, Grafana)?"; then INSTALL_MONITORING=true; else INSTALL_MONITORING=false; fi
+resolve INSTALL_CONTAINERS "Container tooling (Docker, localdev/podman)?"
+resolve INSTALL_NETWORK "Networking/VPN (Tailscale, ZeroTier)?"
+resolve INSTALL_MONITORING "Monitoring stack (Prometheus, node_exporter, Grafana)?"
 
 if [[ "$IS_RPI" == "true" ]]; then
     warn "Ollama models generally exceed a Pi's memory — expect it to be slow or OOM."
 fi
-if ask "AI tools (Ollama)?"; then INSTALL_AI=true; else INSTALL_AI=false; fi
+resolve INSTALL_AI "AI tools (Ollama)?"
 
 # GUI apps need a desktop session; a headless box (typical Pi) has none. The
-# Kitty gsettings step in particular fails without a dconf/GNOME session.
+# Kitty gsettings step in particular fails without a dconf/GNOME session. This
+# gate wins over any INSTALL_GUI env value — the apps cannot run without a
+# display.
 if has_desktop; then
-    if ask "GUI/desktop apps (Signal Desktop, Kitty terminal)?"; then INSTALL_GUI=true; else INSTALL_GUI=false; fi
+    resolve INSTALL_GUI "GUI/desktop apps (Signal Desktop, Kitty terminal)?"
 else
     INSTALL_GUI=false
     info "No desktop environment detected — skipping GUI/desktop apps."
@@ -577,7 +647,7 @@ fi
 info "Installing Kitty..."
 if ! command -v kitty &>/dev/null; then
     /bin/sh -c "$(curl -fsSL https://sw.kovidgoyal.net/kitty/installer.sh)"
-    mkdir -p "$HOME/.local/bin"
+    mkdir -p "$HOME/.local/bin" "$HOME/.local/share/applications"
     ln -sf "$HOME/.local/kitty.app/bin/kitty" "$HOME/.local/bin/kitty"
     ln -sf "$HOME/.local/kitty.app/bin/kitten" "$HOME/.local/bin/kitten"
     cp "$HOME/.local/kitty.app/share/applications/kitty.desktop" "$HOME/.local/share/applications/"
