@@ -214,6 +214,27 @@ sudo apt-get install -y \
     zip
 
 # ---------------------------------------------------------------------------
+# GitHub CLI (gh)
+# ---------------------------------------------------------------------------
+
+# gh is not in the stock Debian/Ubuntu/Pi OS repos; it ships from GitHub's own
+# apt repo, so register that first (official install method).
+info "Installing GitHub CLI (gh)..."
+if ! command -v gh &>/dev/null; then
+    sudo mkdir -p -m 755 /etc/apt/keyrings
+    curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg \
+        | sudo tee /etc/apt/keyrings/githubcli-archive-keyring.gpg > /dev/null
+    sudo chmod go+r /etc/apt/keyrings/githubcli-archive-keyring.gpg
+    echo "deb [arch=$ARCH signed-by=/etc/apt/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" \
+        | sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null
+    sudo apt-get update
+    sudo apt-get install -y gh
+    ok "GitHub CLI installed."
+else
+    info "GitHub CLI already installed: $(gh --version | head -1)"
+fi
+
+# ---------------------------------------------------------------------------
 # keychain
 # ---------------------------------------------------------------------------
 

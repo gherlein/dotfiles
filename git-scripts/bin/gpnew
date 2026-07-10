@@ -17,7 +17,16 @@ ORG="$1"
 REPO="$2"
 
 if ! gh auth status &>/dev/null; then
-  gh auth login
+  # gh's "web browser" method is GitHub's device-code flow; its verification
+  # URL is always the one below. On a headless/SSH host no browser opens, so
+  # print it explicitly: copy the one-time code gh shows, then open this URL on
+  # any other device to authorize.
+  echo "GitHub CLI is not authenticated."
+  echo "If no browser opens (headless/SSH), go to this URL on any device:"
+  echo "    https://github.com/login/device"
+  echo "and enter the one-time code shown below."
+  echo ""
+  gh auth login --hostname github.com --web
 fi
 
 if ! gh api "orgs/${ORG}" &>/dev/null; then
