@@ -77,7 +77,39 @@ ok "git identity: $(git config --global user.name) <$(git config --global user.e
 mkdir -p "$HOME/.ssh"
 chmod 700 "$HOME/.ssh"
 
-if [ -f "$KEY_FILE" ]; then
+# Test whether a given private key authenticates to GitHub.
+# ssh -T returns exit code 1 even on success, so we grep the message instead.
+key_authenticates() {
+  ssh -i "$1" -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new \
+      -T git@github.com 2>&1 | grep -q "successfully authenticated"
+}
+
+# Before creating anything, look for an existing key in ~/.ssh whose name
+# contains "github" and check whether it already works. If so, reuse it and
+# skip key creation entirely.
+WORKING_KEY=""
+info "Looking for an existing GitHub SSH key in $HOME/.ssh"
+shopt -s nullglob
+for candidate in "$HOME"/.ssh/*github*; do
+  case "$candidate" in
+    *.pub) continue ;;   # skip public keys
+  esac
+  [ -f "$candidate" ] || continue
+  info "Testing existing key: $candidate"
+  if key_authenticates "$candidate"; then
+    ok "Existing key authenticates to GitHub — reusing $candidate"
+    WORKING_KEY="$candidate"
+    KEY_FILE="$candidate"
+    break
+  else
+    warn "Key $candidate did not authenticate to GitHub"
+  fi
+done
+shopt -u nullglob
+
+if [ -n "$WORKING_KEY" ]; then
+  info "Skipping SSH key creation — a working GitHub key is already present"
+elif [ -f "$KEY_FILE" ]; then
   info "SSH key already exists at $KEY_FILE — reusing it (not overwriting)"
 else
   info "Generating ed25519 SSH key at $KEY_FILE"
@@ -85,7 +117,7 @@ else
   ssh-keygen -t ed25519 -C "$KEY_COMMENT" -f "$KEY_FILE"
 fi
 chmod 600 "$KEY_FILE"
-chmod 644 "$KEY_FILE.pub"
+[ -f "$KEY_FILE.pub" ] && chmod 644 "$KEY_FILE.pub"
 
 # ---------------------------------------------------------------------------
 # 4. ssh-agent + config
@@ -114,13 +146,15 @@ chmod 600 "$SSH_CONFIG"
 # ---------------------------------------------------------------------------
 # 5. Show the public key to register on GitHub
 # ---------------------------------------------------------------------------
-echo
-info "Add this PUBLIC key to GitHub → Settings → SSH and GPG keys → New SSH key:"
-echo "-------------------------------------------------------------------"
-cat "$KEY_FILE.pub"
-echo "-------------------------------------------------------------------"
-echo
-read -rp "Press Enter once you've added the key to GitHub to test the connection... " _
+if [ -z "$WORKING_KEY" ]; then
+  echo
+  info "Add this PUBLIC key to GitHub → Settings → SSH and GPG keys → New SSH key:"
+  echo "-------------------------------------------------------------------"
+  cat "$KEY_FILE.pub"
+  echo "-------------------------------------------------------------------"
+  echo
+  read -rp "Press Enter once you've added the key to GitHub to test the connection... " _
+fi
 
 # ---------------------------------------------------------------------------
 # 6. Verify
