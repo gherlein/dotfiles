@@ -51,4 +51,6 @@ micro/.config/micro/buffers/
 
 # govirt stacks (local dev VM setup — host paths, NFS export config)
 govirt/.config/govirt/stacks/
-bin/
+
+# Claude Code per-machine local settings (permission allowlists, not shared)
+**/.claude/settings.local.json

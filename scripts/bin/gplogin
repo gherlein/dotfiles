@@ -1,0 +1,16 @@
+#!/bin/bash
+# Log in to the GitHub Container Registry with podman, matching the localdev
+# Makefile `login` target. Uses GH_TOKEN from the environment.
+set -euo pipefail
+
+REGISTRY="${REGISTRY:-ghcr.io}"
+REPO="${REPO:-gherlein}"
+
+if [ -z "${GH_TOKEN:-}" ]; then
+	echo "ERROR: GH_TOKEN is not set in the environment." >&2
+	echo "Set it in your shell environment, e.g. add to ~/.bashrc:" >&2
+	echo "  export GH_TOKEN=<your-github-personal-access-token>" >&2
+	exit 1
+fi
+
+echo "$GH_TOKEN" | podman login "$REGISTRY" -u "$REPO" --password-stdin
