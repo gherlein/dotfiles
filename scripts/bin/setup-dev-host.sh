@@ -50,19 +50,19 @@ sudo apt install -y git curl build-essential
 # ---------------------------------------------------------------------------
 # 2. Git identity
 # ---------------------------------------------------------------------------
-if [ -z "$GIT_NAME" ]; then
-  read -rp "Git user.name (e.g. Greg Herlein): " GIT_NAME
-fi
-if [ -z "$GIT_EMAIL" ]; then
-  read -rp "Git user.email (a verified GitHub email): " GIT_EMAIL
-fi
-
 existing_name="$(git config --global user.name  || true)"
 existing_email="$(git config --global user.email || true)"
 
 if [ -n "$existing_name" ] && [ "$FORCE_IDENTITY" -eq 0 ]; then
+  # Identity already configured — don't prompt for name/email at all.
   info "Git identity already set: $existing_name <$existing_email> (use --force-identity to override)"
 else
+  if [ -z "$GIT_NAME" ]; then
+    read -rp "Git user.name (e.g. Greg Herlein): " GIT_NAME
+  fi
+  if [ -z "$GIT_EMAIL" ]; then
+    read -rp "Git user.email (a verified GitHub email): " GIT_EMAIL
+  fi
   info "Setting global git identity"
   git config --global user.name  "$GIT_NAME"
   git config --global user.email "$GIT_EMAIL"
@@ -89,8 +89,13 @@ eval "$(ssh-agent -s)"
 # ssh -T returns exit code 1 even on success, so we grep the message instead.
 key_authenticates() {
   ssh-add "$1" || true   # prompts for passphrase once, loads into the agent
-  ssh -i "$1" -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new \
-      -T git@github.com 2>&1 | grep -q "successfully authenticated"
+  # `ssh -T` always exits 1, and `set -o pipefail` would make a
+  # `ssh ... | grep` pipeline inherit that 1 even when grep matches. So
+  # capture the output first, then grep the captured string.
+  local output
+  output="$(ssh -i "$1" -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new \
+      -T git@github.com 2>&1 || true)"
+  grep -q "successfully authenticated" <<<"$output"
 }
 
 # Before creating anything, look for an existing key in ~/.ssh whose name
