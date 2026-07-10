@@ -206,6 +206,7 @@ sudo apt-get install -y \
     python3-wheel \
     ripgrep \
     socat \
+    stow \
     tree \
     unzip \
     usbutils \
@@ -216,7 +217,9 @@ sudo apt-get install -y \
 # keychain
 # ---------------------------------------------------------------------------
 
-SSH_KEY="$HOME/.ssh/gherlein"
+# Key file is named after the login user. Override with SSH_KEY=/path/to/key.
+# id -un is the reliable fallback when $USER is unset (cron/non-interactive).
+SSH_KEY="${SSH_KEY:-$HOME/.ssh/${USER:-$(id -un)}}"
 
 info "Configuring keychain..."
 mkdir -p "$HOME/.ssh"

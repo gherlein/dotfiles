@@ -31,10 +31,11 @@ stow:
 	@for pkg in $(PACKAGES); do \
 		if [ -d $$pkg ]; then \
 			echo "Stowing $$pkg..."; \
-			stow -n $$pkg 2>&1 | grep 'existing target' \
-				| sed -e 's|.*existing target[^:]*: ||' -e 's| =>.*||' \
-				| while read target; do \
+			stow -n $$pkg 2>&1 | grep -E 'existing target' \
+				| sed -E -e 's|.*over existing target (.+) since .*|\1|' -e 's|.*existing target[^:]*: ||' \
+				| while read -r target; do \
 					[ -n "$$target" ] || continue; \
+					[ -e "$$HOME/$$target" ] && [ ! -L "$$HOME/$$target" ] || continue; \
 					echo "  Removing conflicting file: $$HOME/$$target"; \
 					rm -f "$$HOME/$$target"; \
 				done; \
