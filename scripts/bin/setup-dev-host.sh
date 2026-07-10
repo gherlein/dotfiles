@@ -45,7 +45,7 @@ ok()   { printf '\033[1;32m[ok]\033[0m %s\n' "$*"; }
 info "Updating apt and installing base packages"
 sudo apt update
 sudo apt upgrade -y
-sudo apt install -y git curl build-essential
+sudo apt install -y git curl build-essential stow
 
 # ---------------------------------------------------------------------------
 # 2. Git identity
@@ -83,9 +83,13 @@ chmod 700 "$HOME/.ssh"
 info "Starting ssh-agent"
 eval "$(ssh-agent -s)"
 
+# GitHub username, auto-detected from the auth greeting once a key works.
+GITHUB_USER=""
+
 # Test whether a given private key authenticates to GitHub. We load the key
 # into the agent first (one passphrase prompt); the subsequent `ssh -i` then
-# uses the agent copy without prompting again.
+# uses the agent copy without prompting again. On success, capture the GitHub
+# username from the "Hi <user>!" greeting into GITHUB_USER.
 # ssh -T returns exit code 1 even on success, so we grep the message instead.
 key_authenticates() {
   ssh-add "$1" || true   # prompts for passphrase once, loads into the agent
@@ -95,7 +99,11 @@ key_authenticates() {
   local output
   output="$(ssh -i "$1" -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new \
       -T git@github.com 2>&1 || true)"
-  grep -q "successfully authenticated" <<<"$output"
+  if grep -q "successfully authenticated" <<<"$output"; then
+    GITHUB_USER="$(sed -n 's/^Hi \([^!]*\)!.*/\1/p' <<<"$output" | head -1)"
+    return 0
+  fi
+  return 1
 }
 
 # Before creating anything, look for an existing key in ~/.ssh whose name
@@ -195,5 +203,35 @@ else
     warn "Could not confirm authentication. Check that the key was added to GitHub"
     warn "(and 'Configure SSO / Authorize' if your org uses SAML SSO)."
     exit 1
+  fi
+fi
+
+# ---------------------------------------------------------------------------
+# 7. Import the user's public keys from GitHub into authorized_keys
+#    (lets you SSH INTO this host with any key registered on your GitHub acct)
+# ---------------------------------------------------------------------------
+if [ -z "$GITHUB_USER" ]; then
+  warn "Could not determine your GitHub username — skipping authorized_keys import"
+else
+  info "Fetching public keys for GitHub user '$GITHUB_USER' (https://github.com/$GITHUB_USER.keys)"
+  fetched="$(curl -fsSL "https://github.com/$GITHUB_USER.keys" || true)"
+  if [ -z "$fetched" ]; then
+    warn "No public keys returned for $GITHUB_USER (fetch failed or none published)"
+  else
+    AUTH_KEYS="$HOME/.ssh/authorized_keys"
+    touch "$AUTH_KEYS"
+    chmod 600 "$AUTH_KEYS"
+    added=0
+    while IFS= read -r pubkey; do
+      [ -z "$pubkey" ] && continue
+      # Dedup on the key body (GitHub returns keys without a comment), so we
+      # don't re-add one that's already present under any comment.
+      if grep -qF -- "$pubkey" "$AUTH_KEYS"; then
+        continue
+      fi
+      printf '%s github:%s\n' "$pubkey" "$GITHUB_USER" >> "$AUTH_KEYS"
+      added=$((added + 1))
+    done <<<"$fetched"
+    ok "Imported $added new key(s) into $AUTH_KEYS for GitHub user '$GITHUB_USER'"
   fi
 fi
