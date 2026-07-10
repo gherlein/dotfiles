@@ -77,9 +77,18 @@ ok "git identity: $(git config --global user.name) <$(git config --global user.e
 mkdir -p "$HOME/.ssh"
 chmod 700 "$HOME/.ssh"
 
-# Test whether a given private key authenticates to GitHub.
+# ssh-agent is started here (before detection) so that a candidate key is
+# loaded into the agent once and reused for both the test and the final
+# clone — otherwise the passphrase would be prompted for twice.
+info "Starting ssh-agent"
+eval "$(ssh-agent -s)"
+
+# Test whether a given private key authenticates to GitHub. We load the key
+# into the agent first (one passphrase prompt); the subsequent `ssh -i` then
+# uses the agent copy without prompting again.
 # ssh -T returns exit code 1 even on success, so we grep the message instead.
 key_authenticates() {
+  ssh-add "$1" || true   # prompts for passphrase once, loads into the agent
   ssh -i "$1" -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new \
       -T git@github.com 2>&1 | grep -q "successfully authenticated"
 }
@@ -122,13 +131,21 @@ chmod 600 "$KEY_FILE"
 # ---------------------------------------------------------------------------
 # 4. ssh-agent + config
 # ---------------------------------------------------------------------------
-info "Starting ssh-agent and adding the key"
-eval "$(ssh-agent -s)"
-ssh-add "$KEY_FILE"
+# The agent was started in section 3. A working key found during detection is
+# already loaded; only add the key here if it isn't already in the agent.
+if ssh-add -l 2>/dev/null | grep -qF "$(ssh-keygen -lf "$KEY_FILE" 2>/dev/null | awk '{print $2}')"; then
+  info "Key already loaded into ssh-agent"
+else
+  info "Adding the key to ssh-agent"
+  ssh-add "$KEY_FILE"
+fi
 
 SSH_CONFIG="$HOME/.ssh/config"
-if grep -qs "IdentityFile $KEY_FILE" "$SSH_CONFIG" 2>/dev/null; then
-  info "SSH config for github.com already present — leaving it alone"
+# Leave the config alone if the user already has ANY github.com stanza —
+# appending our own would create a second, conflicting block (e.g. clobbering
+# a curated ssh.github.com:443 setup with HostName github.com on port 22).
+if grep -Eqs '^[[:space:]]*Host([[:space:]].*)?[[:space:]]github\.com([[:space:]]|$)' "$SSH_CONFIG" 2>/dev/null; then
+  info "A github.com stanza already exists in $SSH_CONFIG — leaving it alone"
 else
   info "Adding github.com stanza to $SSH_CONFIG"
   cat >> "$SSH_CONFIG" <<EOF
@@ -159,12 +176,19 @@ fi
 # ---------------------------------------------------------------------------
 # 6. Verify
 # ---------------------------------------------------------------------------
-info "Testing SSH auth to GitHub"
-# ssh -T returns exit code 1 even on success, so check the message instead.
-if ssh -o StrictHostKeyChecking=accept-new -T git@github.com 2>&1 | grep -q "successfully authenticated"; then
-  ok "GitHub SSH authentication works. You can now: git clone git@github.com:owner/repo.git"
+if [ -n "$WORKING_KEY" ]; then
+  ok "GitHub SSH authentication already confirmed during detection ($KEY_FILE)."
+  ok "You can now: git clone git@github.com:owner/repo.git"
 else
-  warn "Could not confirm authentication. Check that the key was added to GitHub"
-  warn "(and 'Configure SSO / Authorize' if your org uses SAML SSO)."
-  exit 1
+  info "Testing SSH auth to GitHub"
+  # Test with -i/IdentitiesOnly (via key_authenticates) so only this key is
+  # offered — a bare `ssh -T` can offer many keys and hit GitHub's
+  # "Too many authentication failures" before reaching the right one.
+  if key_authenticates "$KEY_FILE"; then
+    ok "GitHub SSH authentication works. You can now: git clone git@github.com:owner/repo.git"
+  else
+    warn "Could not confirm authentication. Check that the key was added to GitHub"
+    warn "(and 'Configure SSO / Authorize' if your org uses SAML SSO)."
+    exit 1
+  fi
 fi
