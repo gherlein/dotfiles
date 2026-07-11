@@ -132,7 +132,7 @@ resolve() {
 echo "Select which sections to install (the base system/apt packages always run):"
 echo ""
 
-resolve INSTALL_DEV "Development toolchains (Go, TinyGo, Rust, protoc-gen-go, Node/npm, pnpm, AWS CLI)?"
+resolve INSTALL_DEV "Development toolchains (Go, TinyGo, Rust, protoc-gen-go, Node/npm, pnpm, mani, AWS CLI)?"
 
 if [[ "$IS_RPI" == "true" ]]; then
     warn "Python/ML stack is heavy and CPU-only on a Pi (torch, transformers, jupyter) — say no unless you really need it."
@@ -306,7 +306,7 @@ else
 fi
 
 # ---------------------------------------------------------------------------
-# Development toolchains (Go, TinyGo, Rust, protoc-gen-go, Node, pnpm, AWS CLI)
+# Development toolchains (Go, TinyGo, Rust, protoc-gen-go, Node, pnpm, mani, AWS CLI)
 # ---------------------------------------------------------------------------
 
 if [[ "$INSTALL_DEV" == "true" ]]; then
@@ -414,6 +414,13 @@ if ! command -v pnpm &>/dev/null; then
     curl -fsSL https://get.pnpm.io/install.sh | sh -
 else
     info "pnpm already installed."
+fi
+
+info "Installing mani..."
+if ! command -v mani &>/dev/null; then
+    curl -sfL https://raw.githubusercontent.com/alajmo/mani/main/install.sh | sh
+else
+    info "mani already installed."
 fi
 
 info "Installing AWS CLI v2..."
