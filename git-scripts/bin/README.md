@@ -24,6 +24,12 @@ Runs `gp` in every git-repo subdirectory under the script's own directory. For s
 
 **Usage:** `gp-all`
 
+## gp-mani — Git Push All (via mani)
+
+Runs `gp` in every repo listed in a `mani.yaml`, using `mani exec --all gp`. Searches the current directory first, then each parent directory up to the filesystem root, and uses the first `mani.yaml` it finds. Errors out if none is found. When the config is not in the current directory, it prints the path and asks for confirmation (default yes) before running, so you can abort if the repo set isn't what you expected.
+
+**Usage:** `gp-mani`
+
 ## gpnew — Create New GitHub Repo
 
 Creates a new private repository under a specified GitHub organization using the `gh` CLI. Initializes git locally, commits all files, sets the default branch to `main`, adds the remote, and pushes.
