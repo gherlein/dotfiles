@@ -6,12 +6,13 @@ PACKAGES_FILE := .stow-packages
 # Read packages from file (one per line, skip empty lines and comments)
 PACKAGES := $(shell [ -f $(PACKAGES_FILE) ] && grep -v '^\#' $(PACKAGES_FILE) | grep -v '^$$' || echo "")
 
-.PHONY: help stow unstow restow adopt list refresh
+.PHONY: help install stow unstow restow adopt list refresh
 
 help:
 	@echo "Dotfiles management with GNU Stow"
 	@echo ""
 	@echo "Usage:"
+	@echo "  make install   - Refresh package list then stow all packages"
 	@echo "  make stow      - Stow all packages"
 	@echo "  make unstow    - Unstow all packages"
 	@echo "  make restow    - Restow all packages (refresh symlinks)"
@@ -21,6 +22,13 @@ help:
 	@echo ""
 	@echo "Packages are read from: $(PACKAGES_FILE)"
 	@echo ""
+
+# Regenerate the package list, then stow. refresh and stow run as separate
+# sub-makes so that stow re-reads the freshly written .stow-packages
+# (PACKAGES is expanded once at parse time with :=, before refresh runs).
+install:
+	@$(MAKE) refresh
+	@$(MAKE) stow
 
 stow:
 	@if [ -z "$(PACKAGES)" ]; then \
