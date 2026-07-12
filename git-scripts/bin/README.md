@@ -14,7 +14,7 @@ Reads the `remote.origin.url` from a git repository (passed as an argument or th
 
 ## gp — Git Push (single repo)
 
-Quick add-commit-push for the current git repository. Fetches first and checks whether the remote is ahead of local; if so, it aborts with an error telling the user to pull/rebase. Otherwise it runs `git add .`, commits with the provided message (default: "interim commit"), and pushes with `-u`.
+Quick add-commit-push for the current git repository. Runs `git add .`, commits with the provided message (default: "interim commit"), then (when an upstream exists) does a `git pull --rebase` to fold in any remote changes before pushing with `-u`. If the rebase hits conflicts, it aborts and tells the user to resolve them before pushing.
 
 **Usage:** `gp ["commit message"]`
 

@@ -16,22 +16,19 @@ else
     commit_message="$1"
 fi
 
-# Fetch to get up-to-date remote state without merging
-git fetch 2>/dev/null
-
-# Check how many commits the remote is ahead of local
-behind=$(git rev-list --count HEAD..@{u} 2>/dev/null || echo 0)
-
-if [ "$behind" -gt 0 ]; then
-    ahead=$(git rev-list --count @{u}..HEAD 2>/dev/null || echo 0)
-    echo "Error: remote has $behind commit(s) not in your local branch"
-    echo "  local:  $ahead commit(s) ahead of remote"
-    echo "  remote: $behind commit(s) ahead of local"
-    echo "Pull or rebase before pushing."
-    exit 1
-fi
-
-# Execute git commands
+# Commit local work first so the tree is clean for the rebase below
+# (git pull --rebase refuses to run with uncommitted changes).
 git add .
 git commit -am "$commit_message"
+
+# Bring in and rebase onto the latest remote before pushing, so a remote that
+# has advanced doesn't reject the push. Skip when no upstream exists yet (first
+# push); the 'git push -u' below establishes it.
+if git rev-parse --abbrev-ref --symbolic-full-name '@{u}' &>/dev/null; then
+    if ! git pull --rebase; then
+        echo "Error: rebase failed — resolve conflicts, then push."
+        exit 1
+    fi
+fi
+
 git push -u
