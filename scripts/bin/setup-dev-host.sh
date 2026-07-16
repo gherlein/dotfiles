@@ -285,3 +285,21 @@ if command -v claude >/dev/null 2>&1 || [ -x "$HOME/.local/bin/claude" ]; then
 else
   warn "Claude Code install did not produce a 'claude' binary — check the output above"
 fi
+
+# ---------------------------------------------------------------------------
+# 9. Claude Code config (separate repo: ~/.claude is high-churn runtime state
+#    co-mingled with config, so it lives in its own repo, not this dotfiles
+#    tree, and is symlinked into place rather than stowed)
+# ---------------------------------------------------------------------------
+if [ -d "$HOME/claude/claude/.git" ]; then
+  info "Claude Code config repo already present — skipping"
+else
+  info "Cloning Claude Code config (git@github.com:gherlein/claude.git)"
+  git clone git@github.com:gherlein/claude.git "$HOME/claude/claude"
+fi
+if [ -d "$HOME/claude/claude" ]; then
+  ln -sfn "$HOME/claude/claude" "$HOME/.claude"
+  ok "Claude Code config linked: ~/.claude -> ~/claude/claude"
+else
+  warn "Claude Code config clone failed — check SSH access to gherlein/claude"
+fi
