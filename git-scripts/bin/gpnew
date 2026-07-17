@@ -38,16 +38,23 @@ gh repo create "${ORG}/${REPO}" --private
 
 git init
 
-# Commit only if there is something to commit; an empty commit would abort
-# under `set -e` and skip the remote/push steps below.
 git add .
-if ! git diff --cached --quiet; then
+
+# Guarantee an initial commit so the branch is born and pushable. On a fresh
+# repo HEAD is unborn; an empty working dir stages nothing. Either case must
+# still produce a commit -- otherwise the branch detection and push below fail
+# on an unborn HEAD (fatal: ambiguous argument 'HEAD'). --allow-empty makes the
+# commit succeed with nothing staged instead of aborting under `set -e`.
+if ! git rev-parse --verify --quiet HEAD >/dev/null; then
+  git commit -m "Initial commit" --allow-empty
+elif ! git diff --cached --quiet; then
   git commit -m "Initial commit"
 fi
 
 # Push the branch we are actually on rather than forcing a rename to main,
-# which would clobber an existing feature branch.
-BRANCH="$(git rev-parse --abbrev-ref HEAD)"
+# which would clobber an existing feature branch. `branch --show-current`
+# survives an unborn branch, unlike `rev-parse --abbrev-ref HEAD`.
+BRANCH="$(git branch --show-current)"
 if [[ "${BRANCH}" == "master" ]]; then
   git branch -M main
   BRANCH="main"
