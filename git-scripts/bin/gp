@@ -31,4 +31,11 @@ if git rev-parse --abbrev-ref --symbolic-full-name '@{u}' &>/dev/null; then
     fi
 fi
 
-git push -u
+# Push. If the branch has no upstream yet (first push of a new branch), create
+# it explicitly against origin -- a bare `git push` fails on a branch with no
+# upstream. Otherwise push to the already-tracked upstream.
+if git rev-parse --abbrev-ref --symbolic-full-name '@{u}' &>/dev/null; then
+    git push
+else
+    git push --set-upstream origin "$branch_name"
+fi
