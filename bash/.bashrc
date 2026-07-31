@@ -62,3 +62,6 @@ export PATH=/home/gherlein/.opencode/bin:$PATH
 # Added by codebase-memory-mcp install
 export PATH="/home/gherlein/.local/bin:$PATH"
 [ -f "$HOME/.cargo/env" ] && . "$HOME/.cargo/env"
+
+# codg
+export PATH=/home/gherlein/.codg/bin:$PATH
