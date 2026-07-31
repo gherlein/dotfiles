@@ -1,8 +1,59 @@
 #!/bin/sh
-if command -v wl-copy >/dev/null 2>&1; then
-    kitty @ get-text --extent all | wl-copy
+# cb — copy to the system clipboard, including over SSH.
+#
+#   cb                  copy this window's screen + scrollback (local only)
+#   some-command | cb   copy piped text (works anywhere, including over SSH)
+#
+# WHY kitten clipboard instead of wl-copy/pbcopy/xclip: those talk to the local
+# display server, so over SSH they target the *remote* machine's clipboard, or
+# fail outright where there is no display. kitten clipboard writes an OSC 52
+# escape to the tty, which travels back over the connection to the terminal
+# actually in front of you. Same reason it survives tmux.
+
+set -eu
+
+# ── pick the text ────────────────────────────────────────────────────────────
+if [ -t 0 ]; then
+    # WHY this leg is local-only: get-text needs kitty's remote-control socket,
+    # which a remote host has no way to reach. Over SSH, pipe into cb instead.
+    text=$(kitten @ get-text --extent all 2>/dev/null) \
+        || text=$(kitty @ get-text --extent all 2>/dev/null) \
+        || {
+            echo "cb: nothing on stdin and kitty remote control is unavailable." >&2
+            echo "cb: over SSH, pipe the text in:  some-command | cb" >&2
+            exit 1
+        }
+else
+    text=$(cat)
+fi
+
+# ── copy it ──────────────────────────────────────────────────────────────────
+# WHY this order: OSC 52 routes to the real terminal, so it is correct both
+# locally and over SSH. The display-server tools are only a fallback for
+# terminals that ignore OSC 52.
+if command -v kitten >/dev/null 2>&1; then
+    printf '%s' "$text" | kitten clipboard
+elif command -v kitty >/dev/null 2>&1; then
+    printf '%s' "$text" | kitty +kitten clipboard
+elif command -v wl-copy >/dev/null 2>&1; then
+    printf '%s' "$text" | wl-copy
 elif command -v pbcopy >/dev/null 2>&1; then
-    kitty @ get-text --extent all | pbcopy
+    printf '%s' "$text" | pbcopy
 elif command -v xclip >/dev/null 2>&1; then
-    kitty @ get-text --extent all | xclip -sel clip
+    printf '%s' "$text" | xclip -selection clipboard
+else
+    # Last resort: emit OSC 52 by hand, so a remote host with no kitty binary
+    # at all still reaches the local terminal. Written to /dev/tty rather than
+    # stdout so a redirect of cb's output cannot swallow the escape.
+    # WHY the DCS wrapper under tmux: tmux drops a bare OSC 52 unless it is
+    # wrapped in its passthrough envelope.
+    # Caveat: single-shot, so it is capped by the terminal's OSC 52 payload
+    # limit (kitty ~74k, many terminals ~8k). kitten clipboard chunks; this
+    # does not.
+    b64=$(printf '%s' "$text" | base64 | tr -d '\n')
+    if [ -n "${TMUX:-}" ]; then
+        printf '\033Ptmux;\033\033]52;c;%s\007\033\\' "$b64" > /dev/tty
+    else
+        printf '\033]52;c;%s\007' "$b64" > /dev/tty
+    fi
 fi

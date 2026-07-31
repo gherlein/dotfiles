@@ -733,23 +733,31 @@ else
 fi
 
 info "Installing Kitty..."
-if ! command -v kitty &>/dev/null; then
-    /bin/sh -c "$(curl -fsSL https://sw.kovidgoyal.net/kitty/installer.sh)"
-    mkdir -p "$HOME/.local/bin" "$HOME/.local/share/applications"
-    ln -sf "$HOME/.local/kitty.app/bin/kitty" "$HOME/.local/bin/kitty"
-    ln -sf "$HOME/.local/kitty.app/bin/kitten" "$HOME/.local/bin/kitten"
-    cp "$HOME/.local/kitty.app/share/applications/kitty.desktop" "$HOME/.local/share/applications/"
-    cp "$HOME/.local/kitty.app/share/applications/kitty-open.desktop" "$HOME/.local/share/applications/"
-    sed -i "s|Icon=kitty|Icon=$HOME/.local/kitty.app/share/icons/hicolor/256x256/apps/kitty.png|g" \
-        "$HOME/.local/share/applications/kitty.desktop" \
-        "$HOME/.local/share/applications/kitty-open.desktop"
-    sed -i "s|Exec=kitty|Exec=$HOME/.local/kitty.app/bin/kitty|g" \
-        "$HOME/.local/share/applications/kitty.desktop" \
-        "$HOME/.local/share/applications/kitty-open.desktop"
-    ok "Kitty installed."
-else
-    info "Kitty already installed."
+# WHY apt rather than upstream's installer.sh: that installer drops a
+# self-managed tree in ~/.local/kitty.app which receives no security updates
+# unless you remember to run `kitten update-self`. Worse, its own guard
+# (`command -v kitty`) cannot see a later `apt install kitty`, so a host ends up
+# with two installs shadowing each other. See changes.md, "kitty: one install".
+sudo apt-get install -y kitty
+
+# Remove a legacy ~/.local/kitty.app left behind by earlier runs of this script.
+# WHY the symlinks matter most: ~/.local/bin precedes /usr/bin on PATH, so a
+# dangling ~/.local/bin/kitty shadows the working apt binary and kitty stops
+# resolving at all.
+if [[ -d "$HOME/.local/kitty.app" ]]; then
+    info "Removing legacy ~/.local/kitty.app (superseded by the apt package)..."
+    rm -rf "$HOME/.local/kitty.app"
+    rm -f "$HOME/.local/bin/kitty" "$HOME/.local/bin/kitten"
+    # These were rewritten to hardcode the .local path, and being in the user
+    # applications dir they shadow /usr/share/applications/kitty.desktop.
+    rm -f "$HOME/.local/share/applications/kitty.desktop" \
+          "$HOME/.local/share/applications/kitty-open.desktop"
+    if command -v update-desktop-database &>/dev/null; then
+        update-desktop-database "$HOME/.local/share/applications" || true
+    fi
+    warn "Restart any open kitty windows; they are still running the deleted build."
 fi
+ok "Kitty installed."
 
 # Set Kitty as the default terminal for GNOME desktop (right-click → Open Terminal)
 if command -v kitty &>/dev/null && command -v gsettings &>/dev/null; then
