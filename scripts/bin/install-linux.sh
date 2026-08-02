@@ -733,29 +733,50 @@ else
 fi
 
 info "Installing Kitty..."
-# WHY apt rather than upstream's installer.sh: that installer drops a
-# self-managed tree in ~/.local/kitty.app which receives no security updates
-# unless you remember to run `kitten update-self`. Worse, its own guard
-# (`command -v kitty`) cannot see a later `apt install kitty`, so a host ends up
-# with two installs shadowing each other. See changes.md, "kitty: one install".
-sudo apt-get install -y kitty
+# WHY upstream's installer.sh rather than apt: Ubuntu's kitty package lags
+# upstream by a full feature version and the LTS release cadence won't close
+# that gap. Concretely, 0.45.0 (apt, as of 26.04) predates window_drag_tolerance
+# (mouse-drag split resizing, added in kitty 0.46.0), which this config now
+# relies on. See changes.md, "kitty: switch back to native installer".
+#
+# WHY still pull kitty-terminfo from apt: it has no dependency on the `kitty`
+# package itself, and /usr/share/terminfo/x/xterm-kitty is what `sudo -i`,
+# systemd units, and other env-scrubbing contexts fall back on when they don't
+# inherit kitty's TERMINFO. Installing it explicitly (before removing `kitty`
+# below) also marks it manual, so a later `apt autoremove` won't take it out
+# as an orphaned dependency.
+sudo apt-get install -y kitty-terminfo
 
-# Remove a legacy ~/.local/kitty.app left behind by earlier runs of this script.
-# WHY the symlinks matter most: ~/.local/bin precedes /usr/bin on PATH, so a
-# dangling ~/.local/bin/kitty shadows the working apt binary and kitty stops
-# resolving at all.
-if [[ -d "$HOME/.local/kitty.app" ]]; then
-    info "Removing legacy ~/.local/kitty.app (superseded by the apt package)..."
-    rm -rf "$HOME/.local/kitty.app"
-    rm -f "$HOME/.local/bin/kitty" "$HOME/.local/bin/kitten"
-    # These were rewritten to hardcode the .local path, and being in the user
-    # applications dir they shadow /usr/share/applications/kitty.desktop.
-    rm -f "$HOME/.local/share/applications/kitty.desktop" \
-          "$HOME/.local/share/applications/kitty-open.desktop"
-    if command -v update-desktop-database &>/dev/null; then
-        update-desktop-database "$HOME/.local/share/applications" || true
-    fi
-    warn "Restart any open kitty windows; they are still running the deleted build."
+# WHY guard on the binary rather than always re-running the installer: unlike
+# `apt-get install`, installer.sh always re-downloads (~30 MB), so skip it
+# once a build is already in place. Re-run it yourself for updates, or use
+# `kitten update-self`.
+if [[ ! -x "$HOME/.local/kitty.app/bin/kitty" ]]; then
+    curl -fsSL https://sw.kovidgoyal.net/kitty/installer.sh | sh /dev/stdin
+else
+    info "~/.local/kitty.app already present; run 'kitten update-self' to update it."
+fi
+
+# WHY the symlinks matter most: ~/.local/bin precedes /usr/bin on PATH, so
+# this is what actually makes the native build the one that resolves.
+mkdir -p "$HOME/.local/bin" "$HOME/.local/share/applications"
+ln -sf "$HOME/.local/kitty.app/bin/kitty" "$HOME/.local/kitty.app/bin/kitten" "$HOME/.local/bin/"
+
+for desktop_file in kitty.desktop kitty-open.desktop; do
+    cp "$HOME/.local/kitty.app/share/applications/$desktop_file" "$HOME/.local/share/applications/"
+    sed -i "s|Icon=kitty|Icon=$HOME/.local/kitty.app/share/icons/hicolor/256x256/apps/kitty.png|g" \
+        "$HOME/.local/share/applications/$desktop_file"
+    sed -i "s|Exec=kitty|Exec=$HOME/.local/kitty.app/bin/kitty|g" \
+        "$HOME/.local/share/applications/$desktop_file"
+done
+
+# Remove the apt `kitty` package if a previous run of this script (or manual
+# install) left it behind, so it can't shadow the native build. Do this last,
+# only after the native build is confirmed in place above.
+if dpkg -s kitty >/dev/null 2>&1; then
+    info "Removing apt kitty package (superseded by the native install)..."
+    sudo apt-get remove -y kitty
+    warn "Restart any open kitty windows; they may still be running the removed apt build."
 fi
 ok "Kitty installed."
 

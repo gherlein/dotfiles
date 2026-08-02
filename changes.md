@@ -5,6 +5,63 @@ anything that turns out to be unwanted can be backed out without archaeology.
 
 ---
 
+## 2026-08-02 — kitty: switch back to native installer
+
+### The problem
+
+Mouse-drag resizing of split panes stopped working after moving from Ghostty
+to kitty. Root cause: dragging a split border to resize it is
+`window_drag_tolerance`, a kitty feature added in **0.46.0** (2026-03-11).
+Ubuntu's `kitty` apt package is at **0.45.0-1build1** (26.04's `resolute`
+repo), which predates it, and the LTS cadence won't close that gap on its
+own.
+
+This reverses [[2026-07-30 — kitty: one install, from apt]] above, whose
+verification checked only the features this config exercised at the time
+(the `ctrl+shift+p>y`/`>a` clipboard kittens) — mouse-drag resize wasn't yet
+a stated requirement, so the check didn't catch the gap.
+
+### What changed
+
+`install-linux.sh` installs kitty via upstream's `installer.sh` again
+(`~/.local/kitty.app`, symlinked into `~/.local/bin`, which precedes
+`/usr/bin` on PATH), and removes the apt `kitty` package if found, to keep a
+single install — same "one install" principle as before, opposite direction.
+
+One thing kept from the apt path: `kitty-terminfo` is still installed via
+apt, standalone. It has no dependency on the `kitty` package itself, and
+`/usr/share/terminfo/x/xterm-kitty` is what `sudo -i`, systemd units, and
+other env-scrubbing contexts fall back on when they don't inherit kitty's
+`TERMINFO` — the installer.sh tree provides no equivalent system-wide entry.
+Installing it explicitly, before removing `kitty`, also marks it manual so
+`apt autoremove` won't take it out as an orphaned dependency.
+
+This host was already fixed by hand (0.45.0 → 0.48.2) before the script was
+updated; re-running `install-linux.sh` on it is a no-op for the binary
+(guarded by `[[ -x ~/.local/kitty.app/bin/kitty ]]`) but still removes the
+apt package if present.
+
+### Revert
+
+To go back to the apt-managed build:
+
+```sh
+sudo apt-get install -y kitty
+rm -rf "$HOME/.local/kitty.app"
+rm -f "$HOME/.local/bin/kitty" "$HOME/.local/bin/kitten"
+rm -f "$HOME/.local/share/applications/kitty.desktop" \
+      "$HOME/.local/share/applications/kitty-open.desktop"
+command -v update-desktop-database &>/dev/null && update-desktop-database "$HOME/.local/share/applications"
+```
+
+Restart any open kitty windows afterward — see [[2026-07-30 — kitty: one
+install, from apt]] for why a stale `KITTY_INSTALLATION_DIR` breaks the
+prompt, not just the version.
+
+And `git -C ~/dotfiles checkout -- scripts/bin/install-linux.sh`.
+
+---
+
 ## 2026-07-30 — kitty: copy scrollback to clipboard without the mouse
 
 ### The problem
