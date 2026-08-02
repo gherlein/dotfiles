@@ -54,4 +54,6 @@ govirt/.config/govirt/stacks/
 
 # Claude Code per-machine local settings (permission allowlists, not shared)
 **/.claude/settings.local.json
-bin/
+
+# ~/bin (untracked personal scripts, not the repo's scripts/bin)
+/bin/
