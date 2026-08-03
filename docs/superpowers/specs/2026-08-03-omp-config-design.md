@@ -130,6 +130,27 @@ Two providers, both keyless.
 | `dgx` | custom ID, all dgx models via `discovery.type: ollama` | `auth: none` |
 | `ollama` | built-in, localhost CPU **and** all cloud models | keyless |
 
+### `baseUrl` must include `/v1` for a custom provider ID
+
+For a custom provider ID, omp appends the OpenAI path directly to `baseUrl`, so
+`baseUrl` must already end in `/v1`. Only the built-in `ollama` ID inserts `/v1`
+itself — which is why the upstream docs' explicit `providers.ollama` example
+omits it while the custom-provider examples include it.
+
+Getting this wrong fails in a way that is easy to misread: `discovery.type:
+ollama` probes Ollama's native `/api/tags`, which succeeds regardless, so
+`omp models dgx` lists every model correctly while **every inference request**
+returns `404 page not found` from `/responses`. With `retry.fallbackChains`
+configured, the session then silently reroutes to a cloud model and the only
+visible symptom is a fallback notice.
+
+Verified: omp strips the `/v1` suffix for the native discovery probe, so
+including it breaks nothing.
+
+Corollary for verification: confirming that a turn produced a correct answer does
+**not** confirm which provider served it. Check the session log for
+`"provider":"dgx"` and a zero 404 count.
+
 ### Why a custom `dgx` ID rather than repointing `ollama`
 
 An explicit `ollama` entry in `models.yml` *replaces* omp's built-in discovery
@@ -256,7 +277,7 @@ global `agent/config.yml`.
 ```yaml
 providers:
   dgx:
-    baseUrl: http://dgx.herlein.me:11434
+    baseUrl: http://dgx.herlein.me:11434/v1
     api: openai-responses
     auth: none
     discovery:
@@ -314,7 +335,10 @@ ambiguous selector; thinking level is set per-session via `/model` instead.
 3. `omp config list` shows the six configured `modelRoles` resolving to concrete
    models with no startup config warnings. Malformed chains or unknown models
    are reported as warnings at startup, so a clean start is the check.
-4. A one-shot run against the `default` role completes a tool call on dgx.
+4. A one-shot run against the `default` role completes a tool call **and the
+   session log shows `"provider":"dgx"` with a 404 count of zero**. A correct
+   answer alone is insufficient: the fallback chain can serve the turn from a
+   cloud model and look identical from the outside.
 5. `~/.claude/CLAUDE.md` appears as the inherited user context file, with no
    competing `AGENTS.md`.
 6. `make stow` produces symlinks at `~/.omp/agent/{config,models}.yml` and does
