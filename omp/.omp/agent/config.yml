@@ -1,0 +1,41 @@
+# omp user-level settings. Local-first on dgx, Ollama Cloud on 429/outage.
+#
+# There is deliberately no AGENTS.md in this directory: the `native` provider
+# outranks `claude`, and only one user-scope context file survives, so an
+# AGENTS.md here would shadow ~/.claude/CLAUDE.md instead of adding to it.
+# omp-specific rules belong in RULES.md, which loads as an always-apply rule.
+
+modelRoles:
+  # qwen3-coder-next is coder-tuned and stays resident, but has no `thinking`
+  # capability, so the reasoning roles go to qwen3.6 instead of the larger model.
+  default: "dgx/qwen3-coder-next:latest"
+  smol: "dgx/qwen3-coder-next:latest"
+  commit: "dgx/qwen3-coder-next:latest"
+  plan: "dgx/qwen3.6:35b-a3b"
+  slow: "dgx/qwen3.6:35b-a3b"
+  vision: "dgx/qwen3.6:35b-a3b"
+  # `tiny` is intentionally unset -- it falls back to @smol by design.
+  # Thinking suffixes are omitted: the model id already contains a colon, so
+  # "dgx/qwen3.6:35b-a3b:high" is an ambiguous selector. Set level via /model.
+
+retry:
+  modelFallback: true
+  fallbackChains:
+    default:
+      - "ollama/kimi-k2.7-code:cloud"
+      - "ollama/gpt-oss:120b-cloud"
+    smol:
+      - "ollama/gpt-oss:20b-cloud"
+    commit:
+      - "ollama/gpt-oss:20b-cloud"
+    plan:
+      # 524K context genuinely exceeds the 131K local ceiling, so this is an
+      # upgrade for large refactors rather than just a substitute.
+      - "ollama/deepseek-v4-pro:cloud"
+    slow:
+      - "ollama/deepseek-v4-pro:cloud"
+    vision:
+      - "ollama/kimi-k2.7-code:cloud"
+
+memory:
+  backend: local
