@@ -3,9 +3,15 @@
 
 "29.3"
 
+<<<<<<< Updated upstream
 #s(hash-table size 65 test equal rehash-size 1.5 rehash-threshold 0.8125 data ("straight" ("2026-08-03 14:12:16" ("emacs") (:type git :host github :repo "radian-software/straight.el" :files ("straight*.el") :branch "main" :package "straight" :local-repo "straight.el")) "org-elpa" ("2026-08-03 14:12:16" nil (:local-repo nil :package "org-elpa" :type git)) "melpa" ("2026-08-03 14:12:16" nil (:type git :host github :repo "melpa/melpa" :build nil :package "melpa" :local-repo "melpa")) "gnu-elpa-mirror" ("2026-08-03 14:12:16" nil (:type git :host github :repo "emacs-straight/gnu-elpa-mirror" :build nil :package "gnu-elpa-mirror" :local-repo "gnu-elpa-mirror")) "nongnu-elpa" ("2026-08-03 14:12:16" nil (:type git :repo "https://github.com/emacsmirror/nongnu_elpa.git" :depth (full single-branch) :local-repo "nongnu-elpa" :build nil :package "nongnu-elpa")) "el-get" ("2026-08-03 14:12:16" nil (:type git :host github :repo "dimitri/el-get" :build nil :package "el-get" :local-repo "el-get")) "emacsmirror-mirror" ("2026-08-03 14:12:16" nil (:type git :host github :repo "emacs-straight/emacsmirror-mirror" :build nil :package "emacsmirror-mirror" :local-repo "emacsmirror-mirror")) "use-package" ("2026-08-03 14:12:16" ("emacs" "bind-key") (:type git :host github :repo "emacs-straight/use-package" :files ("*" (:exclude ".git")) :package "use-package" :local-repo "use-package")) "bind-key" ("2026-08-03 14:12:16" ("emacs") (:type git :host github :repo "emacs-straight/bind-key" :files ("*" (:exclude ".git")) :package "bind-key" :local-repo "bind-key")) "clipetty" ("2026-08-03 14:12:17" ("emacs") (:type git :host github :repo "spudlyo/clipetty" :package "clipetty" :local-repo "clipetty")) "company" ("2026-08-03 14:12:17" ("emacs") (:type git :files (:defaults "icons" ("images/small" "doc/images/small/*.png") "company-pkg.el") :host github :repo "company-mode/company-mode" :package "company" :local-repo "company-mode")) "go-mode" ("2026-08-03 14:12:17" ("emacs") (:host github :repo "dominikh/go-mode.el" :files ("go-mode.el" "go-mode-pkg.el") :package "go-mode" :type git :local-repo "go-mode.el")) "typescript-mode" ("2026-08-03 14:12:17" ("emacs") (:host github :repo "emacs-typescript/typescript.el" :package "typescript-mode" :type git :local-repo "typescript.el")) "js2-mode" ("2026-08-03 14:12:20" ("emacs" "cl-lib") (:type git :host github :repo "mooz/js2-mode" :package "js2-mode" :local-repo "js2-mode")) "json-mode" ("2026-08-03 14:12:20" ("json-snatcher" "emacs") (:type git :host github :repo "json-emacs/json-mode" :package "json-mode" :local-repo "json-mode")) "json-snatcher" ("2026-08-03 14:12:20" ("emacs") (:type git :host github :repo "Sterlingg/json-snatcher" :package "json-snatcher" :local-repo "json-snatcher")) "js2-refactor" ("2026-08-03 14:12:21" ("js2-mode" "s" "multiple-cursors" "dash" "s" "yasnippet") (:host github :repo "js-emacs/js2-refactor.el" :package "js2-refactor" :type git :local-repo "js2-refactor.el")) "s" ("2026-08-03 14:12:20" nil (:type git :host github :repo "magnars/s.el" :package "s" :local-repo "s.el")) "multiple-cursors" ("2026-08-03 14:12:20" ("emacs" "cl-lib") (:type git :host github :repo "magnars/multiple-cursors.el" :package "multiple-cursors" :local-repo "multiple-cursors.el")) "dash" ("2026-08-03 14:12:21" ("emacs") (:type git :files ("dash.el" "dash.texi" "dash-pkg.el") :host github :repo "magnars/dash.el" :package "dash" :local-repo "dash.el")) "yasnippet" ("2026-08-03 14:12:21" ("cl-lib" "emacs") (:type git :files ("yasnippet.el" "snippets" "yasnippet-pkg.el") :host github :repo "joaotavora/yasnippet" :package "yasnippet" :local-repo "yasnippet")) "markdown-mode" ("2026-08-03 14:12:21" ("emacs") (:type git :host github :repo "jrblevin/markdown-mode" :package "markdown-mode" :local-repo "markdown-mode")) "yaml-mode" ("2026-08-03 14:12:21" ("emacs") (:type git :host github :repo "yoshiki/yaml-mode" :package "yaml-mode" :local-repo "yaml-mode")) "dockerfile-mode" ("2026-08-03 14:12:21" ("emacs") (:type git :host github :repo "spotify/dockerfile-mode" :package "dockerfile-mode" :local-repo "dockerfile-mode")) "docker-compose-mode" ("2026-08-03 14:12:21" ("emacs" "dash" "yaml-mode") (:type git :files (:defaults (:exclude "docker-compose-mode-helpers.el") "docker-compose-mode-pkg.el") :host github :repo "meqif/docker-compose-mode" :package "docker-compose-mode" :local-repo "docker-compose-mode")) "terraform-mode" ("2026-08-03 14:12:21" ("emacs" "hcl-mode" "dash") (:type git :host github :repo "hcl-emacs/terraform-mode" :package "terraform-mode" :local-repo "terraform-mode")) "hcl-mode" ("2026-08-03 14:12:21" ("emacs") (:type git :host github :repo "hcl-emacs/hcl-mode" :package "hcl-mode" :local-repo "hcl-mode")) "wrap-region" ("2026-08-03 14:12:22" ("dash") (:host github :repo "rejeep/wrap-region.el" :package "wrap-region" :type git :local-repo "wrap-region.el")) "rainbow-delimiters" ("2026-08-03 14:12:22" nil (:type git :host github :repo "Fanael/rainbow-delimiters" :package "rainbow-delimiters" :local-repo "rainbow-delimiters")) "brightscript-mode" ("2026-08-03 14:12:22" ("emacs") (:host github :repo "viseztrance/brightscript-mode" :package "brightscript-mode" :type git :local-repo "brightscript-mode")) "scad-mode" ("2026-08-03 14:12:22" ("emacs" "compat") (:host github :repo "openscad/emacs-scad-mode" :package "scad-mode" :type git :local-repo "emacs-scad-mode")) "compat" ("2026-08-03 14:12:22" ("emacs" "seq") (:type git :host github :repo "emacs-straight/compat" :files ("*" (:exclude ".git")) :package "compat" :local-repo "compat")) "seq" ("2026-08-03 14:12:22" nil (:type git :host github :repo "emacs-straight/seq" :files ("*" (:exclude ".git")) :package "seq" :local-repo "seq"))))
 
 #s(hash-table size 65 test equal rehash-size 1.5 rehash-threshold 0.8125 data ("straight" ((straight-x straight-ert-print-hack straight straight-autoloads) (autoload 'straight-remove-unused-repos "straight" "Remove unused repositories from the repos and build directories.
+=======
+#s(hash-table test equal data ("straight" ("2026-08-02 15:28:27" ("emacs") (:type git :host github :repo "radian-software/straight.el" :files ("straight*.el") :branch "main" :package "straight" :local-repo "straight.el")) "org-elpa" ("2026-08-02 15:28:27" nil (:local-repo nil :package "org-elpa" :type git)) "melpa" ("2026-08-02 15:28:27" nil (:type git :host github :repo "melpa/melpa" :build nil :package "melpa" :local-repo "melpa")) "gnu-elpa-mirror" ("2026-08-02 15:28:27" nil (:type git :host github :repo "emacs-straight/gnu-elpa-mirror" :build nil :package "gnu-elpa-mirror" :local-repo "gnu-elpa-mirror")) "nongnu-elpa" ("2026-08-02 15:28:27" nil (:type git :repo "https://github.com/emacsmirror/nongnu_elpa.git" :depth (full single-branch) :local-repo "nongnu-elpa" :build nil :package "nongnu-elpa")) "el-get" ("2026-08-02 15:28:27" nil (:type git :host github :repo "dimitri/el-get" :build nil :package "el-get" :local-repo "el-get")) "emacsmirror-mirror" ("2026-08-02 15:28:27" nil (:type git :host github :repo "emacs-straight/emacsmirror-mirror" :build nil :package "emacsmirror-mirror" :local-repo "emacsmirror-mirror")) "use-package" ("2026-08-02 15:28:28" ("emacs" "bind-key") (:type git :host github :repo "emacs-straight/use-package" :files ("*" (:exclude ".git")) :package "use-package" :local-repo "use-package")) "bind-key" ("2026-08-02 15:28:28" ("emacs") (:type git :host github :repo "emacs-straight/bind-key" :files ("*" (:exclude ".git")) :package "bind-key" :local-repo "bind-key")) "clipetty" ("2026-08-02 15:28:28" ("emacs") (:type git :host github :repo "spudlyo/clipetty" :package "clipetty" :local-repo "clipetty")) "company" ("2026-08-02 15:28:28" ("emacs" "posframe") (:type git :files (:defaults "icons" ("images/small" "doc/images/small/*.png") "company-pkg.el") :host github :repo "company-mode/company-mode" :package "company" :local-repo "company-mode")) "posframe" ("2026-08-02 15:28:28" ("emacs") (:type git :host github :repo "tumashu/posframe" :package "posframe" :local-repo "posframe")) "go-mode" ("2026-08-02 15:28:28" ("emacs") (:host github :repo "dominikh/go-mode.el" :files ("go-mode.el" "go-mode-pkg.el") :package "go-mode" :type git :local-repo "go-mode.el")) "typescript-mode" ("2026-08-02 15:28:29" ("emacs") (:host github :repo "emacs-typescript/typescript.el" :package "typescript-mode" :type git :local-repo "typescript.el")) "js2-mode" ("2026-08-02 15:28:33" ("emacs" "cl-lib") (:type git :host github :repo "mooz/js2-mode" :package "js2-mode" :local-repo "js2-mode")) "json-mode" ("2026-08-02 15:28:33" ("json-snatcher" "emacs") (:type git :host github :repo "json-emacs/json-mode" :package "json-mode" :local-repo "json-mode")) "json-snatcher" ("2026-08-02 15:28:33" ("emacs") (:type git :host github :repo "Sterlingg/json-snatcher" :package "json-snatcher" :local-repo "json-snatcher")) "js2-refactor" ("2026-08-02 15:28:34" ("js2-mode" "s" "multiple-cursors" "dash" "s" "yasnippet") (:host github :repo "js-emacs/js2-refactor.el" :package "js2-refactor" :type git :local-repo "js2-refactor.el")) "s" ("2026-08-02 15:28:33" nil (:type git :host github :repo "magnars/s.el" :package "s" :local-repo "s.el")) "multiple-cursors" ("2026-08-02 15:28:33" ("emacs" "cl-lib") (:type git :host github :repo "magnars/multiple-cursors.el" :package "multiple-cursors" :local-repo "multiple-cursors.el")) "dash" ("2026-08-02 15:28:33" ("emacs") (:type git :files ("dash.el" "dash.texi" "dash-pkg.el") :host github :repo "magnars/dash.el" :package "dash" :local-repo "dash.el")) "yasnippet" ("2026-08-02 15:28:34" ("cl-lib" "emacs") (:type git :files (:defaults ("doc" "doc/*.org") "yasnippet-pkg.el") :host github :repo "joaotavora/yasnippet" :package "yasnippet" :local-repo "yasnippet")) "markdown-mode" ("2026-08-02 15:28:34" ("emacs") (:type git :host github :repo "jrblevin/markdown-mode" :package "markdown-mode" :local-repo "markdown-mode")) "yaml-mode" ("2026-08-02 15:28:34" ("emacs") (:type git :host github :repo "yoshiki/yaml-mode" :package "yaml-mode" :local-repo "yaml-mode")) "dockerfile-mode" ("2026-08-02 15:28:34" ("emacs") (:type git :host github :repo "spotify/dockerfile-mode" :package "dockerfile-mode" :local-repo "dockerfile-mode")) "docker-compose-mode" ("2026-08-02 15:28:35" ("emacs" "dash" "yaml-mode") (:type git :files (:defaults (:exclude "docker-compose-mode-helpers.el") "docker-compose-mode-pkg.el") :host github :repo "meqif/docker-compose-mode" :package "docker-compose-mode" :local-repo "docker-compose-mode")) "terraform-mode" ("2026-08-02 15:28:35" ("emacs" "hcl-mode" "dash") (:type git :host github :repo "hcl-emacs/terraform-mode" :package "terraform-mode" :local-repo "terraform-mode")) "hcl-mode" ("2026-08-02 15:28:35" ("emacs") (:type git :host github :repo "hcl-emacs/hcl-mode" :package "hcl-mode" :local-repo "hcl-mode")) "wrap-region" ("2026-08-02 15:28:35" ("dash") (:host github :repo "rejeep/wrap-region.el" :package "wrap-region" :type git :local-repo "wrap-region.el")) "rainbow-delimiters" ("2026-08-02 15:28:35" nil (:type git :host github :repo "Fanael/rainbow-delimiters" :package "rainbow-delimiters" :local-repo "rainbow-delimiters")) "brightscript-mode" ("2026-08-02 15:28:35" ("emacs") (:host github :repo "viseztrance/brightscript-mode" :package "brightscript-mode" :type git :local-repo "brightscript-mode")) "scad-mode" ("2026-08-02 15:28:35" ("emacs" "compat") (:host github :repo "openscad/emacs-scad-mode" :package "scad-mode" :type git :local-repo "emacs-scad-mode")) "compat" ("2026-08-02 15:28:35" ("emacs") (:type git :host github :repo "emacs-straight/compat" :files ("*" (:exclude ".git")) :package "compat" :local-repo "compat"))))
+
+#s(hash-table test equal data ("straight" ((straight straight-ert-print-hack straight-x straight-autoloads) (autoload 'straight-remove-unused-repos "straight" "Remove unused repositories from the repos and build directories.
+>>>>>>> Stashed changes
 A repo is considered \"unused\" if it was not explicitly requested via
 `straight-use-package' during the current Emacs session.
 If FORCE is non-nil do not prompt before deleting repos.
@@ -303,7 +309,11 @@ ARGS may be any of the following keywords and their respective values:
       Note this example is already in the default bootstrapping code.
 
   - :post-bootstrap (Form)...
+<<<<<<< Updated upstream
       Forms evaluated in the testing environment after boostrapping.
+=======
+      Forms evaluated in the testing environment after bootstrapping.
+>>>>>>> Stashed changes
       e.g. (straight-use-package \\='(example :type git :host github))
 
   - :interactive Boolean
@@ -418,7 +428,11 @@ Accepts the same keyword arguments as `bind-keys' (which see).
 This binds keys in such a way that bindings are not overridden by
 other modes.  See `override-global-mode'.
 
+<<<<<<< Updated upstream
 (fn &rest ARGS)" nil t) (autoload 'describe-personal-keybindings "bind-key" "Display all the personal keybindings defined by `bind-key'." t) (register-definition-prefixes "bind-key" '("bind-key" "override-global-m")) (provide 'bind-key-autoloads)) "use-package" ((use-package-lint use-package-ensure-system-package use-package use-package-pkg use-package-autoloads use-package-core use-package-diminish use-package-bind-key use-package-jump use-package-delight use-package-ensure) (autoload 'use-package-autoload-keymap "use-package-bind-key" "Load PACKAGE and bind key sequence invoking this function to KEYMAP-SYMBOL.
+=======
+(fn &rest ARGS)" nil t) (autoload 'describe-personal-keybindings "bind-key" "Display all the personal keybindings defined by `bind-key'." t) (register-definition-prefixes "bind-key" '("bind-key" "override-global-m")) (provide 'bind-key-autoloads)) "use-package" ((use-package-diminish use-package-bind-key use-package-jump use-package-core use-package-pkg use-package-ensure use-package-delight use-package-lint use-package-autoloads use-package use-package-ensure-system-package) (autoload 'use-package-autoload-keymap "use-package-bind-key" "Load PACKAGE and bind key sequence invoking this function to KEYMAP-SYMBOL.
+>>>>>>> Stashed changes
 Then simulate pressing the same key sequence a again, so that the
 next key pressed is routed to the newly loaded keymap.
 
@@ -526,6 +540,7 @@ will jump to the file that originally required PACKAGE instead.
 For example, if the module's `:if' condition is met, but even
 with the specified `:load-path' the module cannot be found." t) (register-definition-prefixes "use-package-lint" '("use-package-lint-declaration")) (provide 'use-package-autoloads)) "clipetty" ((clipetty clipetty-autoloads) (autoload 'clipetty-mode "clipetty" "Minor mode to send every kill from a TTY frame to the system clipboard.
 
+<<<<<<< Updated upstream
 This is a minor mode.  If called interactively, toggle the
 `Clipetty mode' mode.  If the prefix argument is positive, enable
 the mode, and if it is zero or negative, disable the mode.
@@ -539,6 +554,21 @@ evaluate `clipetty-mode'.
 
 The mode's hook is called both when the mode is enabled and when
 it is disabled.
+=======
+This is a minor mode.  If called interactively, toggle the `Clipetty
+mode' mode.  If the prefix argument is positive, enable the mode, and if
+it is zero or negative, disable the mode.
+
+If called from Lisp, toggle the mode if ARG is `toggle'.  Enable the
+mode if ARG is nil, omitted, or is a positive number.  Disable the mode
+if ARG is a negative number.
+
+To check whether the minor mode is enabled in the current buffer,
+evaluate the variable `clipetty-mode'.
+
+The mode's hook is called both when the mode is enabled and when it is
+disabled.
+>>>>>>> Stashed changes
 
 (fn &optional ARG)" t) (put 'global-clipetty-mode 'globalized-minor-mode t) (defvar global-clipetty-mode nil "Non-nil if Global Clipetty mode is enabled.
 See the `global-clipetty-mode' command
@@ -562,7 +592,219 @@ See `clipetty-mode' for more information on Clipetty mode.
 It can be annoying to have Clipetty overwrite your system
 clipboard every time you kill something.  This function wraps
 Clipetty around the `kill-ring-save' function and can be invoked
+<<<<<<< Updated upstream
 explicitly." t) (register-definition-prefixes "clipetty" '("clipetty-")) (provide 'clipetty-autoloads)) "company" ((company-files company-keywords company-nxml company-bbdb company-semantic company-cmake company-oddmuse company-css company-yasnippet company-gtags company-autoloads company-ispell company-capf company-clang company company-template company-dabbrev company-etags company-tempo company-tng company-abbrev company-dabbrev-code) (autoload 'company-mode "company" "\"complete anything\"; is an in-buffer completion framework.
+=======
+explicitly." t) (register-definition-prefixes "clipetty" '("clipetty-")) (provide 'clipetty-autoloads)) "posframe" ((posframe posframe-benchmark posframe-autoloads) (autoload 'posframe-workable-p "posframe" "Test posframe workable status.") (autoload 'posframe-show "posframe" "Pop up a posframe to show STRING at POSITION.
+
+ (1) POSITION
+
+POSITION can be:
+1. An integer, meaning point position.
+2. A cons of two integers, meaning absolute X and Y coordinates.
+3. Other type, in which case the corresponding POSHANDLER should be
+   provided.
+
+ (2) POSHANDLER
+
+POSHANDLER is a function of one argument returning an actual
+position.  Its argument is a plist of the following form:
+
+  (:position xxx
+   :poshandler xxx
+   :font-height xxx
+   :font-width xxx
+   :posframe xxx
+   :posframe-width xxx
+   :posframe-height xxx
+   :posframe-buffer xxx
+   :parent-frame xxx
+   :parent-window-start xxx
+   :parent-window-end xxx
+   :parent-window-left xxx
+   :parent-window-top xxx
+   :parent-frame-width xxx
+   :parent-frame-height xxx
+   :parent-window xxx
+   :parent-window-width  xxx
+   :parent-window-height xxx
+   :mouse-x xxx
+   :mouse-y xxx
+   :minibuffer-height xxx
+   :mode-line-height  xxx
+   :header-line-height xxx
+   :tab-line-height xxx
+   :x-pixel-offset xxx
+   :y-pixel-offset xxx
+   :parent-text-scale-mode-amount xxx)
+
+By default, poshandler is auto-selected based on the type of POSITION,
+but the selection can be overridden using the POSHANDLER argument.
+
+The builtin poshandler functions are listed below:
+
+1.  `posframe-poshandler-frame-center'
+2.  `posframe-poshandler-frame-top-center'
+3.  `posframe-poshandler-frame-top-left-corner'
+4.  `posframe-poshandler-frame-top-right-corner'
+5.  `posframe-poshandler-frame-top-left-or-right-other-corner'
+6.  `posframe-poshandler-frame-bottom-center'
+7.  `posframe-poshandler-frame-bottom-left-corner'
+8.  `posframe-poshandler-frame-bottom-right-corner'
+9.  `posframe-poshandler-window-center'
+10. `posframe-poshandler-window-top-center'
+11. `posframe-poshandler-window-top-left-corner'
+12. `posframe-poshandler-window-top-right-corner'
+13. `posframe-poshandler-window-bottom-center'
+14. `posframe-poshandler-window-bottom-left-corner'
+15. `posframe-poshandler-window-bottom-right-corner'
+16. `posframe-poshandler-point-top-left-corner'
+17. `posframe-poshandler-point-bottom-left-corner'
+18. `posframe-poshandler-point-bottom-left-corner-upward'
+19. `posframe-poshandler-point-window-center'
+20. `posframe-poshandler-point-frame-center'
+
+ (3) POSHANDLER-EXTRA-INFO
+
+POSHANDLER-EXTRA-INFO is a plist, which will prepend to the
+argument of poshandler function: `info', it will *OVERRIDE* the
+exist key in `info'.
+
+ (4) BUFFER-OR-NAME
+
+This posframe's buffer is BUFFER-OR-NAME, which can be a buffer
+or a name of a (possibly nonexistent) buffer.
+
+buffer name can prefix with space, for example \" *mybuffer*\", so
+the buffer name will hide for ibuffer and `list-buffers'.
+
+ (5) NO-PROPERTIES
+
+If NO-PROPERTIES is non-nil, The STRING's properties will
+be removed before being shown in posframe.
+
+ (6) HEIGHT, MAX-HEIGHT, MIN-HEIGHT, WIDTH, MAX-WIDTH and MIN-WIDTH
+
+These arguments are specified in the canonical character width
+and height of posframe, more details can be found in docstring of
+function `fit-frame-to-buffer',
+
+ (7) LEFT-FRINGE and RIGHT-FRINGE
+
+If LEFT-FRINGE or RIGHT-FRINGE is a number, left fringe or
+right fringe with be shown with the specified width.
+
+ (8) BORDER-WIDTH, BORDER-COLOR, INTERNAL-BORDER-WIDTH and INTERNAL-BORDER-COLOR
+
+By default, posframe shows no borders, but users can specify
+borders by setting BORDER-WIDTH to a positive number.  Border
+color can be specified by BORDER-COLOR.
+
+INTERNAL-BORDER-WIDTH and INTERNAL-BORDER-COLOR are same as
+BORDER-WIDTH and BORDER-COLOR, but do not suggest to use for the
+reason:
+
+   Add distinct controls for child frames' borders (Bug#45620)
+   http://git.savannah.gnu.org/cgit/emacs.git/commit/?id=ff7b1a133bfa7f2614650f8551824ffaef13fadc
+
+ (9) FONT, FOREGROUND-COLOR and BACKGROUND-COLOR
+
+Posframe's font as well as foreground and background colors are
+derived from the current frame by default, but can be overridden
+using the FONT, FOREGROUND-COLOR and BACKGROUND-COLOR arguments,
+respectively.
+
+ (10) CURSOR, TTY-NON-SELECTED-CURSOR and WINDOW-POINT
+
+By default, cursor is not showed in posframe, user can let cursor
+showed with this argument help by set its value to a `cursor-type'.
+
+TTY-NON-SELECTED-CURSOR will let redisplay put the terminal
+cursor in a non-selected frame, which is useful when use
+vertico-posframe like package in tty.
+
+When cursor need to be showed in posframe, user may need to set
+WINDOW-POINT to the point of BUFFER, which can let cursor showed
+at this point.
+
+ (11) RESPECT-HEADER-LINE and RESPECT-MODE-LINE
+
+By default, posframe will display no header-line, mode-line and
+tab-line.  In case a header-line, mode-line or tab-line is
+desired, users can set RESPECT-HEADER-LINE and RESPECT-MODE-LINE
+to t.
+
+ (12) INITIALIZE
+
+INITIALIZE is a function with no argument.  It will run when
+posframe buffer is first selected with `with-current-buffer'
+in `posframe-show', and only run once (for performance reasons).
+
+ (13) LINES-TRUNCATE
+
+If LINES-TRUNCATE is non-nil, then lines will truncate in the
+posframe instead of wrap.
+
+ (14) OVERRIDE-PARAMETERS
+
+OVERRIDE-PARAMETERS is very powful, *all* the valid frame parameters
+used by posframe's frame can be overridden by it.
+
+NOTE: some `posframe-show' arguments are not frame parameters, so they
+can not be overrided by this argument.
+
+ (15) TIMEOUT
+
+TIMEOUT can specify the number of seconds after which the posframe
+will auto-hide.
+
+ (15) REFRESH
+
+If REFRESH is a number, posframe's frame-size will be re-adjusted
+every REFRESH seconds.
+
+ (17) ACCEPT-FOCUS
+
+When ACCEPT-FOCUS is non-nil, posframe will accept focus.
+be careful, you may face some bugs when set it to non-nil.
+
+ (18) HIDEHANDLER
+
+HIDEHANDLER is a function, when it return t, posframe will be
+hide, this function has a plist argument:
+
+  (:posframe-buffer xxx
+   :posframe-parent-buffer xxx)
+
+The builtin hidehandler functions are listed below:
+
+1. `posframe-hidehandler-when-buffer-switch'
+
+ (19) REFPOSHANDLER
+
+REFPOSHANDLER is a function, a reference position (most is
+top-left of current frame) will be returned when call this
+function.
+
+when it is nil or it return nil, child-frame feature will be used
+and reference position will be deal with in Emacs.
+
+The user case I know at the moment is let ivy-posframe work well
+in EXWM environment (let posframe show on the other application
+window).
+
+         DO NOT USE UNLESS NECESSARY!!!
+
+An example parent frame poshandler function is:
+
+1. `posframe-refposhandler-xwininfo'
+
+ (19) Others
+
+You can use `posframe-delete-all' to delete all posframes.
+
+(fn BUFFER-OR-NAME &key STRING POSITION POSHANDLER POSHANDLER-EXTRA-INFO WIDTH HEIGHT MAX-WIDTH MAX-HEIGHT MIN-WIDTH MIN-HEIGHT X-PIXEL-OFFSET Y-PIXEL-OFFSET LEFT-FRINGE RIGHT-FRINGE BORDER-WIDTH BORDER-COLOR INTERNAL-BORDER-WIDTH INTERNAL-BORDER-COLOR FONT CURSOR TTY-NON-SELECTED-CURSOR WINDOW-POINT FOREGROUND-COLOR BACKGROUND-COLOR RESPECT-HEADER-LINE RESPECT-MODE-LINE INITIALIZE NO-PROPERTIES KEEP-RATIO LINES-TRUNCATE OVERRIDE-PARAMETERS TIMEOUT REFRESH ACCEPT-FOCUS HIDEHANDLER REFPOSHANDLER &allow-other-keys)") (autoload 'posframe-hide-all "posframe" "Hide all posframe frames." t) (autoload 'posframe-delete-all "posframe" "Delete all posframe frames and buffers." t) (register-definition-prefixes "posframe" '("posframe-")) (autoload 'posframe-benchmark "posframe-benchmark" "Benchmark tool for posframe." t) (register-definition-prefixes "posframe-benchmark" '("posframe-benchmark-alist")) (provide 'posframe-autoloads)) "company" ((company-ispell company-abbrev company-dabbrev company-tempo company-etags company-files company-dabbrev-code company-autoloads company-yasnippet company-keywords company-gtags company-semantic company-nxml company company-bbdb company-clang company-tng company-template company-css company-cmake company-capf company-oddmuse company-childframe) (autoload 'company-mode "company" "\"complete anything\"; is an in-buffer completion framework.
+>>>>>>> Stashed changes
 
 Completion starts automatically, depending on the values
 `company-idle-delay' and `company-minimum-prefix-length'.
@@ -590,6 +832,7 @@ keymap during active completions (`company-active-map'):
 
 \\{company-active-map}
 
+<<<<<<< Updated upstream
 This is a minor mode.  If called interactively, toggle the
 `Company mode' mode.  If the prefix argument is positive, enable
 the mode, and if it is zero or negative, disable the mode.
@@ -603,6 +846,21 @@ evaluate `company-mode'.
 
 The mode's hook is called both when the mode is enabled and when
 it is disabled.
+=======
+This is a minor mode.  If called interactively, toggle the `Company
+mode' mode.  If the prefix argument is positive, enable the mode, and if
+it is zero or negative, disable the mode.
+
+If called from Lisp, toggle the mode if ARG is `toggle'.  Enable the
+mode if ARG is nil, omitted, or is a positive number.  Disable the mode
+if ARG is a negative number.
+
+To check whether the minor mode is enabled in the current buffer,
+evaluate the variable `company-mode'.
+
+The mode's hook is called both when the mode is enabled and when it is
+disabled.
+>>>>>>> Stashed changes
 
 (fn &optional ARG)" t) (put 'global-company-mode 'globalized-minor-mode t) (defvar global-company-mode nil "Non-nil if Global Company mode is enabled.
 See the `global-company-mode' command
@@ -632,7 +890,16 @@ inserted." t) (register-definition-prefixes "company" '("company-")) (autoload '
 
 (fn COMMAND &optional ARG &rest IGNORED)" t) (register-definition-prefixes "company-abbrev" '("company-abbrev-insert")) (autoload 'company-bbdb "company-bbdb" "`company-mode' completion backend for BBDB.
 
+<<<<<<< Updated upstream
 (fn COMMAND &optional ARG &rest IGNORE)" t) (register-definition-prefixes "company-bbdb" '("company-bbdb-")) (register-definition-prefixes "company-capf" '("company-")) (register-definition-prefixes "company-clang" '("company-clang")) (register-definition-prefixes "company-cmake" '("company-cmake")) (autoload 'company-css "company-css" "`company-mode' completion backend for `css-mode'.
+=======
+(fn COMMAND &optional ARG &rest IGNORE)" t) (register-definition-prefixes "company-bbdb" '("company-bbdb-")) (register-definition-prefixes "company-capf" '("company-")) (autoload 'company-childframe-frontend "company-childframe" "`company-mode' frontend using childframe.
+For COMMAND refer to `company-frontends'.
+
+(fn COMMAND)") (autoload 'company-childframe-unless-just-one-frontend "company-childframe" "`company-childframe-frontend', but not shown for single candidates.
+
+(fn COMMAND)") (register-definition-prefixes "company-childframe" '("company-childframe-")) (register-definition-prefixes "company-clang" '("company-clang")) (register-definition-prefixes "company-cmake" '("company-cmake")) (autoload 'company-css "company-css" "`company-mode' completion backend for `css-mode'.
+>>>>>>> Stashed changes
 
 (fn COMMAND &optional ARG &rest IGNORED)" t) (register-definition-prefixes "company-css" '("company-css-")) (autoload 'company-dabbrev "company-dabbrev" "dabbrev-like `company-mode' completion backend.
 
@@ -673,18 +940,32 @@ either customize it (see the info node `Easy Customization')
 or call the function `company-tng-mode'.") (custom-autoload 'company-tng-mode "company-tng" nil) (autoload 'company-tng-mode "company-tng" "This minor mode enables `company-tng-frontend'.
 
 This is a global minor mode.  If called interactively, toggle the
+<<<<<<< Updated upstream
 `Company-Tng mode' mode.  If the prefix argument is positive,
 enable the mode, and if it is zero or negative, disable the mode.
 
 If called from Lisp, toggle the mode if ARG is `toggle'.  Enable
 the mode if ARG is nil, omitted, or is a positive number.
 Disable the mode if ARG is a negative number.
+=======
+`Company-Tng mode' mode.  If the prefix argument is positive, enable the
+mode, and if it is zero or negative, disable the mode.
+
+If called from Lisp, toggle the mode if ARG is `toggle'.  Enable the
+mode if ARG is nil, omitted, or is a positive number.  Disable the mode
+if ARG is a negative number.
+>>>>>>> Stashed changes
 
 To check whether the minor mode is enabled in the current buffer,
 evaluate `(default-value \\='company-tng-mode)'.
 
+<<<<<<< Updated upstream
 The mode's hook is called both when the mode is enabled and when
 it is disabled.
+=======
+The mode's hook is called both when the mode is enabled and when it is
+disabled.
+>>>>>>> Stashed changes
 
 (fn &optional ARG)" t) (register-definition-prefixes "company-tng" '("company-tng-")) (autoload 'company-yasnippet "company-yasnippet" "`company-mode' backend for `yasnippet'.
 
@@ -708,7 +989,11 @@ shadow backends that come after it.  Recommended usages:
 
   (global-set-key (kbd \"C-c y\") \\='company-yasnippet)
 
+<<<<<<< Updated upstream
 (fn COMMAND &optional ARG &rest IGNORE)" t) (register-definition-prefixes "company-yasnippet" '("company-yasnippet-")) (provide 'company-autoloads)) "go-mode" ((go-mode-autoloads go-mode) (autoload 'go-mode "go-mode" "Major mode for editing Go source text.
+=======
+(fn COMMAND &optional ARG &rest IGNORE)" t) (register-definition-prefixes "company-yasnippet" '("company-yasnippet-")) (provide 'company-autoloads)) "go-mode" ((go-mode go-mode-autoloads) (autoload 'go-mode "go-mode" "Major mode for editing Go source text.
+>>>>>>> Stashed changes
 
 This mode provides (not just) basic editing capabilities for
 working with Go code. It offers almost complete syntax
@@ -782,12 +1067,17 @@ Tries to look for a URL at point.
 
 (fn)" t) (add-to-list 'auto-mode-alist '("go\\.work\\'" . go-dot-work-mode)) (autoload 'go-asm-mode "go-mode" "Major mode for Go assembly (.s) files.
 
+<<<<<<< Updated upstream
 (fn)" t) (add-to-list 'magic-mode-alist (cons #'go--is-go-asm #'go-asm-mode)) (autoload 'go--is-go-asm "go-mode" "Determine whether a file is (probably) a Go assembly file.") (register-definition-prefixes "go-mode" '("go-" "god" "gofmt")) (provide 'go-mode-autoloads)) "typescript-mode" ((typescript-mode-test-utilities typescript-mode typescript-mode-autoloads) (put 'typescript-indent-level 'safe-local-variable #'integerp) (autoload 'typescript-mode "typescript-mode" "Major mode for editing typescript.
+=======
+(fn)" t) (add-to-list 'magic-mode-alist (cons #'go--is-go-asm #'go-asm-mode)) (autoload 'go--is-go-asm "go-mode" "Determine whether a file is (probably) a Go assembly file.") (register-definition-prefixes "go-mode" '("go-" "god" "gofmt")) (provide 'go-mode-autoloads)) "typescript-mode" ((typescript-mode-autoloads typescript-mode typescript-mode-test-utilities) (put 'typescript-indent-level 'safe-local-variable #'integerp) (autoload 'typescript-mode "typescript-mode" "Major mode for editing typescript.
+>>>>>>> Stashed changes
 
 Key bindings:
 
 \\{typescript-mode-map}
 
+<<<<<<< Updated upstream
 (fn)" t) (eval-after-load 'folding '(when (fboundp 'folding-add-to-marks-list) (folding-add-to-marks-list 'typescript-mode "// {{{" "// }}}"))) (add-to-list 'auto-mode-alist '("\\.tsx?\\'" . typescript-mode)) (register-definition-prefixes "typescript-mode" '("typescript-")) (register-definition-prefixes "typescript-mode-test-utilities" '("font-lock-test" "get-face-at" "test-with-")) (provide 'typescript-mode-autoloads)) "js2-mode" ((js2-imenu-extras js2-mode-autoloads js2-old-indent js2-mode) (autoload 'js2-imenu-extras-setup "js2-imenu-extras") (autoload 'js2-imenu-extras-mode "js2-imenu-extras" "Toggle Imenu support for frameworks and structural patterns.
 
 This is a minor mode.  If called interactively, toggle the
@@ -804,10 +1094,28 @@ evaluate `js2-imenu-extras-mode'.
 
 The mode's hook is called both when the mode is enabled and when
 it is disabled.
+=======
+(fn)" t) (eval-after-load 'folding '(when (fboundp 'folding-add-to-marks-list) (folding-add-to-marks-list 'typescript-mode "// {{{" "// }}}"))) (add-to-list 'auto-mode-alist '("\\.tsx?\\'" . typescript-mode)) (register-definition-prefixes "typescript-mode" '("typescript-")) (register-definition-prefixes "typescript-mode-test-utilities" '("font-lock-test" "get-face-at" "test-with-")) (provide 'typescript-mode-autoloads)) "js2-mode" ((js2-old-indent js2-mode js2-imenu-extras js2-mode-autoloads) (autoload 'js2-imenu-extras-setup "js2-imenu-extras") (autoload 'js2-imenu-extras-mode "js2-imenu-extras" "Toggle Imenu support for frameworks and structural patterns.
+
+This is a minor mode.  If called interactively, toggle the
+`Js2-Imenu-Extras mode' mode.  If the prefix argument is positive,
+enable the mode, and if it is zero or negative, disable the mode.
+
+If called from Lisp, toggle the mode if ARG is `toggle'.  Enable the
+mode if ARG is nil, omitted, or is a positive number.  Disable the mode
+if ARG is a negative number.
+
+To check whether the minor mode is enabled in the current buffer,
+evaluate the variable `js2-imenu-extras-mode'.
+
+The mode's hook is called both when the mode is enabled and when it is
+disabled.
+>>>>>>> Stashed changes
 
 (fn &optional ARG)" t) (register-definition-prefixes "js2-imenu-extras" '("js2-imenu-")) (autoload 'js2-highlight-unused-variables-mode "js2-mode" "Toggle highlight of unused variables.
 
 This is a minor mode.  If called interactively, toggle the
+<<<<<<< Updated upstream
 `Js2-Highlight-Unused-Variables mode' mode.  If the prefix
 argument is positive, enable the mode, and if it is zero or
 negative, disable the mode.
@@ -821,6 +1129,21 @@ evaluate `js2-highlight-unused-variables-mode'.
 
 The mode's hook is called both when the mode is enabled and when
 it is disabled.
+=======
+`Js2-Highlight-Unused-Variables mode' mode.  If the prefix argument is
+positive, enable the mode, and if it is zero or negative, disable the
+mode.
+
+If called from Lisp, toggle the mode if ARG is `toggle'.  Enable the
+mode if ARG is nil, omitted, or is a positive number.  Disable the mode
+if ARG is a negative number.
+
+To check whether the minor mode is enabled in the current buffer,
+evaluate the variable `js2-highlight-unused-variables-mode'.
+
+The mode's hook is called both when the mode is enabled and when it is
+disabled.
+>>>>>>> Stashed changes
 
 (fn &optional ARG)" t) (autoload 'js2-minor-mode "js2-mode" "Minor mode for running js2 as a background linter.
 
@@ -828,6 +1151,7 @@ This allows you to use a different major mode for JavaScript editing,
 such as `js-mode', while retaining the asynchronous error/warning
 highlighting features of `js2-mode'.
 
+<<<<<<< Updated upstream
 This is a minor mode.  If called interactively, toggle the `Js2
 minor mode' mode.  If the prefix argument is positive, enable the
 mode, and if it is zero or negative, disable the mode.
@@ -841,6 +1165,21 @@ evaluate `js2-minor-mode'.
 
 The mode's hook is called both when the mode is enabled and when
 it is disabled.
+=======
+This is a minor mode.  If called interactively, toggle the `Js2 minor
+mode' mode.  If the prefix argument is positive, enable the mode, and if
+it is zero or negative, disable the mode.
+
+If called from Lisp, toggle the mode if ARG is `toggle'.  Enable the
+mode if ARG is nil, omitted, or is a positive number.  Disable the mode
+if ARG is a negative number.
+
+To check whether the minor mode is enabled in the current buffer,
+evaluate the variable `js2-minor-mode'.
+
+The mode's hook is called both when the mode is enabled and when it is
+disabled.
+>>>>>>> Stashed changes
 
 (fn &optional ARG)" t) (autoload 'js2-mode "js2-mode" "Major mode for editing JavaScript code.
 
@@ -856,7 +1195,11 @@ variables (`sgml-basic-offset' et al) locally, like so:
     (setq-local sgml-basic-offset js2-basic-offset))
   (add-hook \\='js2-jsx-mode-hook #\\='set-jsx-indentation)
 
+<<<<<<< Updated upstream
 (fn)" t) (register-definition-prefixes "js2-mode" '("js2-")) (register-definition-prefixes "js2-old-indent" '("js2-")) (provide 'js2-mode-autoloads)) "json-snatcher" ((json-snatcher json-snatcher-autoloads) (autoload 'jsons-print-path "json-snatcher" "Print the path to the JSON value under point, and save it in the kill ring." t) (register-definition-prefixes "json-snatcher" '("jsons-")) (provide 'json-snatcher-autoloads)) "json-mode" ((json-mode json-mode-autoloads) (defconst json-mode-standard-file-ext '(".json" ".jsonld") "List of JSON file extensions.") (defsubst json-mode--update-auto-mode (filenames) "Update the `json-mode' entry of `auto-mode-alist'.
+=======
+(fn)" t) (register-definition-prefixes "js2-mode" '("js2-")) (register-definition-prefixes "js2-old-indent" '("js2-")) (provide 'js2-mode-autoloads)) "json-snatcher" ((json-snatcher-autoloads json-snatcher) (autoload 'jsons-print-path "json-snatcher" "Print the path to the JSON value under point, and save it in the kill ring." t) (register-definition-prefixes "json-snatcher" '("jsons-")) (provide 'json-snatcher-autoloads)) "json-mode" ((json-mode-autoloads json-mode) (defconst json-mode-standard-file-ext '(".json" ".jsonld") "List of JSON file extensions.") (defsubst json-mode--update-auto-mode (filenames) "Update the `json-mode' entry of `auto-mode-alist'.
+>>>>>>> Stashed changes
 
 FILENAMES should be a list of file as string.
 Return the new `auto-mode-alist' entry" (let* ((new-regexp (rx-to-string `(seq (eval (cons 'or (append json-mode-standard-file-ext ',filenames))) eot))) (new-entry (cons new-regexp 'json-mode)) (old-entry (when (boundp 'json-mode--auto-mode-entry) json-mode--auto-mode-entry))) (setq auto-mode-alist (delete old-entry auto-mode-alist)) (add-to-list 'auto-mode-alist new-entry) new-entry)) (defvar json-mode-auto-mode-list '(".babelrc" ".bowerrc" "composer.lock") "List of filenames for the JSON entry of `auto-mode-alist'.
@@ -870,7 +1213,11 @@ won’t be affected.") (custom-autoload 'json-mode-auto-mode-list "json-mode" ni
 
 If the region is not active, beautify the entire buffer .
 
+<<<<<<< Updated upstream
 (fn BEGIN END)" t) (register-definition-prefixes "json-mode" '("json")) (provide 'json-mode-autoloads)) "s" ((s-autoloads s) (register-definition-prefixes "s" '("s-")) (provide 's-autoloads)) "multiple-cursors" ((mc-mark-pop mc-mark-more mc-edit-lines multiple-cursors-core mc-separate-operations rectangular-region-mode mc-hide-unmatched-lines-mode multiple-cursors-autoloads mc-cycle-cursors multiple-cursors) (register-definition-prefixes "mc-cycle-cursors" '("mc/")) (autoload 'mc/edit-lines "mc-edit-lines" "Add one cursor to each line of the active region.
+=======
+(fn BEGIN END)" t) (register-definition-prefixes "json-mode" '("json")) (provide 'json-mode-autoloads)) "s" ((s-autoloads s) (register-definition-prefixes "s" '("s-")) (provide 's-autoloads)) "multiple-cursors" ((mc-mark-pop mc-mark-more multiple-cursors-autoloads mc-separate-operations mc-edit-lines mc-cycle-cursors rectangular-region-mode multiple-cursors-core mc-hide-unmatched-lines-mode multiple-cursors) (register-definition-prefixes "mc-cycle-cursors" '("mc/")) (autoload 'mc/edit-lines "mc-edit-lines" "Add one cursor to each line of the active region.
+>>>>>>> Stashed changes
 Starts from mark and moves in straight down or up towards the
 line point is on.
 
@@ -890,6 +1237,7 @@ mode. To leave this mode press <return> or \"C-g\"
 
 This is a minor mode.  If called interactively, toggle the
 `Mc-Hide-Unmatched-Lines mode' mode.  If the prefix argument is
+<<<<<<< Updated upstream
 positive, enable the mode, and if it is zero or negative, disable
 the mode.
 
@@ -902,6 +1250,20 @@ evaluate `mc-hide-unmatched-lines-mode'.
 
 The mode's hook is called both when the mode is enabled and when
 it is disabled.
+=======
+positive, enable the mode, and if it is zero or negative, disable the
+mode.
+
+If called from Lisp, toggle the mode if ARG is `toggle'.  Enable the
+mode if ARG is nil, omitted, or is a positive number.  Disable the mode
+if ARG is a negative number.
+
+To check whether the minor mode is enabled in the current buffer,
+evaluate the variable `mc-hide-unmatched-lines-mode'.
+
+The mode's hook is called both when the mode is enabled and when it is
+disabled.
+>>>>>>> Stashed changes
 
 (fn &optional ARG)" t) (register-definition-prefixes "mc-hide-unmatched-lines-mode" '("hum/")) (autoload 'mc/mark-next-like-this "mc-mark-more" "Find and mark the next part of the buffer matching the currently active region
 If no region is active add a cursor on the next line
@@ -1027,6 +1389,7 @@ which action is being undone.
 (fn ID)") (autoload 'multiple-cursors-mode "multiple-cursors-core" "Mode while multiple cursors are active.
 
 This is a minor mode.  If called interactively, toggle the
+<<<<<<< Updated upstream
 `Multiple-Cursors mode' mode.  If the prefix argument is
 positive, enable the mode, and if it is zero or negative, disable
 the mode.
@@ -1040,6 +1403,20 @@ evaluate `multiple-cursors-mode'.
 
 The mode's hook is called both when the mode is enabled and when
 it is disabled.
+=======
+`Multiple-Cursors mode' mode.  If the prefix argument is positive,
+enable the mode, and if it is zero or negative, disable the mode.
+
+If called from Lisp, toggle the mode if ARG is `toggle'.  Enable the
+mode if ARG is nil, omitted, or is a positive number.  Disable the mode
+if ARG is a negative number.
+
+To check whether the minor mode is enabled in the current buffer,
+evaluate the variable `multiple-cursors-mode'.
+
+The mode's hook is called both when the mode is enabled and when it is
+disabled.
+>>>>>>> Stashed changes
 
 (fn &optional ARG)" t) (register-definition-prefixes "multiple-cursors-core" '("deactivate-cursor-after-undo" "mc--" "mc/" "unsupported-cmd")) (autoload 'set-rectangular-region-anchor "rectangular-region-mode" "Anchors the rectangular region at point.
 
@@ -1048,6 +1425,7 @@ rectangular region. It is an exceedingly quick way of adding
 multiple cursors to multiple lines." t) (autoload 'rectangular-region-mode "rectangular-region-mode" "A mode for creating a rectangular region to edit
 
 This is a minor mode.  If called interactively, toggle the
+<<<<<<< Updated upstream
 `Rectangular-Region mode' mode.  If the prefix argument is
 positive, enable the mode, and if it is zero or negative, disable
 the mode.
@@ -1061,6 +1439,20 @@ evaluate `rectangular-region-mode'.
 
 The mode's hook is called both when the mode is enabled and when
 it is disabled.
+=======
+`Rectangular-Region mode' mode.  If the prefix argument is positive,
+enable the mode, and if it is zero or negative, disable the mode.
+
+If called from Lisp, toggle the mode if ARG is `toggle'.  Enable the
+mode if ARG is nil, omitted, or is a positive number.  Disable the mode
+if ARG is a negative number.
+
+To check whether the minor mode is enabled in the current buffer,
+evaluate the variable `rectangular-region-mode'.
+
+The mode's hook is called both when the mode is enabled and when it is
+disabled.
+>>>>>>> Stashed changes
 
 (fn &optional ARG)" t) (register-definition-prefixes "rectangular-region-mode" '("rectangular-region-mode" "rrm/")) (provide 'multiple-cursors-autoloads)) "dash" ((dash-autoloads dash) (autoload 'dash-fontify-mode "dash" "Toggle fontification of Dash special variables.
 
@@ -1074,6 +1466,7 @@ additionally fontifies Dash macro calls.
 See also `dash-fontify-mode-lighter' and
 `global-dash-fontify-mode'.
 
+<<<<<<< Updated upstream
 This is a minor mode.  If called interactively, toggle the
 `Dash-Fontify mode' mode.  If the prefix argument is positive,
 enable the mode, and if it is zero or negative, disable the mode.
@@ -1087,6 +1480,21 @@ evaluate `dash-fontify-mode'.
 
 The mode's hook is called both when the mode is enabled and when
 it is disabled.
+=======
+This is a minor mode.  If called interactively, toggle the `Dash-Fontify
+mode' mode.  If the prefix argument is positive, enable the mode, and if
+it is zero or negative, disable the mode.
+
+If called from Lisp, toggle the mode if ARG is `toggle'.  Enable the
+mode if ARG is nil, omitted, or is a positive number.  Disable the mode
+if ARG is a negative number.
+
+To check whether the minor mode is enabled in the current buffer,
+evaluate the variable `dash-fontify-mode'.
+
+The mode's hook is called both when the mode is enabled and when it is
+disabled.
+>>>>>>> Stashed changes
 
 (fn &optional ARG)" t) (put 'global-dash-fontify-mode 'globalized-minor-mode t) (defvar global-dash-fontify-mode nil "Non-nil if Global Dash-Fontify mode is enabled.
 See the `global-dash-fontify-mode' command
@@ -1107,11 +1515,16 @@ Dash-Fontify mode is enabled in all buffers where
 See `dash-fontify-mode' for more information on Dash-Fontify mode.
 
 (fn &optional ARG)" t) (autoload 'dash-register-info-lookup "dash" "Register the Dash Info manual with `info-lookup-symbol'.
+<<<<<<< Updated upstream
 This allows Dash symbols to be looked up with \\[info-lookup-symbol]." t) (register-definition-prefixes "dash" '("!cdr" "!cons" "--" "->" "-a" "-butlast" "-c" "-d" "-e" "-f" "-gr" "-i" "-juxt" "-keep" "-l" "-m" "-no" "-o" "-p" "-r" "-s" "-t" "-u" "-value-to-list" "-when-let" "-zip" "dash-")) (provide 'dash-autoloads)) "yasnippet" ((yasnippet yasnippet-autoloads) (autoload 'yas-minor-mode "yasnippet" "YASnippet minor mode.
+=======
+This allows Dash symbols to be looked up with \\[info-lookup-symbol]." t) (register-definition-prefixes "dash" '("!cdr" "!cons" "--" "->" "-a" "-butlast" "-c" "-d" "-e" "-f" "-gr" "-i" "-juxt" "-keep" "-l" "-m" "-no" "-o" "-p" "-r" "-s" "-t" "-u" "-value-to-list" "-when-let" "-zip" "dash-")) (provide 'dash-autoloads)) "yasnippet" ((yasnippet-autoloads yasnippet yasnippet-debug) (autoload 'yas-minor-mode "yasnippet" "YASnippet minor mode.
+>>>>>>> Stashed changes
 
 When YASnippet mode is enabled, `yas-expand', normally bound to
 the TAB key, expands snippets of code depending on the major mode.
 
+<<<<<<< Updated upstream
 This is a minor mode.  If called interactively, toggle the `yas
 minor mode' mode.  If the prefix argument is positive, enable the
 mode, and if it is zero or negative, disable the mode.
@@ -1125,6 +1538,21 @@ evaluate `yas-minor-mode'.
 
 The mode's hook is called both when the mode is enabled and when
 it is disabled.
+=======
+This is a minor mode.  If called interactively, toggle the `yas minor
+mode' mode.  If the prefix argument is positive, enable the mode, and if
+it is zero or negative, disable the mode.
+
+If called from Lisp, toggle the mode if ARG is `toggle'.  Enable the
+mode if ARG is nil, omitted, or is a positive number.  Disable the mode
+if ARG is a negative number.
+
+To check whether the minor mode is enabled in the current buffer,
+evaluate the variable `yas-minor-mode'.
+
+The mode's hook is called both when the mode is enabled and when it is
+disabled.
+>>>>>>> Stashed changes
 
 (fn &optional ARG)" t) (put 'yas-global-mode 'globalized-minor-mode t) (defvar yas-global-mode nil "Non-nil if Yas-Global mode is enabled.
 See the `yas-global-mode' command
@@ -1144,6 +1572,7 @@ would do it.
 
 See `yas-minor-mode' for more information on Yas minor mode.
 
+<<<<<<< Updated upstream
 (fn &optional ARG)" t) (autoload 'snippet-mode "yasnippet" "A mode for editing yasnippets" t nil) (register-definition-prefixes "yasnippet" '("help-snippet-def" "snippet-mode-map" "yas")) (provide 'yasnippet-autoloads)) "js2-refactor" ((js2r-paredit js2-refactor-autoloads js2r-iife js2r-conditionals js2r-functions js2r-wrapping js2r-formatting js2r-conveniences js2-refactor js2r-vars js2r-helpers) (autoload 'js2-refactor-mode "js2-refactor" "Minor mode providing JavaScript refactorings.
 
 This is a minor mode.  If called interactively, toggle the
@@ -1159,12 +1588,33 @@ evaluate `js2-refactor-mode'.
 
 The mode's hook is called both when the mode is enabled and when
 it is disabled.
+=======
+(fn &optional ARG)" t) (autoload 'snippet-mode "yasnippet" "A mode for editing yasnippets" t nil) (register-definition-prefixes "yasnippet" '("help-snippet-def" "snippet-mode-map" "yas")) (provide 'yasnippet-autoloads)) "js2-refactor" ((js2r-functions js2-refactor js2r-conveniences js2r-iife js2r-wrapping js2r-helpers js2r-vars js2-refactor-autoloads js2r-conditionals js2r-formatting js2r-paredit) (autoload 'js2-refactor-mode "js2-refactor" "Minor mode providing JavaScript refactorings.
+
+This is a minor mode.  If called interactively, toggle the `Js2-Refactor
+mode' mode.  If the prefix argument is positive, enable the mode, and if
+it is zero or negative, disable the mode.
+
+If called from Lisp, toggle the mode if ARG is `toggle'.  Enable the
+mode if ARG is nil, omitted, or is a positive number.  Disable the mode
+if ARG is a negative number.
+
+To check whether the minor mode is enabled in the current buffer,
+evaluate the variable `js2-refactor-mode'.
+
+The mode's hook is called both when the mode is enabled and when it is
+disabled.
+>>>>>>> Stashed changes
 
 (fn &optional ARG)" t) (autoload 'js2r-add-keybindings-with-prefix "js2-refactor" "Add js2r keybindings using the prefix PREFIX.
 
 (fn PREFIX)") (autoload 'js2r-add-keybindings-with-modifier "js2-refactor" "Add js2r keybindings using the modifier MODIFIER.
 
+<<<<<<< Updated upstream
 (fn MODIFIER)") (register-definition-prefixes "js2-refactor" '("js2")) (register-definition-prefixes "js2r-conditionals" '("js2r-ternary-to-if")) (register-definition-prefixes "js2r-conveniences" '("js2r-" "move-line-")) (register-definition-prefixes "js2r-formatting" '("js2r-")) (register-definition-prefixes "js2r-functions" '("js2r-")) (register-definition-prefixes "js2r-helpers" '("js2r--")) (register-definition-prefixes "js2r-iife" '("js2r-")) (register-definition-prefixes "js2r-paredit" '("js2r-")) (autoload 'js2r-rename-var "js2r-vars" "Renames the variable on point and all occurrences in its lexical scope." t) (autoload 'js2r-extract-var "js2r-vars" nil t) (autoload 'js2r-extract-let "js2r-vars" nil t) (autoload 'js2r-extract-const "js2r-vars" nil t) (register-definition-prefixes "js2r-vars" '("current-line-contents" "js2r-")) (register-definition-prefixes "js2r-wrapping" '("js2r-")) (provide 'js2-refactor-autoloads)) "markdown-mode" ((markdown-mode markdown-mode-autoloads) (autoload 'markdown-mode "markdown-mode" "Major mode for editing Markdown files.
+=======
+(fn MODIFIER)") (register-definition-prefixes "js2-refactor" '("js2")) (register-definition-prefixes "js2r-conditionals" '("js2r-ternary-to-if")) (register-definition-prefixes "js2r-conveniences" '("js2r-" "move-line-")) (register-definition-prefixes "js2r-formatting" '("js2r-")) (register-definition-prefixes "js2r-functions" '("js2r-")) (register-definition-prefixes "js2r-helpers" '("js2r--")) (register-definition-prefixes "js2r-iife" '("js2r-")) (register-definition-prefixes "js2r-paredit" '("js2r-")) (autoload 'js2r-rename-var "js2r-vars" "Renames the variable on point and all occurrences in its lexical scope." t) (autoload 'js2r-extract-var "js2r-vars" nil t) (autoload 'js2r-extract-let "js2r-vars" nil t) (autoload 'js2r-extract-const "js2r-vars" nil t) (register-definition-prefixes "js2r-vars" '("current-line-contents" "js2r-")) (register-definition-prefixes "js2r-wrapping" '("js2r-")) (provide 'js2-refactor-autoloads)) "markdown-mode" ((markdown-mode-autoloads markdown-mode) (autoload 'markdown-mode "markdown-mode" "Major mode for editing Markdown files.
+>>>>>>> Stashed changes
 
 (fn)" t) (add-to-list 'auto-mode-alist '("\\.\\(?:md\\|markdown\\|mkd\\|mdown\\|mkdn\\|mdwn\\|mdx\\)\\'" . markdown-mode)) (autoload 'gfm-mode "markdown-mode" "Major mode for editing GitHub Flavored Markdown files.
 
@@ -1175,6 +1625,7 @@ it is disabled.
 (fn)" t) (autoload 'markdown-live-preview-mode "markdown-mode" "Toggle native previewing on save for a specific markdown file.
 
 This is a minor mode.  If called interactively, toggle the
+<<<<<<< Updated upstream
 `Markdown-Live-Preview mode' mode.  If the prefix argument is
 positive, enable the mode, and if it is zero or negative, disable
 the mode.
@@ -1194,6 +1645,26 @@ it is disabled.
 \\{yaml-mode-map}
 
 (fn)" t) (add-to-list 'auto-mode-alist '("\\.\\(e?ya?\\|ra\\)ml\\'" . yaml-mode)) (add-to-list 'magic-mode-alist '("^%YAML\\s-+[0-9]+\\.[0-9]+\\(\\s-+#\\|\\s-*$\\)" . yaml-mode)) (register-definition-prefixes "yaml-mode" '("yaml-")) (provide 'yaml-mode-autoloads)) "dockerfile-mode" ((dockerfile-mode-autoloads dockerfile-mode) (autoload 'dockerfile-build-buffer "dockerfile-mode" "Build an image called IMAGE-NAME based upon the buffer.
+=======
+`Markdown-Live-Preview mode' mode.  If the prefix argument is positive,
+enable the mode, and if it is zero or negative, disable the mode.
+
+If called from Lisp, toggle the mode if ARG is `toggle'.  Enable the
+mode if ARG is nil, omitted, or is a positive number.  Disable the mode
+if ARG is a negative number.
+
+To check whether the minor mode is enabled in the current buffer,
+evaluate the variable `markdown-live-preview-mode'.
+
+The mode's hook is called both when the mode is enabled and when it is
+disabled.
+
+(fn &optional ARG)" t) (register-definition-prefixes "markdown-mode" '("defun-markdown-" "gfm-" "markdown")) (provide 'markdown-mode-autoloads)) "yaml-mode" ((yaml-mode yaml-mode-autoloads) (let ((loads (get 'yaml 'custom-loads))) (if (member '"yaml-mode" loads) nil (put 'yaml 'custom-loads (cons '"yaml-mode" loads)) (put 'languages 'custom-loads (cons 'yaml (get 'languages 'custom-loads))))) (autoload 'yaml-mode "yaml-mode" "Simple mode to edit YAML.
+
+\\{yaml-mode-map}
+
+(fn)" t) (add-to-list 'auto-mode-alist '("\\.\\(e?ya?\\|ra\\)ml\\'" . yaml-mode)) (add-to-list 'magic-mode-alist '("^%YAML\\s-+[0-9]+\\.[0-9]+\\(\\s-+#\\|\\s-*$\\)" . yaml-mode)) (register-definition-prefixes "yaml-mode" '("yaml-")) (provide 'yaml-mode-autoloads)) "dockerfile-mode" ((dockerfile-mode dockerfile-mode-autoloads) (autoload 'dockerfile-build-buffer "dockerfile-mode" "Build an image called IMAGE-NAME based upon the buffer.
+>>>>>>> Stashed changes
 
 If the prefix arg NO-CACHE is set, don't cache the image.
 
@@ -1214,6 +1685,7 @@ The shell command used to build the image is:
 (fn IMAGE-NAME)" t) (autoload 'dockerfile-mode "dockerfile-mode" "A major mode to edit Dockerfiles.
 \\{dockerfile-mode-map}
 
+<<<<<<< Updated upstream
 (fn)" t) (add-to-list 'auto-mode-alist (cons (concat "[/\\]" "\\(?:Containerfile\\|Dockerfile\\)" "\\(?:\\.[^/\\]*\\)?\\'") 'dockerfile-mode)) (add-to-list 'auto-mode-alist '("\\.dockerfile\\'" . dockerfile-mode)) (register-definition-prefixes "dockerfile-mode" '("dockerfile-")) (provide 'dockerfile-mode-autoloads)) "docker-compose-mode" ((docker-compose-mode docker-compose-mode-autoloads) (autoload 'docker-compose-mode "docker-compose-mode" "Major mode to edit docker-compose files.
 
 (fn)" t) (add-to-list 'auto-mode-alist '("docker-compose[^/]*\\.ya?ml\\'" . docker-compose-mode)) (register-definition-prefixes "docker-compose-mode" '("docker-compose-")) (provide 'docker-compose-mode-autoloads)) "hcl-mode" ((hcl-mode-autoloads hcl-mode) (autoload 'hcl-mode "hcl-mode" "Major mode for editing hcl configuration file
@@ -1235,6 +1707,29 @@ evaluate `wrap-region-mode'.
 
 The mode's hook is called both when the mode is enabled and when
 it is disabled.
+=======
+(fn)" t) (add-to-list 'auto-mode-alist (cons (concat "[/\\]" "\\(?:Containerfile\\|Dockerfile\\)" "\\(?:\\.[^/\\]*\\)?\\'") 'dockerfile-mode)) (add-to-list 'auto-mode-alist '("\\.dockerfile\\'" . dockerfile-mode)) (register-definition-prefixes "dockerfile-mode" '("dockerfile-")) (provide 'dockerfile-mode-autoloads)) "docker-compose-mode" ((docker-compose-mode-autoloads docker-compose-mode) (autoload 'docker-compose-mode "docker-compose-mode" "Major mode to edit docker-compose files.
+
+(fn)" t) (add-to-list 'auto-mode-alist '("docker-compose[^/]*\\.ya?ml\\'" . docker-compose-mode)) (register-definition-prefixes "docker-compose-mode" '("docker-compose-")) (provide 'docker-compose-mode-autoloads)) "hcl-mode" ((hcl-mode-autoloads hcl-mode) (autoload 'hcl-mode "hcl-mode" "Major mode for editing hcl configuration file
+
+(fn)" t) (add-to-list 'auto-mode-alist '("\\.hcl\\'" . hcl-mode)) (add-to-list 'auto-mode-alist '("\\.nomad\\'" . hcl-mode)) (register-definition-prefixes "hcl-mode" '("hcl-")) (provide 'hcl-mode-autoloads)) "terraform-mode" ((terraform-mode-autoloads terraform-mode) (autoload 'terraform-mode "terraform-mode" "Major mode for editing terraform configuration file
+
+(fn)" t) (add-to-list 'auto-mode-alist '("\\.t\\(f\\(vars\\)?\\|ofu\\)\\'" . terraform-mode)) (register-definition-prefixes "terraform-mode" '("terraform-")) (provide 'terraform-mode-autoloads)) "wrap-region" ((wrap-region-autoloads wrap-region) (autoload 'wrap-region-mode "wrap-region" "Wrap region with stuff.
+
+This is a minor mode.  If called interactively, toggle the `wrap-Region
+mode' mode.  If the prefix argument is positive, enable the mode, and if
+it is zero or negative, disable the mode.
+
+If called from Lisp, toggle the mode if ARG is `toggle'.  Enable the
+mode if ARG is nil, omitted, or is a positive number.  Disable the mode
+if ARG is a negative number.
+
+To check whether the minor mode is enabled in the current buffer,
+evaluate the variable `wrap-region-mode'.
+
+The mode's hook is called both when the mode is enabled and when it is
+disabled.
+>>>>>>> Stashed changes
 
 (fn &optional ARG)" t) (autoload 'turn-on-wrap-region-mode "wrap-region" "Turn on `wrap-region-mode'." t) (autoload 'turn-off-wrap-region-mode "wrap-region" "Turn off `wrap-region-mode'." t) (put 'wrap-region-global-mode 'globalized-minor-mode t) (defvar wrap-region-global-mode nil "Non-nil if Wrap-Region-Global mode is enabled.
 See the `wrap-region-global-mode' command
@@ -1257,6 +1752,7 @@ See `wrap-region-mode' for more information on Wrap-Region mode.
 (fn &optional ARG)" t) (register-definition-prefixes "wrap-region" '("wrap-region-")) (provide 'wrap-region-autoloads)) "rainbow-delimiters" ((rainbow-delimiters-autoloads rainbow-delimiters) (autoload 'rainbow-delimiters-mode "rainbow-delimiters" "Highlight nested parentheses, brackets, and braces according to their depth.
 
 This is a minor mode.  If called interactively, toggle the
+<<<<<<< Updated upstream
 `Rainbow-Delimiters mode' mode.  If the prefix argument is
 positive, enable the mode, and if it is zero or negative, disable
 the mode.
@@ -1364,5 +1860,29 @@ Signal an error if SEQUENCE is empty.
 #s(hash-table size 65 test eq rehash-size 1.5 rehash-threshold 0.8125 data (org-elpa #s(hash-table size 65 test equal rehash-size 1.5 rehash-threshold 0.8125 data (version (16 "https://github.com/emacs-straight/org-mode.git") "use-package" nil "bind-key" nil "clipetty" nil "company" nil "go-mode" nil "typescript-mode" nil "js2-mode" nil "cl-lib" nil "json-mode" nil "json-snatcher" nil "js2-refactor" nil "s" nil "multiple-cursors" nil "dash" nil "yasnippet" nil "markdown-mode" nil "yaml-mode" nil "dockerfile-mode" nil "docker-compose-mode" nil "terraform-mode" nil "hcl-mode" nil "wrap-region" nil "rainbow-delimiters" nil "brightscript-mode" nil "scad-mode" nil "compat" nil "seq" nil)) melpa #s(hash-table size 65 test equal rehash-size 1.5 rehash-threshold 0.8125 data (version 3 "use-package" nil "bind-key" nil "clipetty" (clipetty :type git :host github :repo "spudlyo/clipetty") "company" (company :type git :files (:defaults "icons" ("images/small" "doc/images/small/*.png") "company-pkg.el") :host github :repo "company-mode/company-mode") "go-mode" (go-mode :type git :files ("go-mode.el" "go-mode-pkg.el") :host github :repo "dominikh/go-mode.el") "typescript-mode" (typescript-mode :type git :host github :repo "emacs-typescript/typescript.el") "js2-mode" (js2-mode :type git :host github :repo "mooz/js2-mode") "cl-lib" nil "json-mode" (json-mode :type git :host github :repo "json-emacs/json-mode") "json-snatcher" (json-snatcher :type git :host github :repo "Sterlingg/json-snatcher") "js2-refactor" (js2-refactor :type git :host github :repo "js-emacs/js2-refactor.el") "s" (s :type git :host github :repo "magnars/s.el") "multiple-cursors" (multiple-cursors :type git :host github :repo "magnars/multiple-cursors.el") "dash" (dash :type git :files ("dash.el" "dash.texi" "dash-pkg.el") :host github :repo "magnars/dash.el") "yasnippet" (yasnippet :type git :files ("yasnippet.el" "snippets" "yasnippet-pkg.el") :host github :repo "joaotavora/yasnippet") "markdown-mode" (markdown-mode :type git :host github :repo "jrblevin/markdown-mode") "yaml-mode" (yaml-mode :type git :host github :repo "yoshiki/yaml-mode") "dockerfile-mode" (dockerfile-mode :type git :host github :repo "spotify/dockerfile-mode") "docker-compose-mode" (docker-compose-mode :type git :files (:defaults (:exclude "docker-compose-mode-helpers.el") "docker-compose-mode-pkg.el") :host github :repo "meqif/docker-compose-mode") "terraform-mode" (terraform-mode :type git :host github :repo "hcl-emacs/terraform-mode") "hcl-mode" (hcl-mode :type git :host github :repo "hcl-emacs/hcl-mode") "wrap-region" (wrap-region :type git :host github :repo "rejeep/wrap-region.el") "rainbow-delimiters" (rainbow-delimiters :type git :host github :repo "Fanael/rainbow-delimiters") "brightscript-mode" (brightscript-mode :type git :host github :repo "viseztrance/brightscript-mode") "scad-mode" (scad-mode :type git :host github :repo "openscad/emacs-scad-mode") "compat" nil "seq" nil)) gnu-elpa-mirror #s(hash-table size 65 test equal rehash-size 1.5 rehash-threshold 0.8125 data (version 3 "use-package" (use-package :type git :host github :repo "emacs-straight/use-package" :files ("*" (:exclude ".git"))) "bind-key" (bind-key :type git :host github :repo "emacs-straight/bind-key" :files ("*" (:exclude ".git"))) "cl-lib" nil "compat" (compat :type git :host github :repo "emacs-straight/compat" :files ("*" (:exclude ".git"))) "seq" (seq :type git :host github :repo "emacs-straight/seq" :files ("*" (:exclude ".git"))))) nongnu-elpa #s(hash-table size 65 test equal rehash-size 1.5 rehash-threshold 0.8125 data (version (5 "https://github.com/emacsmirror/nongnu_elpa.git") "cl-lib" nil)) el-get #s(hash-table size 65 test equal rehash-size 1.5 rehash-threshold 0.8125 data (version 2 "cl-lib" nil)) emacsmirror-mirror #s(hash-table size 65 test equal rehash-size 1.5 rehash-threshold 0.8125 data (version 2 "cl-lib" nil))))
 
 ("seq" "compat" "scad-mode" "brightscript-mode" "rainbow-delimiters" "wrap-region" "hcl-mode" "terraform-mode" "docker-compose-mode" "dockerfile-mode" "yaml-mode" "markdown-mode" "yasnippet" "dash" "multiple-cursors" "s" "js2-refactor" "json-snatcher" "json-mode" "cl-lib" "js2-mode" "typescript-mode" "go-mode" "company" "clipetty" "bind-key" "use-package" "emacsmirror-mirror" "el-get" "nongnu-elpa" "gnu-elpa-mirror" "melpa" "org-elpa" "emacs" "straight")
+=======
+`Rainbow-Delimiters mode' mode.  If the prefix argument is positive,
+enable the mode, and if it is zero or negative, disable the mode.
+
+If called from Lisp, toggle the mode if ARG is `toggle'.  Enable the
+mode if ARG is nil, omitted, or is a positive number.  Disable the mode
+if ARG is a negative number.
+
+To check whether the minor mode is enabled in the current buffer,
+evaluate the variable `rainbow-delimiters-mode'.
+
+The mode's hook is called both when the mode is enabled and when it is
+disabled.
+
+(fn &optional ARG)" t) (autoload 'rainbow-delimiters-mode-enable "rainbow-delimiters" "Enable `rainbow-delimiters-mode'.") (autoload 'rainbow-delimiters-mode-disable "rainbow-delimiters" "Disable `rainbow-delimiters-mode'.") (register-definition-prefixes "rainbow-delimiters" '("rainbow-delimiters-")) (provide 'rainbow-delimiters-autoloads)) "brightscript-mode" ((brightscript-mode-autoloads brightscript-mode) (autoload 'brightscript-mode "brightscript-mode" "Major mode for editing BrightScript code.
+
+(fn)" t) (register-definition-prefixes "brightscript-mode" '("brightscript-")) (provide 'brightscript-mode-autoloads)) "compat" ((compat-27 compat-macs compat-31 compat-pkg compat-30 compat-28 compat-26 compat-29 compat-autoloads compat) (register-definition-prefixes "compat" '("compat-")) (register-definition-prefixes "compat-macs" '("compat-")) (provide 'compat-autoloads)) "scad-mode" ((scad-mode scad-mode-autoloads ob-scad) (register-definition-prefixes "ob-scad" '("org-babel-")) (add-to-list 'auto-mode-alist '("\\.scad\\'" . scad-mode)) (autoload 'scad-mode "scad-mode" "Major mode for editing OpenSCAD code.
+
+(fn)" t) (register-definition-prefixes "scad-mode" '("scad-")) (provide 'scad-mode-autoloads))))
+
+#s(hash-table test eq data (org-elpa #s(hash-table test equal data (version (16 "https://github.com/emacs-straight/org-mode.git") "use-package" nil "bind-key" nil "clipetty" nil "company" nil "posframe" nil "go-mode" nil "typescript-mode" nil "js2-mode" nil "cl-lib" nil "json-mode" nil "json-snatcher" nil "js2-refactor" nil "s" nil "multiple-cursors" nil "dash" nil "yasnippet" nil "markdown-mode" nil "yaml-mode" nil "dockerfile-mode" nil "docker-compose-mode" nil "terraform-mode" nil "hcl-mode" nil "wrap-region" nil "rainbow-delimiters" nil "brightscript-mode" nil "scad-mode" nil "compat" nil)) melpa #s(hash-table test equal data (version 3 "use-package" nil "bind-key" nil "clipetty" (clipetty :type git :host github :repo "spudlyo/clipetty") "company" (company :type git :files (:defaults "icons" ("images/small" "doc/images/small/*.png") "company-pkg.el") :host github :repo "company-mode/company-mode") "posframe" (posframe :type git :host github :repo "tumashu/posframe") "go-mode" (go-mode :type git :files ("go-mode.el" "go-mode-pkg.el") :host github :repo "dominikh/go-mode.el") "typescript-mode" (typescript-mode :type git :host github :repo "emacs-typescript/typescript.el") "js2-mode" (js2-mode :type git :host github :repo "mooz/js2-mode") "cl-lib" nil "json-mode" (json-mode :type git :host github :repo "json-emacs/json-mode") "json-snatcher" (json-snatcher :type git :host github :repo "Sterlingg/json-snatcher") "js2-refactor" (js2-refactor :type git :host github :repo "js-emacs/js2-refactor.el") "s" (s :type git :host github :repo "magnars/s.el") "multiple-cursors" (multiple-cursors :type git :host github :repo "magnars/multiple-cursors.el") "dash" (dash :type git :files ("dash.el" "dash.texi" "dash-pkg.el") :host github :repo "magnars/dash.el") "yasnippet" (yasnippet :type git :files (:defaults ("doc" "doc/*.org") "yasnippet-pkg.el") :host github :repo "joaotavora/yasnippet") "markdown-mode" (markdown-mode :type git :host github :repo "jrblevin/markdown-mode") "yaml-mode" (yaml-mode :type git :host github :repo "yoshiki/yaml-mode") "dockerfile-mode" (dockerfile-mode :type git :host github :repo "spotify/dockerfile-mode") "docker-compose-mode" (docker-compose-mode :type git :files (:defaults (:exclude "docker-compose-mode-helpers.el") "docker-compose-mode-pkg.el") :host github :repo "meqif/docker-compose-mode") "terraform-mode" (terraform-mode :type git :host github :repo "hcl-emacs/terraform-mode") "hcl-mode" (hcl-mode :type git :host github :repo "hcl-emacs/hcl-mode") "wrap-region" (wrap-region :type git :host github :repo "rejeep/wrap-region.el") "rainbow-delimiters" (rainbow-delimiters :type git :host github :repo "Fanael/rainbow-delimiters") "brightscript-mode" (brightscript-mode :type git :host github :repo "viseztrance/brightscript-mode") "scad-mode" (scad-mode :type git :host github :repo "openscad/emacs-scad-mode") "compat" nil)) gnu-elpa-mirror #s(hash-table test equal data (version 3 "use-package" (use-package :type git :host github :repo "emacs-straight/use-package" :files ("*" (:exclude ".git"))) "bind-key" (bind-key :type git :host github :repo "emacs-straight/bind-key" :files ("*" (:exclude ".git"))) "cl-lib" nil "compat" (compat :type git :host github :repo "emacs-straight/compat" :files ("*" (:exclude ".git"))))) nongnu-elpa #s(hash-table test equal data (version (5 "https://github.com/emacsmirror/nongnu_elpa.git") "cl-lib" nil)) el-get #s(hash-table test equal data (version 2 "cl-lib" nil)) emacsmirror-mirror #s(hash-table test equal data (version 2 "cl-lib" nil))))
+
+("compat" "scad-mode" "brightscript-mode" "rainbow-delimiters" "wrap-region" "hcl-mode" "terraform-mode" "docker-compose-mode" "dockerfile-mode" "yaml-mode" "markdown-mode" "yasnippet" "dash" "multiple-cursors" "s" "js2-refactor" "json-snatcher" "json-mode" "cl-lib" "js2-mode" "typescript-mode" "go-mode" "posframe" "company" "clipetty" "bind-key" "use-package" "emacsmirror-mirror" "el-get" "nongnu-elpa" "gnu-elpa-mirror" "melpa" "org-elpa" "emacs" "straight")
+>>>>>>> Stashed changes
 
 t

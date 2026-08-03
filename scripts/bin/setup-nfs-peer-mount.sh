@@ -17,6 +17,7 @@ set -euo pipefail
 
 info()  { echo "[INFO]  $*"; }
 ok()    { echo "[OK]    $*"; }
+warn()  { echo "[WARN]  $*"; }
 die()   { echo "[ERROR] $*" >&2; exit 1; }
 
 [[ $EUID -eq 0 ]] || die "must be run as root (sudo)."
@@ -24,11 +25,27 @@ die()   { echo "[ERROR] $*" >&2; exit 1; }
 HOME_DIR="/home/gherlein"
 HOST="$(hostname -s)"
 
+# WHY subnet, not hostname: europa and helios each have multiple NICs on this
+# LAN, and whichever interface actually carries the outbound connection may
+# not match what the peer's /etc/hosts resolves the bare hostname to - that
+# mismatch makes nfsd reject the mount with "access denied by server".
+LAN_SUBNET="192.168.2.0/24"
+
 case "$HOST" in
     europa) PEER=helios; MOUNTPOINT="$HOME_DIR/b" ;;
     helios) PEER=europa; MOUNTPOINT="$HOME_DIR/h" ;;
     *)      die "unrecognized host '$HOST' (expected europa or helios)." ;;
 esac
+
+# append_line <file> <line> - append, first adding a newline if the file
+# doesn't already end in one (a bare append otherwise glues onto the last line)
+append_line() {
+    local file="$1" line="$2"
+    if [[ -s "$file" && -n "$(tail -c1 "$file")" ]]; then
+        echo >> "$file"
+    fi
+    echo "$line" >> "$file"
+}
 
 # --- ensure NFS server + client tools are installed --------------------------
 if ! command -v exportfs &>/dev/null || ! command -v mount.nfs &>/dev/null; then
@@ -41,25 +58,28 @@ else
 fi
 
 # --- export our home dir to the peer ---------------------------------------
-EXPORT_LINE="$HOME_DIR $PEER(rw,sync,no_subtree_check,root_squash)"
-if grep -qF "$EXPORT_LINE" /etc/exports 2>/dev/null; then
+EXPORT_LINE="$HOME_DIR $LAN_SUBNET(rw,sync,no_subtree_check,root_squash)"
+if grep -qxF "$EXPORT_LINE" /etc/exports 2>/dev/null; then
     ok "export already present in /etc/exports"
 else
-    echo "$EXPORT_LINE" >> /etc/exports
+    append_line /etc/exports "$EXPORT_LINE"
     ok "added export: $EXPORT_LINE"
 fi
-exportfs -ra
-ok "exportfs reloaded"
+if exportfs -ra; then
+    ok "exportfs reloaded"
+else
+    warn "exportfs reported a problem (see above) - likely an unrelated stale entry in /etc/exports; continuing"
+fi
 
 # --- mount point + fstab entry for the peer's home dir ----------------------
 mkdir -p "$MOUNTPOINT"
 ok "mount point ready: $MOUNTPOINT"
 
 FSTAB_LINE="$PEER:$HOME_DIR $MOUNTPOINT nfs noauto,soft,timeo=30,retrans=2,_netdev 0 0"
-if grep -qF "$FSTAB_LINE" /etc/fstab 2>/dev/null; then
+if grep -qxF "$FSTAB_LINE" /etc/fstab 2>/dev/null; then
     ok "fstab entry already present"
 else
-    echo "$FSTAB_LINE" >> /etc/fstab
+    append_line /etc/fstab "$FSTAB_LINE"
     ok "added fstab entry: $FSTAB_LINE"
 fi
 
