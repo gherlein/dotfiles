@@ -1,0 +1,28 @@
+// Gram keymap
+//
+// For information on binding keys, see the Gram
+// documentation: https://gram-editor.com/docs
+//
+// To see the default key bindings run `gram: open default keymap`
+// from the command palette.
+[
+  {
+    "context": "Editor",
+    "bindings": {
+      // Emacs-style line navigation. Note: ctrl-a overrides VSCode "select all".
+      "ctrl-a": "editor::MoveToBeginningOfLine",
+      "ctrl-e": "editor::MoveToEndOfLine",
+      // Standard cut/copy/paste.
+      "ctrl-x": "editor::Cut",
+      "ctrl-c": "editor::Copy",
+      "ctrl-v": "editor::Paste",
+      // macOS-style equivalents, harmless on Linux.
+      "super-x": "editor::Cut",
+      "super-c": "editor::Copy",
+      "super-v": "editor::Paste",
+      "super-z": "editor::Undo",
+      "super-s": "workspace::Save",
+      "super-f": "buffer_search::Deploy"
+    }
+  }
+]

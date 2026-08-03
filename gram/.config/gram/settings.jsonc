@@ -1,0 +1,85 @@
+{
+  "base_keymap": "VSCode",
+  "project_panel": {
+    "dock": "left"
+  },
+  "outline_panel": {
+    "dock": "left"
+  },
+  "git_panel": {
+    "dock": "left"
+  },
+  "window_decorations": "server",
+  "soft_wrap": "editor_width",
+  "autosave": "on_focus_change",
+  "format_on_save": "on",
+  // `formatter` defaults to "auto", which prefers Prettier when it is
+  // available. These languages should go straight to the language server.
+  "languages": {
+    "C": {
+      "formatter": "language_server",
+      "tab_size": 2
+    },
+    "JSON": {
+      "formatter": "language_server",
+      "tab_size": 4
+    },
+    "JavaScript": {
+      "code_actions_on_format": {
+        "source.fixAll.eslint": true
+      }
+    },
+    "TypeScript": {
+      "code_actions_on_format": {
+        "source.organizeImports": true,
+        "source.fixAll.eslint": true
+      }
+    },
+    "Python": {
+      "formatter": "language_server",
+      "tab_size": 4
+    },
+    "Markdown": {
+      "formatter": "language_server",
+      "tab_size": 2
+    },
+    "HTML": {
+      "formatter": "language_server",
+      "tab_size": 2
+    },
+    "CSS": {
+      "formatter": "language_server",
+      "tab_size": 2
+    },
+    "go": {
+      "formatter": "language_server",
+      "tab_size": 2
+    }
+  },
+  "ssh_connections": [
+    {
+      "host": "io",
+      "projects": []
+    },
+    {
+      "host": "io",
+      "projects": [
+        {
+          "paths": [
+            "/home/gherlein/src"
+          ]
+        }
+      ]
+    }
+  ],
+  "ui_font_size": 14,
+  "buffer_font_size": 14.0,
+  "buffer_font_family": "DejaVu Sans Mono",
+  "buffer_font_weight": 500,
+  "theme": {
+    "mode": "light",
+    "light": "One Light",
+    "dark": "One Dark"
+  },
+  "always_treat_brackets_as_autoclosed": true
+}
