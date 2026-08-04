@@ -89,6 +89,9 @@ export EDITOR="${EDITOR:-mg}"
 # zed
 alias zed='~/.local/zed.app/bin/zed --new'
 
+# gram
+alias gram='/usr/bin/gram --new'
+
 # marktext
 md() { marktext -n "$1" & }
 

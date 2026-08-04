@@ -1,9 +1,9 @@
 # omp custom providers.
 #
-# `dgx` is a separate provider ID rather than an override of the built-in
-# `ollama` ID: an explicit `ollama` entry REPLACES built-in discovery for that
-# ID, which would cost us localhost as an alternate. Two IDs keeps both hosts
-# selectable at once.
+# `dgx` and `helios` are separate provider IDs rather than overrides of the
+# built-in `ollama` ID: an explicit `ollama` entry REPLACES built-in discovery
+# for that ID, which would cost us localhost as an alternate. Distinct IDs keep
+# every host selectable at once.
 #
 # Cloud models are deliberately absent here. They are registered into the local
 # Ollama daemon with `ollama pull <tag>:cloud` (a ~300-byte manifest, no
@@ -27,4 +27,19 @@ providers:
       "qwen3-coder-next:latest":
         contextWindow: 131072
       "qwen3.6:35b-a3b":
+        contextWindow: 131072
+
+  helios:
+    # Same /v1 requirement as dgx above.
+    baseUrl: http://helios.herlein.me:11434/v1
+    api: openai-responses
+    auth: none
+    discovery:
+      type: ollama
+    modelOverrides:
+      # Same advertise-vs-serve gap as dgx: /api/show reports the GGUF max of
+      # 262144, the daemon serves OLLAMA_CONTEXT_LENGTH (131072). Only the local
+      # weights need a pin -- the `:cloud` tags are served by Ollama Cloud and
+      # carry their own limits.
+      "qwen3.6:27b":
         contextWindow: 131072
