@@ -19,6 +19,15 @@ export PATH="$HOME/.claude/local:$PATH"
 export CLAUDE_CODE_THEME=light
 alias clauded='claude --dangerously-skip-permissions'
 
+# omp — per-host model routing. The shared config.yml is stowed and `omp config
+# set` writes straight through the symlink to it, so a host that serves its own
+# weights cannot put its roles there without changing every machine. Instead,
+# such a host drops an untracked ~/.omp/agent/config.local.yml and this overlays
+# it. Hosts without that file are unaffected, so the test is the file itself
+# rather than a hostname list.
+[[ -f "$HOME/.omp/agent/config.local.yml" ]] && \
+    alias omp='omp --config "$HOME/.omp/agent/config.local.yml"'
+
 # OS-specific
 case "$(uname -s)" in
     Darwin)
