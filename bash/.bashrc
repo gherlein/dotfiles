@@ -44,21 +44,27 @@ case "$(hostname -s)" in
 esac
 term_bg "$TERM_HOST_COLOR"
 
-# Plain ssh, then restore this host's background color — the remote shell sets its
-# own via OSC 11 and never restores it on exit.
-# Deliberately NOT 'kitten ssh': its terminfo bootstrap fails on minimal remote
-# shells (busybox, BrightSign players). Use 'kssh' when you want kitten's ssh.
+# WHY the wrapper: the remote shell sets its own background via OSC 11 and never
+# restores it on exit, so repaint this host's color when the session ends.
+# WHY 'kitten ssh': it installs kitty's shell integration and terminfo on the
+# remote, so the remote cwd is reported as file://host/path. Without that kitty
+# cannot follow you across the connection and ctrl+shift+t splits into a local
+# shell at the local cwd instead of the remote host and directory.
 ssh() {
-    command ssh "$@"
+    if command -v kitten >/dev/null 2>&1; then
+        kitten ssh "$@"
+    else
+        command ssh "$@"
+    fi
     term_bg "$TERM_HOST_COLOR"
 }
 
-if command -v kitten >/dev/null 2>&1; then
-    kssh() {
-        kitten ssh "$@"
-        term_bg "$TERM_HOST_COLOR"
-    }
-fi
+# WHY: the kitten's terminfo bootstrap fails on minimal remote shells (busybox,
+# BrightSign players) — use 'sshp' for those.
+sshp() {
+    command ssh "$@"
+    term_bg "$TERM_HOST_COLOR"
+}
 
 # fzf
 [ -f ~/.fzf.bash ] && source ~/.fzf.bash
