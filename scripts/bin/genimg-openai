@@ -1,0 +1,248 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# genimg-openai - generate an image via OpenAI's Images API
+# Usage: genimg-openai [options] "your prompt" [output_file]
+#
+# Default model is gpt-image-1 (OpenAI's current model, successor to
+# DALL-E 3 - supports transparent backgrounds and multi-image edits).
+# Use -m dall-e-3 or -m dall-e-2 for the older models.
+#
+# Unlike genimg-remote (Replicate, async predict-then-poll), the OpenAI
+# Images API is synchronous - one request, one response, no polling.
+#
+# ---------------------------------------------------------------------------
+# GETTING AN OPENAI API KEY
+# ---------------------------------------------------------------------------
+#   1. Go to https://platform.openai.com and sign in / sign up.
+#   2. Add a billing method at https://platform.openai.com/settings/organization/billing
+#      OpenAI's image API is pay-as-you-go, no free tier.
+#   3. gpt-image-1 requires org verification: go to
+#      https://platform.openai.com/settings/organization/general and
+#      complete "Verify Organization" if you haven't already, or image
+#      requests will fail with a 403.
+#   4. Create a key at https://platform.openai.com/api-keys
+#   5. Export it in your shell (~/.bashrc, ~/.zshrc, or a sourced ~/.envrc):
+#
+#        export OPENAI_API_KEY="sk-..."
+#
+# Pricing: https://platform.openai.com/docs/pricing - gpt-image-1 is priced
+# per output token (roughly $0.02-0.19/image depending on size/quality).
+# ---------------------------------------------------------------------------
+
+MODEL="gpt-image-1"
+SIZE="1024x1024"
+QUALITY="auto"
+BACKGROUND="auto"
+FORMAT="png"
+IMAGES=()
+
+die() {
+  echo "error: $*" >&2
+  exit 1
+}
+
+curl_error_message() {
+  case "$1" in
+    6)  echo "couldn't resolve api.openai.com (DNS failure / no network)" ;;
+    7)  echo "couldn't connect to OpenAI (network down or host unreachable)" ;;
+    28) echo "connection to OpenAI timed out" ;;
+    35) echo "TLS handshake with OpenAI failed" ;;
+    52) echo "OpenAI closed the connection with an empty reply" ;;
+    56) echo "network error receiving data from OpenAI" ;;
+    *)  echo "network error talking to OpenAI (curl exit code $1)" ;;
+  esac
+}
+
+http_error_message() {
+  case "$1" in
+    401) echo "authentication failed - OPENAI_API_KEY is missing or invalid" ;;
+    403) echo "forbidden - your org may not be verified for this model (see https://platform.openai.com/settings/organization/general)" ;;
+    404) echo "model not found - check the -m model name" ;;
+    429) echo "rate limited or out of quota - check https://platform.openai.com/settings/organization/billing" ;;
+    500|502|503|504) echo "OpenAI server error (HTTP $1) - usually transient, safe to retry" ;;
+    *)   echo "unexpected HTTP status $1 from OpenAI" ;;
+  esac
+}
+
+usage() {
+  cat >&2 <<EOF
+usage: genimg-openai [options] <prompt> [output_file]
+
+  prompt       Text description of the image to generate
+  output_file  Where to save the image (default: prompted interactively)
+               Format is inferred from extension (.png, .jpg, .webp)
+
+options:
+  -m MODEL       gpt-image-1 (default), dall-e-3, or dall-e-2
+  -s SIZE        gpt-image-1: 1024x1024 (default), 1536x1024, 1024x1536, auto
+                 dall-e-3: 1024x1024 (default), 1792x1024, 1024x1792
+                 dall-e-2: 256x256, 512x512, 1024x1024 (default)
+  -q QUALITY     gpt-image-1: low, medium, high, auto (default)
+                 dall-e-3: standard (default), hd
+                 ignored for dall-e-2
+  -b BACKGROUND  gpt-image-1 only: transparent, opaque, auto (default)
+  -f FORMAT      Output format: png (default), jpg, or webp
+                 (gpt-image-1 only; dall-e-3/dall-e-2 always return png)
+  -i FILE        Reference image to edit (gpt-image-1 only). Repeat for
+                 multiple images (composition/editing). Uses the /edits
+                 endpoint instead of /generations.
+  -h             Show this help
+
+environment:
+  OPENAI_API_KEY  Required. Get yours at https://platform.openai.com/api-keys
+
+examples:
+  genimg-openai "a rainbow corgi" corgi.png
+  genimg-openai -q high -s 1536x1024 "a rainbow corgi, wide shot" corgi.png
+  genimg-openai -b transparent "a corgi logo, no background" corgi.png
+  genimg-openai -m dall-e-3 -q hd "a rainbow corgi" corgi.png
+  genimg-openai -i ref.png "make it a watercolor" out.png
+  genimg-openai -i a.png -i b.png "combine these two styles" out.png
+EOF
+  exit 1
+}
+
+for cmd in curl jq base64; do
+  command -v "$cmd" &>/dev/null || die "'$cmd' is required but not installed"
+done
+
+[[ -z "${OPENAI_API_KEY:-}" ]] && die "OPENAI_API_KEY is not set"
+
+while getopts ":m:s:q:b:f:i:h" opt; do
+  case $opt in
+    m) MODEL="$OPTARG" ;;
+    s) SIZE="$OPTARG" ;;
+    q) QUALITY="$OPTARG" ;;
+    b) BACKGROUND="$OPTARG" ;;
+    f) FORMAT="$OPTARG" ;;
+    i) IMAGES+=("$OPTARG") ;;
+    h) usage ;;
+    :) die "option -$OPTARG requires an argument" ;;
+    \?) die "unknown option: -$OPTARG" ;;
+  esac
+done
+shift $((OPTIND - 1))
+
+case "$MODEL" in
+  gpt-image-1|dall-e-3|dall-e-2) ;;
+  *) die "unknown model '$MODEL'. use gpt-image-1, dall-e-3, or dall-e-2" ;;
+esac
+
+if [[ ${#IMAGES[@]} -gt 0 && "$MODEL" != "gpt-image-1" ]]; then
+  die "-i reference images are only supported with -m gpt-image-1"
+fi
+
+for img in "${IMAGES[@]+"${IMAGES[@]}"}"; do
+  [[ -f "$img" ]] || die "reference image not found: $img"
+done
+
+VALID_FORMATS="png jpg webp"
+if [[ "$MODEL" != "gpt-image-1" && "$FORMAT" != "png" ]]; then
+  die "-f is only supported with -m gpt-image-1 (dall-e-3/dall-e-2 always return png)"
+fi
+valid=0
+for f in $VALID_FORMATS; do
+  [[ "$f" == "$FORMAT" ]] && valid=1 && break
+done
+[[ $valid -eq 0 ]] && die "invalid format '$FORMAT'. must be one of: $VALID_FORMATS"
+
+if [[ $# -eq 0 ]]; then
+  usage
+fi
+
+PROMPT="$1"
+[[ -z "$PROMPT" ]] && die "prompt cannot be empty"
+
+if [[ $# -ge 2 ]]; then
+  OUTFILE="$2"
+else
+  read -r -p "output filename [out.${FORMAT}]: " OUTFILE
+  OUTFILE="${OUTFILE:-out.${FORMAT}}"
+fi
+
+ext="${OUTFILE##*.}"
+if [[ "$ext" == "$OUTFILE" ]]; then
+  OUTFILE="${OUTFILE}.${FORMAT}"
+else
+  ext_lower=$(printf '%s' "$ext" | tr '[:upper:]' '[:lower:]')
+  valid=0
+  for f in $VALID_FORMATS; do
+    [[ "$f" == "$ext_lower" ]] && valid=1 && break
+  done
+  if [[ $valid -eq 1 && "$ext_lower" != "$FORMAT" ]]; then
+    echo "warning: extension .$ext_lower does not match -f $FORMAT, using .$ext_lower" >&2
+    FORMAT="$ext_lower"
+  fi
+fi
+
+if [[ -e "$OUTFILE" ]]; then
+  read -r -p "file '$OUTFILE' already exists. overwrite? [y/N] " confirm
+  [[ "$confirm" =~ ^[Yy]$ ]] || { echo "aborted." >&2; exit 1; }
+fi
+
+if [[ ${#IMAGES[@]} -gt 0 ]]; then
+  echo "editing via OpenAI (model: $MODEL, size: $SIZE, quality: $QUALITY, refs: ${#IMAGES[@]})..." >&2
+
+  curl_args=(-sS -w '\n%{http_code}' -X POST "https://api.openai.com/v1/images/edits" \
+    -H "Authorization: Bearer $OPENAI_API_KEY" \
+    -F "model=$MODEL" \
+    -F "prompt=$PROMPT" \
+    -F "size=$SIZE" \
+    -F "quality=$QUALITY")
+  for img in "${IMAGES[@]}"; do
+    mime=$(file -b --mime-type "$img")
+    curl_args+=(-F "image[]=@${img};type=${mime}")
+  done
+
+  raw=$(curl "${curl_args[@]}")
+  curl_rc=$?
+else
+  echo "generating via OpenAI (model: $MODEL, size: $SIZE, quality: $QUALITY)..." >&2
+
+  payload_file=$(mktemp)
+  case "$MODEL" in
+    gpt-image-1)
+      jq -n --arg model "$MODEL" --arg prompt "$PROMPT" --arg size "$SIZE" \
+        --arg quality "$QUALITY" --arg background "$BACKGROUND" --arg fmt "$FORMAT" \
+        '{model:$model,prompt:$prompt,size:$size,quality:$quality,background:$background,output_format:$fmt,n:1}' \
+        > "$payload_file"
+      ;;
+    dall-e-3)
+      dalle_quality="standard"
+      [[ "$QUALITY" == "hd" ]] && dalle_quality="hd"
+      jq -n --arg model "$MODEL" --arg prompt "$PROMPT" --arg size "$SIZE" \
+        --arg quality "$dalle_quality" \
+        '{model:$model,prompt:$prompt,size:$size,quality:$quality,response_format:"b64_json",n:1}' \
+        > "$payload_file"
+      ;;
+    dall-e-2)
+      jq -n --arg model "$MODEL" --arg prompt "$PROMPT" --arg size "$SIZE" \
+        '{model:$model,prompt:$prompt,size:$size,response_format:"b64_json",n:1}' \
+        > "$payload_file"
+      ;;
+  esac
+
+  raw=$(curl -sS -w $'\n%{http_code}' -X POST "https://api.openai.com/v1/images/generations" \
+    -H "Authorization: Bearer $OPENAI_API_KEY" \
+    -H "Content-Type: application/json" \
+    --data-binary "@${payload_file}")
+  curl_rc=$?
+  rm -f "$payload_file"
+fi
+[[ $curl_rc -ne 0 ]] && die "failed to generate image: $(curl_error_message "$curl_rc")"
+
+http_code=$(tail -n1 <<< "$raw")
+body=$(sed '$d' <<< "$raw")
+
+if [[ "$http_code" -ge 400 ]]; then
+  msg=$(echo "$body" | jq -r '.error.message // empty' 2>/dev/null)
+  friendly=$(http_error_message "$http_code")
+  [[ -n "$msg" ]] && die "$friendly: $msg" || die "$friendly"
+fi
+
+b64=$(echo "$body" | jq -r '.data[0].b64_json // empty')
+[[ -z "$b64" ]] && die "no image data in response: $body"
+
+echo "$b64" | base64 -d > "$OUTFILE"
+echo "saved: $OUTFILE" >&2
