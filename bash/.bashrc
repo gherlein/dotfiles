@@ -44,8 +44,17 @@ case "$(hostname -s)" in
 esac
 term_bg "$TERM_HOST_COLOR"
 
+# Plain ssh, then restore this host's background color — the remote shell sets its
+# own via OSC 11 and never restores it on exit.
+# Deliberately NOT 'kitten ssh': its terminfo bootstrap fails on minimal remote
+# shells (busybox, BrightSign players). Use 'kssh' when you want kitten's ssh.
+ssh() {
+    command ssh "$@"
+    term_bg "$TERM_HOST_COLOR"
+}
+
 if command -v kitten >/dev/null 2>&1; then
-    ssh() {
+    kssh() {
         kitten ssh "$@"
         term_bg "$TERM_HOST_COLOR"
     }
