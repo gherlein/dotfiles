@@ -57,4 +57,3 @@ govirt/.config/govirt/stacks/
 
 # ~/bin (untracked personal scripts, not the repo's scripts/bin)
 /bin/
-bin/
