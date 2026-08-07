@@ -4,7 +4,11 @@ modelRoles:
   plan: dgx/qwen3.6:35b-a3b
   slow: dgx/qwen3.6:35b-a3b
   vision: dgx/qwen3.6:35b-a3b
+<<<<<<< Updated upstream
   default: ollama/kimi-k2.7-code:cloud
+=======
+  default: helios/qwen3-coder-next:latest
+>>>>>>> Stashed changes
 retry: 
   modelFallback: true
   fallbackChains: 
