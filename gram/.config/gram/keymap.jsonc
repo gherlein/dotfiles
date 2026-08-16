@@ -22,7 +22,9 @@
       "super-v": "editor::Paste",
       "super-z": "editor::Undo",
       "super-s": "workspace::Save",
-      "super-f": "buffer_search::Deploy"
+      "super-f": "buffer_search::Deploy",
+      // Side-by-side markdown preview that scroll-follows the editor.
+      "ctrl-k v": "markdown::OpenFollowingPreview"
     }
   }
 ]

@@ -81,5 +81,9 @@
     "light": "One Light",
     "dark": "One Dark"
   },
+  "experimental.theme_overrides": {
+    "background": "#e8e8e8",
+    "editor.background": "#e8e8e8"
+  },
   "always_treat_brackets_as_autoclosed": true
 }
