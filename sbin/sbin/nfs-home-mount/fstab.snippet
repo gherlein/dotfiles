@@ -1,0 +1,6 @@
+# Add a line like this to /etc/fstab. `noauto` keeps boot from mounting it;
+# the timer mounts by mount point once the server is reachable. The
+# soft,timeo,retrans options keep a lost server from hanging processes
+# between ticks -- keep them.
+#
+homeserver.lan:/export/data  /mnt/data  nfs  noauto,_netdev,soft,timeo=30,retrans=2  0 0

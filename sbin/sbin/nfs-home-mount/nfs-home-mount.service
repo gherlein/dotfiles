@@ -1,0 +1,11 @@
+[Unit]
+Description=Reconcile home NFS mount against server reachability
+# Do not wire NFS ordering deps here: this unit intentionally tolerates the
+# server being absent, which is the whole point of the reachability probe.
+After=network.target
+
+[Service]
+Type=oneshot
+# __SCRIPT__ is substituted by install.sh with the stowed ~/sbin path of the
+# invoking user (e.g. /home/gherlein/sbin/nfs-home-mount.sh).
+ExecStart=__SCRIPT__
