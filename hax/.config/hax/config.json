@@ -1,0 +1,10 @@
+{
+  "providers": {
+    "gx10": {
+      "display_name": "Qwen3.8-27B (GX10)",
+      "api": "openai-completions",
+      "base_url": "http://dgx:8888/v1",
+      "catalog_id": ""
+    }
+  }
+}
