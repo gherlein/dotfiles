@@ -37,11 +37,32 @@ fi
 
 echo "Opening: $github_url"
 
-if [[ "$OSTYPE" == "darwin"* ]]; then
-    open "$github_url"
-elif [[ "$OSTYPE" == "linux-gnu"* ]]; then
-    xdg-open "$github_url"
-else
-    echo "Error: Unsupported OS type: $OSTYPE" >&2
-    exit 1
-fi
+# Open a URL on the machine the user is actually looking at. In an SSH session
+# that is the client, not this host, so a plain xdg-open would (try to) launch a
+# browser here -- on a headless box that fails with "Missing X server". kitty's
+# remote control, forwarded by `kitten ssh`, runs a command on the LOCAL kitty
+# process, so xdg-open/open invoked through it opens on the client.
+open_url() {
+    local url="$1"
+
+    if [[ -n "${SSH_CONNECTION:-}" ]]; then
+        if [[ -n "${KITTY_LISTEN_ON:-}" ]] && command -v kitten >/dev/null 2>&1; then
+            kitten @ launch --type=background --no-response -- \
+                sh -c 'if command -v xdg-open >/dev/null 2>&1; then exec xdg-open "$1"; else exec open "$1"; fi' \
+                gopen "$url"
+            return
+        fi
+        # No forwarded remote control: emit an OSC 8 hyperlink so a
+        # link-aware terminal can open it locally on click.
+        printf 'Open on your machine (cmd/ctrl-click): \e]8;;%s\e\\%s\e]8;;\e\\\n' "$url" "$url"
+        return
+    fi
+
+    case "$OSTYPE" in
+        darwin*) open "$url" ;;
+        linux-gnu*) xdg-open "$url" ;;
+        *) echo "Error: Unsupported OS type: $OSTYPE" >&2; exit 1 ;;
+    esac
+}
+
+open_url "$github_url"
