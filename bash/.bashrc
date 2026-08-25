@@ -42,7 +42,10 @@ case "$(hostname -s)" in
     jumpbox)   TERM_HOST_COLOR='#1f0d1a' ;;  # dark rose   - bastion host
     *)         TERM_HOST_COLOR='#1a1a1a' ;;  # unknown host - default dark grey
 esac
-term_bg "$TERM_HOST_COLOR"
+# Guard on stdout being a tty: Zed/gram SSH remoting runs an interactive shell
+# and reads its stdout as a binary protocol stream, so an OSC escape here corrupts
+# the channel and the connection reconnect-loops until it times out.
+[[ -t 1 ]] && term_bg "$TERM_HOST_COLOR"
 
 # WHY the wrapper: the remote shell sets its own background via OSC 11 and never
 # restores it on exit, so repaint this host's color when the session ends.
