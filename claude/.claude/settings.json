@@ -1,0 +1,25 @@
+{
+  "enabledPlugins": {
+    "superpowers@claude-plugins-official": true,
+    "gherlein@gherlein-marketplace": true
+  },
+  "extraKnownMarketplaces": {
+    "gherlein-marketplace": {
+      "source": {
+        "source": "github",
+        "repo": "gherlein/gherlein-claude-plugin"
+      }
+    },
+    "claude-plugins-official": {
+      "source": {
+        "source": "github",
+        "repo": "anthropics/claude-plugins-official"
+      }
+    }
+  },
+  "effortLevel": "medium",
+  "tui": "fullscreen",
+  "skipDangerousModePermissionPrompt": true,
+  "theme": "dark",
+  "model": "claude-opus-4-8"
+}
