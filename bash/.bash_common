@@ -17,6 +17,7 @@ export PATH=$PATH:/usr/local/go/bin:$GOBIN
 export CLAUDE_BASH_MAINTAIN_WORKING_DIR=1
 export PATH="$HOME/.claude/local:$PATH"
 export CLAUDE_CODE_THEME=light
+alias claude='claude --model claude-opus-4-8'
 alias clauded='claude --dangerously-skip-permissions'
 
 # omp — per-host model routing. The shared config.yml is stowed and `omp config
