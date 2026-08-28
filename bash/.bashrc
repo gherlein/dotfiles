@@ -83,3 +83,5 @@ export PATH="/home/gherlein/.local/bin:$PATH"
 
 # codg
 export PATH=/home/gherlein/.codg/bin:$PATH
+
+eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv bash)"
