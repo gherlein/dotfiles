@@ -85,6 +85,7 @@ packages=(
     squashfs                      # SquashFS filesystem tools
     texlive                       # LaTeX distribution
     tinygo-org/tools/tinygo       # Go compiler for microcontrollers
+    tmux                          # Terminal multiplexer
     tree                          # Directory tree viewer
     usbutils                      # USB device utilities
     uv                            # Fast Python package manager
@@ -188,6 +189,21 @@ if ! command -v tailscale &>/dev/null; then
     curl -fsSL https://tailscale.com/install.sh | sh
 else
     info "Tailscale already installed."
+fi
+
+# ---------------------------------------------------------------------------
+# tmux + TPM (Tmux Plugin Manager)
+# ---------------------------------------------------------------------------
+
+# tmux itself is in the Homebrew packages above; this installs TPM and bootstraps
+# the plugins declared in ~/.tmux.conf. Deploy the dotfiles (make stow) first so
+# the config is in place — otherwise this clones TPM and you press prefix+I later.
+TMUX_SETUP="$(dirname "${BASH_SOURCE[0]:-$0}")/install-tmux.sh"
+if [[ -x "$TMUX_SETUP" ]]; then
+    info "Setting up tmux + TPM..."
+    "$TMUX_SETUP" || warn "tmux/TPM setup reported an error — review the output above."
+else
+    warn "install-tmux.sh not found next to this script — skipping TPM setup."
 fi
 
 # ---------------------------------------------------------------------------

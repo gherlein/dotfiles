@@ -207,6 +207,7 @@ sudo apt-get install -y \
     ripgrep \
     socat \
     stow \
+    tmux \
     tree \
     unzip \
     usbutils \
@@ -303,6 +304,21 @@ if [[ "$DEPLOY_DOTFILES" == "true" ]]; then
     fi
 else
     info "Skipping dotfiles deployment (DEPLOY_DOTFILES=false)."
+fi
+
+# ---------------------------------------------------------------------------
+# tmux + TPM (Tmux Plugin Manager)
+# ---------------------------------------------------------------------------
+
+# tmux itself is in the core apt packages above; this installs TPM and bootstraps
+# the plugins declared in ~/.tmux.conf. Runs after the dotfiles deploy so the
+# stowed config (with its @plugin lines) is already in place.
+TMUX_SETUP="$(dirname "${BASH_SOURCE[0]:-$0}")/install-tmux.sh"
+if [[ -x "$TMUX_SETUP" ]]; then
+    info "Setting up tmux + TPM..."
+    "$TMUX_SETUP" || warn "tmux/TPM setup reported an error — review the output above."
+else
+    warn "install-tmux.sh not found next to this script — skipping TPM setup."
 fi
 
 # ---------------------------------------------------------------------------
