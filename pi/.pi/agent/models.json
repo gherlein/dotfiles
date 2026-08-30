@@ -1,0 +1,23 @@
+{
+  "providers": {
+    "dgx": {
+      "baseUrl": "http://dgx:8888/v1",
+      "api": "openai-completions",
+      "apiKey": "sglang",
+      "compat": {
+        "supportsDeveloperRole": false,
+        "supportsReasoningEffort": false
+      },
+      "models": [
+        {
+          "id": "qwen3.8-27b-sglang",
+          "name": "Qwen3.8-27B (GX10)",
+          "reasoning": true,
+          "contextWindow": 131072,
+          "maxTokens": 16384,
+          "cost": { "input": 0, "output": 0, "cacheRead": 0, "cacheWrite": 0 }
+        }
+      ]
+    }
+  }
+}

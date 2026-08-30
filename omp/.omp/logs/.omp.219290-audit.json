@@ -1,0 +1,15 @@
+{
+    "keep": {
+        "days": false,
+        "amount": 5
+    },
+    "auditLog": "/home/gherlein/.omp/logs/.omp.219290-audit.json",
+    "files": [
+        {
+            "date": 1788034079595,
+            "name": "/home/gherlein/.omp/logs/omp.2026-08-29.219290.log",
+            "hash": "d1066862ee9a40ea1cc0b5215e4c61d4fbb75585f95d362a74b7bde70cfa6faa"
+        }
+    ],
+    "hashType": "sha256"
+}

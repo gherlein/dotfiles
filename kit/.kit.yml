@@ -75,6 +75,21 @@ mcpServers:
 #       topK: 40
 #       systemPrompt: "You are a helpful local assistant."
 
+# Qwen3.8-27B served by SGLang on the dgx (GX10) box — same backend as hax
+# (hax/.config/hax/config.json). Selected via model: custom/qwen3.8-27b-sglang below.
+customModels:
+  qwen3.8-27b-sglang:
+    name: "Qwen3.8-27B (GX10)"
+    baseUrl: "http://dgx:8888/v1"
+    family: "qwen"
+    temperature: true
+    cost:
+      input: 0.0
+      output: 0.0
+    limit:
+      context: 131072
+      output: 16384
+
 #model: ollama/qwen2.5-coder:32b-instruct-fp16
 #model: ollama/qwen2.5-coder:32b-instruct-q8_0
 #model: ollama/qwen3-coder-next
@@ -83,7 +98,8 @@ mcpServers:
 #temperature: 0.7
 #stream: true
 #auto-compact: true
-model: ollama/qwen3.6:35b-a3b
+#model: ollama/qwen3.6:35b-a3b       # previous local Ollama model (fallback)
+model: custom/qwen3.8-27b-sglang     # matches hax: SGLang on dgx:8888
 max-tokens: 16384        # More room for complex changes
 auto-compact: true       # Trim old history automatically
 thinking-level: minimal  # Quick reasoning without burning tokens

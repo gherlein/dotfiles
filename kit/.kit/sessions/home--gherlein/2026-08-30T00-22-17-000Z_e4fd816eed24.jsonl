@@ -1,0 +1,3 @@
+{"type":"session","version":3,"id":"d65893459e95082400c8c04facd8df47","timestamp":"2026-08-30T00:22:17.994842869Z","cwd":"/home/gherlein"}
+{"type":"message","id":"1982ce2b97106ebe","timestamp":"2026-08-29T17:22:24.56968221-07:00","role":"user","parts":[{"type":"text","data":{"text":"test"}}]}
+{"type":"message","id":"4413e83a129b459f","parent_id":"1982ce2b97106ebe","timestamp":"2026-08-29T17:22:27.665236774-07:00","role":"assistant","parts":[{"type":"text","data":{"text":"\n\nI'm working. What would you like me to help with?"}}]}
