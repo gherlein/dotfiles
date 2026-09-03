@@ -1,0 +1,10 @@
+{
+  "provider": "openai-compatible",
+  "model": "Qwen3.8-27B-GGUF",
+  "providers": {
+    "openai-compatible": {
+      "display_name": "Qwen3.8-27B-GGUF (Lemonade local)",
+      "base_url": "http://localhost:13305/api/v1"
+    }
+  }
+}

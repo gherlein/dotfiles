@@ -1,0 +1,18 @@
+modelRoles: 
+  default: gx10/qwen3.8-27b-sglang:medium
+  smol: gx10/qwen3.8-27b-sglang:low
+  commit: gx10/qwen3.8-27b-sglang:low
+  plan: gx10/qwen3.8-27b-sglang:medium
+  slow: gx10/qwen3.8-27b-sglang:medium
+retry: 
+  modelFallback: false
+disabledProviders: 
+  - anthropic
+  - openai
+  - google
+symbolPreset: unicode
+theme: 
+  dark: titanium
+setupVersion: 2
+composer: 
+  shape: box

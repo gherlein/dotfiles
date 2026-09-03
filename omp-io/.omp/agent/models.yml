@@ -1,0 +1,17 @@
+providers:
+  gx10:
+    baseUrl: http://dgx:8888/v1
+    api: openai-completions          # deliberate — see note
+    auth: none                       # local no-auth server
+    discovery:
+      type: openai-models-list       # auto-reads /v1/models
+    compat:
+      supportsDeveloperRole: false   # SGLang: send system prompt as a system message
+    models:
+      - id: qwen3.8-27b-sglang       # confirm exact id: curl http://<gx10-ip>:8888/v1/models
+        name: Qwen3.8-27B (GX10)
+        reasoning: true
+        input: [text]
+        contextWindow: 262144
+        maxTokens: 32000
+        cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 }

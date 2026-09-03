@@ -1,0 +1,10 @@
+{
+  "provider": "openai-compatible",
+  "model": "qwen3.8-27b-sglang",
+  "providers": {
+    "openai-compatible": {
+      "display_name": "Qwen3.8-27B (GX10)",
+      "base_url": "http://dgx:8888/v1"
+    }
+  }
+}

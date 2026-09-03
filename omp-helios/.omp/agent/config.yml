@@ -1,0 +1,18 @@
+modelRoles:
+  default: lemonade/Qwen3.8-27B-GGUF:medium
+  smol: lemonade/Qwen3.8-27B-GGUF:low
+  commit: lemonade/Qwen3.8-27B-GGUF:low
+  plan: lemonade/Qwen3.8-27B-GGUF:medium
+  slow: lemonade/Qwen3.8-27B-GGUF:medium
+retry:
+  modelFallback: false
+disabledProviders:
+  - anthropic
+  - openai
+  - google
+symbolPreset: unicode
+theme:
+  dark: titanium
+setupVersion: 2
+composer:
+  shape: box

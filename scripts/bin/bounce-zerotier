@@ -1,0 +1,1 @@
+! sudo systemctl restart zerotier-one && sleep 6 && echo "--- bind list ---" && sudo ss -lunp | grep 9993 && echo "--- info ---" && sudo zerotier-cli info && echo "--- networks ---" && sudo zerotier-cli listnetworks

@@ -37,8 +37,8 @@ fzf/.fzf/
 opencode/.local/share/opencode/auth.json
 
 # pi runtime/credential state (not config)
-pi/.pi/agent/auth.json
-pi/.pi/agent/models-store.json
+pi-*/.pi/agent/auth.json
+pi-*/.pi/agent/models-store.json
 
 # LLM context (per global policy)
 .llm/

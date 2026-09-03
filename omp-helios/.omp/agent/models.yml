@@ -1,0 +1,17 @@
+providers:
+  lemonade:
+    baseUrl: http://localhost:13305/api/v1
+    api: openai-completions          # deliberate — see note
+    auth: none                       # local no-auth Lemonade server
+    discovery:
+      type: openai-models-list       # auto-reads /api/v1/models
+    compat:
+      supportsDeveloperRole: false   # llama.cpp: send system prompt as a system message
+    models:
+      - id: Qwen3.8-27B-GGUF         # exact Lemonade registry id: lemonade list
+        name: Qwen3.8-27B-GGUF (Lemonade local)
+        reasoning: true
+        input: [text]
+        contextWindow: 262144
+        maxTokens: 32768
+        cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 }
