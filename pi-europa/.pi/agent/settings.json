@@ -1,3 +1,5 @@
 {
-  "defaultModel": "dgx/qwen3.8-27b-sglang"
+  "defaultModel": "dgx/qwen3.8-27b-sglang",
+  "lastChangelogVersion": "0.84.3",
+  "theme": "dark"
 }
