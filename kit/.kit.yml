@@ -1,0 +1,104 @@
+# KIT Configuration File
+# All command-line flags can be configured here
+
+# MCP Servers configuration (for external tool servers)
+# Core tools (bash, read, write, edit, grep, find, ls) are built-in and always available.
+# Add external MCP servers here for additional tools:
+# mcpServers:
+#   # Local MCP servers - run commands locally via stdio transport
+#   filesystem:
+#     type: "local"
+#     command: ["npx", "@modelcontextprotocol/server-filesystem", "/tmp"]
+#     environment:
+#       DEBUG: "true"
+#   
+#   # Remote MCP servers - connect via StreamableHTTP transport
+#   websearch:
+#     type: "remote"
+#     url: "https://api.example.com/mcp"
+
+mcpServers:
+
+# Application settings (all optional)
+# model: "anthropic/claude-sonnet-4-5-20250929"  # Default model to use
+# max-steps: 10                                # Maximum agent steps (0 for unlimited)
+# debug: false                                 # Enable debug logging
+# system-prompt: "/path/to/system-prompt.txt" # System prompt text file
+
+# Model generation parameters (all optional, apply globally to all models)
+# max-tokens: 4096                             # Maximum tokens in response
+# temperature: 0.7                             # Randomness (0.0-1.0)
+# top-p: 0.95                                  # Nucleus sampling (0.0-1.0)
+# top-k: 40                                    # Top K sampling
+# frequency-penalty: 0.0                        # Penalize frequent tokens (0.0-2.0)
+# presence-penalty: 0.0                         # Penalize present tokens (0.0-2.0)
+# stop-sequences: ["Human:", "Assistant:"]     # Custom stop sequences
+
+# Per-model generation parameter overrides (apply to specific models)
+# These act as model-level defaults — CLI flags and global settings above take precedence.
+# Keys are "provider/model" strings matching the model you use.
+# modelSettings:
+#   anthropic/claude-sonnet-4-5-20250929:
+#     temperature: 0.3
+#     maxTokens: 8192
+#   openai/gpt-4o:
+#     temperature: 0.7
+#     topP: 0.95
+#     topK: 40
+#     frequencyPenalty: 0.1
+#     presencePenalty: 0.1
+#   anthropic/claude-opus-4-6:
+#     thinkingLevel: "high"
+#     maxTokens: 16384
+#     systemPrompt: "You are a deep reasoning assistant."  # or a file path
+
+# Skills configuration (all optional)
+# no-skills: false                          # Set to true to disable all skill loading
+# skill:                                    # Explicit skill files/dirs (disables auto-discovery)
+#   - "/path/to/skill.md"
+# skills-dir: "/path/to/skills"            # Scan this directory directly for skills (overrides auto-discovery)
+# skill-disable:                            # Hide skills from the model catalog by name (still usable via /skill:)
+#   - "some-skill"
+#
+# Skill files follow the agentskills.io spec. A SKILL.md frontmatter block
+# supports these fields:
+#   name: my-skill                          # required
+#   description: Use when ...               # required (basis for model discovery)
+#   license: MIT                            # optional SPDX identifier
+#   compatibility: claude-code, cursor      # optional targeted-environment note
+#   allowed-tools: read, bash               # optional (experimental) tool restriction
+#   disable-model-invocation: false         # optional; true hides from the catalog
+#   metadata:                               # optional arbitrary key/value pairs
+#     author: you
+#   tags: [example]                         # Kit extension
+#   when: on-demand                         # Kit extension
+
+# Internal Core tools
+# no-core-tools: false                     # true: disable all core tools
+# include-core-tools:                      # list of core tool names to include
+# exclude-core-tools:                      # list of core tool name to exclude
+                                           # include-/exclude-core-tools are mutually exclusive
+                                           # no-core-tools has precedence
+
+# API Configuration (can also use environment variables)
+# provider-api-key: "your-api-key"         # API key for OpenAI, Anthropic, or Google
+# provider-url: "https://api.openai.com/v1" # Base URL for OpenAI, Anthropic, or Ollama
+
+# Custom model definitions (under custom/ provider)
+# customModels:
+#   my-local-llama:
+#     name: "Local Llama 3"
+#     baseUrl: "http://localhost:8080/v1"
+#     family: "llama"
+#     temperature: true
+#     cost:
+#       input: 0.0
+#       output: 0.0
+#     limit:
+#       context: 131072
+#       output: 8192
+#     params:                              # Generation parameter defaults for this model
+#       temperature: 0.8
+#       topP: 0.95
+#       topK: 40
+#       systemPrompt: "You are a helpful local assistant."

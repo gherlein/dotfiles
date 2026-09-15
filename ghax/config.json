@@ -1,0 +1,5 @@
+{
+    "provider": "openai-compatible",
+    "model": "qwen3-coder-30b",
+    "providers": { "openai-compatible": { "base_url": "http://dgx:8890/v1" } }
+}
