@@ -1,20 +1,20 @@
 {
   "providers": {
-    "lemonade": {
-      "baseUrl": "http://localhost:13305/api/v1",
+    "dgx": {
+      "baseUrl": "http://dgx:8890/v1",
       "api": "openai-completions",
-      "apiKey": "lemonade",
+      "apiKey": "vllm",
       "compat": {
         "supportsDeveloperRole": false,
         "supportsReasoningEffort": false
       },
       "models": [
         {
-          "id": "Qwen3.8-27B-GGUF",
-          "name": "Qwen3.8-27B-GGUF (Lemonade local)",
+          "id": "qwen3-coder-30b",
+          "name": "Qwen3-Coder-30B (GX10)",
           "reasoning": true,
-          "contextWindow": 262144,
-          "maxTokens": 32768,
+          "contextWindow": 131072,
+          "maxTokens": 16384,
           "cost": { "input": 0, "output": 0, "cacheRead": 0, "cacheWrite": 0 }
         }
       ]

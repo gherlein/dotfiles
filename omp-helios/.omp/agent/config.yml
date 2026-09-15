@@ -1,9 +1,9 @@
 modelRoles:
-  default: lemonade/Qwen3.8-27B-GGUF:medium
-  smol: lemonade/Qwen3.8-27B-GGUF:low
-  commit: lemonade/Qwen3.8-27B-GGUF:low
-  plan: lemonade/Qwen3.8-27B-GGUF:medium
-  slow: lemonade/Qwen3.8-27B-GGUF:medium
+  default: dgx/local-qwen-q8:medium
+  smol: dgx/local-qwen-q8:low
+  commit: dgx/local-qwen-q8:low
+  plan: dgx/local-qwen-q8:medium
+  slow: dgx/local-qwen-q8:medium
 retry:
   modelFallback: false
 disabledProviders:
