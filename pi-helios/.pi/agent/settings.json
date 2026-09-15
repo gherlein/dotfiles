@@ -1,3 +1,5 @@
 {
-  "defaultModel": "lemonade/Qwen3.8-27B-GGUF"
+  "defaultModel": "lemonade/Qwen3.8-27B-GGUF",
+  "lastChangelogVersion": "0.84.4",
+  "theme": "dark"
 }
