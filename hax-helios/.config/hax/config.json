@@ -1,10 +1,12 @@
 {
   "provider": "openai-compatible",
-  "model": "qwen3-coder-30b",
+  "model": "local-qwen",
+  "effort": "off",
   "providers": {
     "openai-compatible": {
-      "display_name": "Qwen3-Coder-30B (GX10)",
-      "base_url": "http://dgx:8890/v1"
+      "display_name": "Qwen3-Coder-30B (dgx litellm -> ollama)",
+      "base_url": "http://dgx:4000/v1",
+      "extra_body": { "temperature": 0.7, "top_p": 0.8, "top_k": 20, "repetition_penalty": 1.05 }
     }
   }
 }

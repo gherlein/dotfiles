@@ -1,9 +1,9 @@
 modelRoles:
-  default: dgx/local-qwen-q8:medium
-  smol: dgx/local-qwen-q8:low
-  commit: dgx/local-qwen-q8:low
-  plan: dgx/local-qwen-q8:medium
-  slow: dgx/local-qwen-q8:medium
+  default: dgx/local-qwen
+  smol: dgx/local-qwen
+  commit: dgx/local-qwen
+  plan: dgx/local-qwen
+  slow: dgx/local-qwen
 retry:
   modelFallback: false
 disabledProviders:

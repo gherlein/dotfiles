@@ -1,0 +1,3 @@
+{"id":"20260918T160817-55d5","cwd":"/home/gherlein/h/src/er/agents/hax","created":"2026-09-18T16:08:17.098879995Z","updated":"2026-09-18T16:08:17.098879995Z","shape":"lead","model":"mock"}
+{"Kind":0,"Text":"say ok","Call":null,"Result":null,"Meta":{"Time":"2026-09-18T09:08:17.098849578-07:00","Usage":{"InputTokens":0,"OutputTokens":0}}}
+{"Kind":1,"Text":"[mock] say ok","Call":null,"Result":null,"Meta":{"Time":"2026-09-18T09:08:17.098870898-07:00","Usage":{"InputTokens":0,"OutputTokens":0}}}

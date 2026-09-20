@@ -1,5 +1,5 @@
 {
-  "defaultModel": "dgx/qwen3-coder-30b",
+  "defaultModel": "dgx/local-qwen",
   "lastChangelogVersion": "0.84.4",
   "theme": "dark"
 }

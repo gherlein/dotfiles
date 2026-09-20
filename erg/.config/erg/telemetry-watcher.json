@@ -1,0 +1,23 @@
+{
+  "default_provider": "dgx",
+  "default_shape": "watcher",
+  "providers": {
+    "dgx": {
+      "type": "local",
+      "base_url": "http://dgx:4000/v1",
+      "model": "local-qwen"
+    }
+  },
+  "shapes": {
+    "watcher": {
+      "loop": "observe",
+      "system": "FILE: /home/gherlein/.config/erg/prompts/watcher.md",
+      "tools": ["read", "bash"],
+      "observe": {
+        "source": { "kind": "stdin" },
+        "trigger": { "kind": "match", "pattern": "(?i)error|fail|critical|panic" },
+        "prompt": "A telemetry line matched:\n{{.Event}}\n\nAssess severity and respond in one line."
+      }
+    }
+  }
+}

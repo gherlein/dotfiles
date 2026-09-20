@@ -1,20 +1,22 @@
 {
   "providers": {
     "dgx": {
-      "baseUrl": "http://dgx:8890/v1",
+      "baseUrl": "http://dgx:4000/v1",
       "api": "openai-completions",
-      "apiKey": "vllm",
+      "apiKey": "litellm",
       "compat": {
         "supportsDeveloperRole": false,
-        "supportsReasoningEffort": false
+        "supportsReasoningEffort": false,
+        "supportsStore": false
       },
       "models": [
         {
-          "id": "qwen3-coder-30b",
-          "name": "Qwen3-Coder-30B (GX10)",
+          "id": "local-qwen",
+          "name": "Qwen3-Coder-30B (dgx litellm -> vLLM)",
           "reasoning": true,
-          "contextWindow": 131072,
-          "maxTokens": 16384,
+          "contextWindow": 262144,
+          "maxTokens": 32000,
+          "samplingParams": { "temperature": 0.7, "top_p": 0.8, "top_k": 20, "repetition_penalty": 1.05 },
           "cost": { "input": 0, "output": 0, "cacheRead": 0, "cacheWrite": 0 }
         }
       ]

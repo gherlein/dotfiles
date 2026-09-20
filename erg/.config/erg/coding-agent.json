@@ -1,0 +1,19 @@
+{
+  "default_provider": "dgx",
+  "default_shape": "coder",
+  "providers": {
+    "dgx": {
+      "type": "local",
+      "base_url": "http://dgx:4000/v1",
+      "model": "local-qwen",
+      "params": { "temperature": 0.2, "top_p": 0.9 }
+    }
+  },
+  "shapes": {
+    "coder": {
+      "loop": "interactive",
+      "system": "FILE: /home/gherlein/.config/erg/prompts/coder.md",
+      "tools": ["read", "write", "edit", "bash", "task"]
+    }
+  }
+}

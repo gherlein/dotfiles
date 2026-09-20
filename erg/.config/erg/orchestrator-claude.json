@@ -1,0 +1,19 @@
+{
+  "default_provider": "dgx",
+  "default_shape": "lead-claude",
+  "providers": {
+    "dgx": {
+      "type": "local",
+      "base_url": "http://dgx:4000/v1",
+      "model": "local-qwen"
+    }
+  },
+  "shapes": {
+    "lead-claude": {
+      "loop": "interactive",
+      "system": "FILE: /home/gherlein/.config/erg/prompts/lead-claude.md",
+      "skills": ["/home/gherlein/.config/erg/skills/claude-orchestration"],
+      "tools": ["read", "bash", "ask"]
+    }
+  }
+}

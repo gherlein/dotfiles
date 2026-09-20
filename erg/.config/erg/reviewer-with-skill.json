@@ -1,0 +1,20 @@
+{
+  "default_provider": "dgx",
+  "default_shape": "reviewer",
+  "providers": {
+    "dgx": {
+      "type": "local",
+      "base_url": "http://dgx:4000/v1",
+      "model": "local-qwen"
+    }
+  },
+  "shapes": {
+    "reviewer": {
+      "loop": "oneshot",
+      "system": "FILE: /home/gherlein/.config/erg/prompts/reviewer.md",
+      "skills": ["/home/gherlein/.config/erg/skills/go-review"],
+      "tools": ["read", "bash"],
+      "max_turns": 40
+    }
+  }
+}

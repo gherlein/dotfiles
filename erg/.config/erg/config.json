@@ -1,0 +1,28 @@
+{
+    "default_provider": "litellm",
+    "default_shape": "local-qwen",
+    "providers": {
+      "litellm": {
+        "type": "openai",
+        "base_url": "http://dgx:4000/v1",
+        "model": "claude-sonnet"
+      }
+    },
+    "shapes": {
+      "claude": {
+        "loop": "interactive",
+        "provider": "litellm",
+        "model": "claude-sonnet"
+      },
+      "oss-cloud": {
+        "loop": "interactive",
+        "provider": "litellm",
+        "model": "gpt-oss-120b-cloud"
+      },
+      "local-qwen": {
+        "loop": "interactive",
+        "provider": "litellm",
+        "model": "local-qwen"
+      }
+    }
+  }

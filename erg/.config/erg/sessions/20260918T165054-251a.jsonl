@@ -1,0 +1,3 @@
+{"id":"20260918T165054-251a","cwd":"/home/gherlein/h/src/er/agents/erg","created":"2026-09-18T16:50:54.487269241Z","updated":"2026-09-18T16:50:54.487269241Z","shape":"lead","model":"mock"}
+{"Kind":0,"Text":"x","Call":null,"Result":null,"Meta":{"Time":"2026-09-18T09:50:54.487226561-07:00","Usage":{"InputTokens":0,"OutputTokens":0}}}
+{"Kind":1,"Text":"[mock] x","Call":null,"Result":null,"Meta":{"Time":"2026-09-18T09:50:54.487260475-07:00","Usage":{"InputTokens":0,"OutputTokens":0}}}

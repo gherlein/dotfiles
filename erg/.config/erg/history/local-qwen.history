@@ -1,0 +1,33 @@
+what is this 
+ERG_CONFIG=examples/orchestrator.json erg --shape lead
+is there a design in this folder on how to minotir if a microphone is active?
+implement this by adding that capability to the existing daemon
+there is a design in this folder on how to minotir if a microphone is active - implement it.  it is   partially implemetned now
+continue
+does it still   call the one script?
+ok, we need to change the params - on any transition it should send one of these four strings:  mic-only-on, cam-only-on, both-on, off corresponding to the condition detected
+inspect the hook script configured in the systemd daemon and decide how to fix it to match the new changes
+if it is mic-only-on then the bulb colorrr should be bright blue - if cam-only-on or both-on then the already defined red, and if off, then the bulb should be off
+I have started a mic recording several times and it has not detected 
+describe this project
+it looks like you are tring to us the camera as a mic
+it is not detecting the microphone when it is in use and lighting the light by calling the script - troooubleshoot and fix 
+helios:~/h/src/er/agents/erg> gocamdet --hook ./my‑light‑script.sh
+flag provided but not defined: -hook
+Usage of gocamdet:
+  -interval duration
+    poll interval in --watch mode (default 2s)
+  -json
+    emit the result as JSON on stdout
+  -script string
+    hook script run on each transition in --watch mode (receives mic-only-on|cam-only-on|both-on|off)
+  -script-timeout duration
+    maximum run time for a --watch hook script (default 30s)
+  -watch
+    run continuously, firing a hook on camera/mic on/off transitions
+helios:~/h/src/er/agents/erg> cb
+helios:~/h/src/er/gocamdet> make build
+go build -o bin/gocamdet ./cmd/gocamdet
+# github.com/gherlein/gocamdet
+./micdet.go:125:18: no new variables on left side of :=
+make: *** [Makefile:30: build] Error 1

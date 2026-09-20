@@ -75,13 +75,12 @@ mcpServers:
 #       topK: 40
 #       systemPrompt: "You are a helpful local assistant."
 
-# Qwen3.8-27B-GGUF served by local Lemonade (llama.cpp, OpenAI-compatible) on
-# localhost:13305 — same backend as hax (hax-helios/.config/hax/config.json).
-# kit lowercases customModels keys, but Lemonade's model id is case-sensitive
-# ("Qwen3.8-27B-GGUF"), so point kit's built-in openai provider at Lemonade via
-# provider-url instead — the id after "openai/" in `model:` is sent verbatim.
-provider-url: "http://localhost:13305/api/v1"   # Lemonade OpenAI-compatible endpoint
-provider-api-key: "lemonade"                    # Lemonade needs no auth; dummy key satisfies the openai client
+# qwen3-coder:30b-a3b-q8_0 served by the dgx litellm proxy (fronting ollama,
+# OpenAI-compatible) at dgx:4000 — same stack as omp-helios/hax-helios/pi-helios.
+# Point kit's built-in openai provider at litellm via provider-url; the id after
+# "openai/" in `model:` (local-qwen) is sent verbatim to litellm.
+provider-url: "http://dgx:4000/v1"              # dgx litellm OpenAI-compatible endpoint
+provider-api-key: "litellm"                     # litellm runs with no auth; dummy key satisfies the openai client
 
 #model: ollama/qwen2.5-coder:32b-instruct-fp16
 #model: ollama/qwen2.5-coder:32b-instruct-q8_0
@@ -92,9 +91,10 @@ provider-api-key: "lemonade"                    # Lemonade needs no auth; dummy 
 #stream: true
 #auto-compact: true
 #model: ollama/qwen3.6:35b-a3b       # previous local Ollama model (fallback)
-model: openai/Qwen3.8-27B-GGUF       # Lemonade on localhost:13305 (see provider-url above)
+model: openai/local-qwen             # dgx litellm -> vLLM qwen3-coder-30b (see provider-url above)
 max-tokens: 32768        # reasoning model — room for thinking + complex changes
 auto-compact: true       # Trim old history automatically
 thinking-level: minimal  # Quick reasoning without burning tokens
-top-p: 0.95             # Stay focused
-temperature: 0.7        # Balanced creativity/reliability
+top-p: 0.8              # Qwen3-Coder recommended — tighter sampling keeps tool-call XML parseable on ollama
+top-k: 20               # Qwen3-Coder recommended (kit has no repetition_penalty knob to match omp/hax/pi's 1.05)
+temperature: 0.7        # Qwen3-Coder recommended

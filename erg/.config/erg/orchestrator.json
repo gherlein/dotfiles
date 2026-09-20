@@ -1,0 +1,19 @@
+{
+  "default_provider": "dgx",
+  "default_shape": "lead",
+  "providers": {
+    "dgx": {
+      "type": "local",
+      "base_url": "http://dgx:4000/v1",
+      "model": "local-qwen"
+    }
+  },
+  "shapes": {
+    "lead": {
+      "loop": "interactive",
+      "system": "FILE: /home/gherlein/.config/erg/prompts/lead.md",
+      "skills": ["/home/gherlein/.config/erg/skills/herdr-orchestration"],
+      "tools": ["read", "list", "glob", "write", "bash", "ask"]
+    }
+  }
+}

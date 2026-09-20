@@ -1,6 +1,6 @@
 providers:
   dgx:
-    baseUrl: http://dgx:4000/v1          # litellm proxy fronting ollama on host dgx
+    baseUrl: http://dgx:4000/v1          # litellm proxy fronting vLLM (port 8890) on host dgx
     api: openai-completions              # litellm is OpenAI chat-completions compatible
     auth: none                           # proxy runs with no master key
     discovery:
@@ -15,8 +15,8 @@ providers:
         contextWindow: 262144
         maxTokens: 32000
         cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 }
-      - id: local-qwen                   # ollama/qwen3-coder:30b, standard quant
-        name: Qwen3-Coder-30B (dgx/litellm)
+      - id: local-qwen                   # vLLM qwen3-coder-30b (port 8890)
+        name: Qwen3-Coder-30B (dgx litellm -> vLLM)
         reasoning: true
         input: [text]
         contextWindow: 262144

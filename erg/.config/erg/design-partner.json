@@ -1,0 +1,24 @@
+{
+  "default_provider": "dgx",
+  "default_shape": "design-partner",
+  "providers": {
+    "dgx": {
+      "type": "local",
+      "base_url": "http://dgx:4000/v1",
+      "model": "local-qwen"
+    }
+  },
+  "shapes": {
+    "design-partner": {
+      "loop": "interactive",
+      "model": "claude-sonnet",
+      "effort": "high",
+      "system": "FILE: /home/gherlein/.config/erg/prompts/design-partner.md",
+      "tools": ["read", "bash"]
+    },
+    "coder": {
+      "loop": "interactive",
+      "system": "FILE: /home/gherlein/.config/erg/prompts/coder.md"
+    }
+  }
+}
