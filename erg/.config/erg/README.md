@@ -4,6 +4,16 @@ Ready-to-copy configs, each describing one or more **shapes**. A shape is a name
 the one erg engine what job to be (loop mode, provider, model, system prompt, tools, skills). See
 [../DESIGN.md](../DESIGN.md#7-configuration-and-shapes) for the full setting reference.
 
+## Quick reference
+
+```sh
+erg --shape claude              # sonnet via LiteLLM, same config.json
+erg --shape oss-cloud           # gpt-oss-120b-cloud
+ERG_CONFIG=~/.config/erg/coding-agent.json erg --shape coder   # a different config file entirely
+erg --model <name>              # one-off model override
+erg -l                          # list every config file + its shapes
+```
+
 ## Running an example
 
 Point `ERG_CONFIG` at one of these files. Paths inside the configs (the `FILE:` prompts and the

@@ -200,6 +200,7 @@ sudo apt-get install -y \
     lsb-release \
     mg \
     micro \
+    mosh \
     podman \
     protobuf-compiler \
     python3-setuptools \
