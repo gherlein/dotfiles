@@ -190,6 +190,7 @@ sudo apt-get install -y \
     emacs-nox \
     expect \
     ffmpeg \
+    file \
     git \
     git-lfs \
     gnupg \
@@ -202,6 +203,7 @@ sudo apt-get install -y \
     micro \
     mosh \
     podman \
+    procps \
     protobuf-compiler \
     python3-setuptools \
     python3-wheel \
@@ -234,6 +236,26 @@ if ! command -v gh &>/dev/null; then
     ok "GitHub CLI installed."
 else
     info "GitHub CLI already installed: $(gh --version | head -1)"
+fi
+
+# ---------------------------------------------------------------------------
+# Homebrew (Linux)
+# ---------------------------------------------------------------------------
+
+# Homebrew officially supports only x86_64 Linux; on ARM it builds every
+# formula from source (slow and frequently broken on a Pi), so restrict to
+# amd64. NONINTERACTIVE=1 lets the upstream installer run unattended (-y mode).
+if [[ "$ARCH" == "amd64" ]]; then
+    info "Installing Homebrew..."
+    if [[ ! -x /home/linuxbrew/.linuxbrew/bin/brew ]]; then
+        NONINTERACTIVE=1 /bin/bash -c \
+            "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+        ok "Homebrew installed to /home/linuxbrew/.linuxbrew"
+    else
+        info "Homebrew already installed."
+    fi
+else
+    info "Homebrew: skipping (x86_64/amd64 only; ARM builds every formula from source)."
 fi
 
 # ---------------------------------------------------------------------------
@@ -424,6 +446,13 @@ if command -v claude &>/dev/null || [[ -x "$HOME/.local/bin/claude" ]]; then
     info "Claude Code already installed."
 else
     curl -fsSL https://claude.ai/install.sh | bash
+fi
+
+info "Installing herdr (coding-agent runtime)..."
+if command -v herdr &>/dev/null || [[ -x "$HOME/.local/bin/herdr" ]]; then
+    info "herdr already installed."
+else
+    curl -fsSL https://herdr.dev/install.sh | sh
 fi
 
 info "Installing pnpm..."
