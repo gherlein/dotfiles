@@ -835,6 +835,22 @@ if command -v kitty &>/dev/null && command -v gsettings &>/dev/null; then
 fi
 
 # ---------------------------------------------------------------------------
+# Big Terminal launcher shortcut (Ctrl-Shift-K)
+# ---------------------------------------------------------------------------
+
+# Binds Ctrl-Shift-K to the resolution-aware big-terminal launcher and disables
+# GNOME auto-maximize so the requested size is honored. Runs inside the GUI gate
+# because it needs a GNOME session (gsettings) and the stowed ~/bin symlink
+# deployed above.
+BIG_TERM_SETUP="$(dirname "${BASH_SOURCE[0]:-$0}")/install-big-terminal-shortcut.sh"
+if [[ -x "$BIG_TERM_SETUP" ]]; then
+    info "Installing big-terminal shortcut (Ctrl-Shift-K)..."
+    "$BIG_TERM_SETUP" || warn "big-terminal shortcut setup reported an error — review the output above."
+else
+    warn "install-big-terminal-shortcut.sh not found next to this script — skipping."
+fi
+
+# ---------------------------------------------------------------------------
 # PipeWire (replace PulseAudio — desktop systems only)
 # ---------------------------------------------------------------------------
 
