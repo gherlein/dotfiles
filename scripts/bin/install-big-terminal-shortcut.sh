@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Bind Shift-Ctrl-K to the resolution-aware big-terminal launcher.
+# Bind Ctrl-Shift-K to the resolution-aware big-terminal launcher, and leave
+# GNOME's built-in terminal launcher on its default Ctrl-Alt-T.
 # Idempotent: preserves any other existing custom keybindings.
 set -euo pipefail
 
@@ -15,7 +16,10 @@ if [ ! -x "$SCRIPT_TARGET" ]; then
   exit 1
 fi
 
-# 1. Add our key to the custom-keybindings list without dropping existing ones.
+# 1. Restore GNOME's built-in terminal launcher to its default Ctrl-Alt-T.
+gsettings reset "$SCHEMA_MEDIA" terminal
+
+# 2. Add our key to the custom-keybindings list without dropping existing ones.
 current=$(gsettings get "$SCHEMA_MEDIA" custom-keybindings)
 if printf '%s' "$current" | grep -q "$KEY"; then
   new_list="$current"
@@ -27,11 +31,17 @@ else
 fi
 gsettings set "$SCHEMA_MEDIA" custom-keybindings "$new_list"
 
-# 2. Configure the shortcut.
+# 3. Configure the shortcut.
 path="${SCHEMA_CUSTOM}:${KEY}"
 gsettings set "$path" name 'Big Terminal'
 gsettings set "$path" command "$SCRIPT_TARGET"
 gsettings set "$path" binding '<Control><Shift>k'
 
-echo "Done. Shift-Ctrl-K now runs: $SCRIPT_TARGET"
+# 4. Disable auto-maximize so the launcher's requested size is honored; with it
+# enabled GNOME snaps a near-monitor-sized new window to full screen.
+gsettings set org.gnome.mutter auto-maximize false
+
+echo "Done. Ctrl-Shift-K now runs: $SCRIPT_TARGET"
+echo "Ctrl-Alt-T restored to GNOME's built-in terminal."
+echo "GNOME auto-maximize disabled (windows no longer auto-maximize on open)."
 echo "custom-keybindings = $(gsettings get "$SCHEMA_MEDIA" custom-keybindings)"
