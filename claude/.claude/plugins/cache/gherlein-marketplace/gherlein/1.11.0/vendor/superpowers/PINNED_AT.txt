@@ -1,0 +1,10 @@
+obra/superpowers @ f268f7c953744036f0fa7e9d4b73535c04e57cb8
+committed: 2026-06-30T11:29:15-07:00
+vendored: 2026-07-01
+source: https://github.com/obra/superpowers
+license: MIT (see LICENSE)
+
+This tree is a PRISTINE, unmodified snapshot of the upstream skills used as the
+attribution baseline and the diff target for controlled refreshes. Do not edit
+files here. To refresh, replace this snapshot with a newer reviewed upstream
+commit and update this file, NOTICE.md, and the per-skill source: frontmatter.

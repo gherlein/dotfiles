@@ -1,0 +1,18 @@
+{
+  "claude-plugins-official": {
+    "source": {
+      "source": "github",
+      "repo": "anthropics/claude-plugins-official"
+    },
+    "installLocation": "/home/gherlein/.claude/plugins/marketplaces/claude-plugins-official",
+    "lastUpdated": "2026-09-24T12:28:14.627Z"
+  },
+  "gherlein-marketplace": {
+    "source": {
+      "source": "github",
+      "repo": "gherlein/gherlein-claude-plugin"
+    },
+    "installLocation": "/home/gherlein/.claude/plugins/marketplaces/gherlein-marketplace",
+    "lastUpdated": "2026-09-24T12:20:31.644Z"
+  }
+}

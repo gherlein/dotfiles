@@ -1,0 +1,19 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "gherlein-marketplace",
+  "description": "Greg Herlein's engineering discipline skills for Claude Code",
+  "owner": {
+    "name": "Greg Herlein",
+    "email": "gherlein@herlein.com"
+  },
+  "plugins": [
+    {
+      "name": "gherlein",
+      "description": "Engineering discipline skills: planning, code quality, Go, TypeScript, PostgreSQL, git workflow, debugging.",
+      "author": {
+        "name": "Greg Herlein"
+      },
+      "source": "./"
+    }
+  ]
+}
