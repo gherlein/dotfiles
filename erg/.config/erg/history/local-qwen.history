@@ -35,3 +35,5 @@ on ubuntu server how to disable wifi off from the command line
 does sudo rfkill block wifi last through a reboot
 code to gogl is in this folder but helios:~/h/src/er/gogl> gogl clients listpassword for 192.168.8.1:gogl: gogl: list clients: gogl: unauthorized: gogl: login failed: Access denied (code -32000)  tried username "root" with a 4-character password from GL_PASSWORD  if that length is not what you expect, GL_PASSWORD holds something other than what you sethelios:~/h/src/er/gogl> gogl clients listpassword for 192.168.8.1:gogl: gogl: list clients: gogl: decode clients.get_list result: json: cannot unmarshal string into Go struct field Client.clients.total_tx of type uint64helios:~/h/src/er/gogl>
 what was different in the newer firmware version
+what ollama and litellm are youy using?
+describe all the scripts in this folder

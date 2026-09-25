@@ -4,7 +4,7 @@
     "providers": {
       "litellm": {
         "type": "openai",
-        "base_url": "http://dgx:4000/v1",
+        "base_url": "http://localhost:4000/v1",
         "model": "claude-sonnet"
       }
     },
@@ -23,6 +23,14 @@
         "loop": "interactive",
         "provider": "litellm",
         "model": "local-qwen"
+      },
+      "worker": {
+        "loop": "oneshot",
+        "provider": "litellm",
+        "model": "local-qwen",
+        "system": "You are a focused subagent. Do exactly what the task prompt asks using your tools, then reply with a concise result and nothing else.",
+        "tools": ["read", "list", "glob"],
+        "max_turns": 12
       }
     }
   }

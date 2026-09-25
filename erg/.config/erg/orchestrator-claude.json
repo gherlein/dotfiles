@@ -4,7 +4,7 @@
   "providers": {
     "dgx": {
       "type": "local",
-      "base_url": "http://dgx:4000/v1",
+      "base_url": "http://localhost:4000/v1",
       "model": "local-qwen"
     }
   },
