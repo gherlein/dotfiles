@@ -1,7 +1,12 @@
 #!/bin/sh
-# cb — copy to the system clipboard, including over SSH.
+# cb — copy to the system clipboard, including over SSH and from herdr panes.
 #
-#   cb                  copy this window's screen + scrollback (local only)
+#   cb                  copy this terminal's screen + scrollback (local only)
+#   cb [source]         inside a herdr pane, choose the snapshot source
+#                       (visible|recent|recent-unwrapped|detection;
+#                        default recent-unwrapped — recent output, rejoined)
+#   cb --current [src]  copy herdr's *focused* pane even when cb is launched
+#                       outside it (e.g. from a kitty keybinding)
 #   some-command | cb   copy piped text (works anywhere, including over SSH)
 #
 # WHY kitten clipboard instead of wl-copy/pbcopy/xclip: those talk to the local
@@ -9,25 +14,61 @@
 # fail outright where there is no display. kitten clipboard writes an OSC 52
 # escape to the tty, which travels back over the connection to the terminal
 # actually in front of you. Same reason it survives tmux.
+#
+# WHY the herdr branch: inside a herdr pane, kitty only sees herdr's single
+# composited surface, so `kitten @ get-text` grabs the whole window rather than
+# the focused pane. herdr knows each pane's logical buffer, so ask it instead.
+# HERDR_PANE_ID is exported into the pane's shell, so it is present when cb is
+# typed at the prompt. --current covers the key-launch case, where cb runs as a
+# child of kitty and does not inherit it; it is opt-in because `herdr pane
+# current` returns herdr's focused pane even from an unrelated terminal, which
+# would copy the wrong pane if used automatically.
 
 set -eu
 
-# ── pick the text ────────────────────────────────────────────────────────────
+# ── args ──────────────────────────────────────────────────────────────────────
+current=0
+if [ "${1:-}" = "--current" ] || [ "${1:-}" = "-c" ]; then
+    current=1
+    shift
+fi
+source="${1:-recent-unwrapped}"
+
+# ── pick the text ─────────────────────────────────────────────────────────────
 if [ -t 0 ]; then
-    # WHY this leg is local-only: get-text needs kitty's remote-control socket,
-    # which a remote host has no way to reach. Over SSH, pipe into cb instead.
-    text=$(kitten @ get-text --extent all 2>/dev/null) \
-        || text=$(kitty @ get-text --extent all 2>/dev/null) \
-        || {
-            echo "cb: nothing on stdin and kitty remote control is unavailable." >&2
-            echo "cb: over SSH, pipe the text in:  some-command | cb" >&2
+    # Resolve a herdr pane id: the env var when cb is typed in the pane's shell,
+    # or (with --current) the focused pane when cb is launched outside it.
+    pane=""
+    if command -v herdr >/dev/null 2>&1; then
+        if [ -n "${HERDR_PANE_ID:-}" ]; then
+            pane="$HERDR_PANE_ID"
+        elif [ "$current" -eq 1 ] && command -v jq >/dev/null 2>&1; then
+            pane=$(herdr pane current 2>/dev/null | jq -r '.result.pane.pane_id // empty') || pane=""
+        fi
+    fi
+
+    if [ -n "$pane" ]; then
+        if ! text=$(herdr pane read "$pane" --source "$source" --format text 2>/dev/null); then
+            echo "cb: 'herdr pane read $pane --source $source' failed" >&2
             exit 1
-        }
+        fi
+    else
+        # WHY this leg is local-only: get-text needs kitty's remote-control
+        # socket, which a remote host has no way to reach. Over SSH, pipe into
+        # cb instead.
+        text=$(kitten @ get-text --extent all 2>/dev/null) \
+            || text=$(kitty @ get-text --extent all 2>/dev/null) \
+            || {
+                echo "cb: nothing on stdin and kitty remote control is unavailable." >&2
+                echo "cb: over SSH, pipe the text in:  some-command | cb" >&2
+                exit 1
+            }
+    fi
 else
     text=$(cat)
 fi
 
-# ── copy it ──────────────────────────────────────────────────────────────────
+# ── copy it ───────────────────────────────────────────────────────────────────
 # WHY this order: OSC 52 routes to the real terminal, so it is correct both
 # locally and over SSH. The display-server tools are only a fallback for
 # terminals that ignore OSC 52.
