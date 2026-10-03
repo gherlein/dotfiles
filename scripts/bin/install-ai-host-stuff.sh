@@ -121,7 +121,9 @@ install -d -m 0755 "$OVERRIDE_DIR"
     printf 'Environment="OLLAMA_NUM_PARALLEL=1"\n'
     printf 'Environment="OLLAMA_MAX_LOADED_MODELS=1"\n'
     printf 'Environment="OLLAMA_CONTEXT_LENGTH=262144"\n'
-    printf 'Environment="OLLAMA_HOST=0.0.0.0:11434"\n'
+    # Loopback only: nothing cross-host talks to Ollama directly (the fleet goes
+    # through LiteLLM on :4000); the LiteLLM container reaches it via host networking.
+    printf 'Environment="OLLAMA_HOST=127.0.0.1:11434"\n'
     if [[ "$GPU_VENDOR" == "amd" && -n "$HSA_OVERRIDE_GFX_VERSION" ]]; then
         printf 'Environment="HSA_OVERRIDE_GFX_VERSION=%s"\n' "$HSA_OVERRIDE_GFX_VERSION"
     fi
@@ -226,7 +228,7 @@ model_list:
   - model_name: local-qwen
     litellm_params:
       model: ollama_chat/qwen3-coder-next:q4_K_M
-      api_base: http://host.docker.internal:11434
+      api_base: http://127.0.0.1:11434
       num_ctx: 262144
   - model_name: claude-sonnet
     litellm_params:
@@ -269,10 +271,13 @@ if docker ps -a --format '{{.Names}}' | grep -qx "$LITELLM_CONTAINER"; then
 fi
 
 log "Launching LiteLLM container on :$LITELLM_PORT"
+# Host networking so the container reaches Ollama on 127.0.0.1:11434 while still
+# serving the fleet on :$LITELLM_PORT. NOTE: LiteLLM has no auth here, so anyone
+# on the LAN who reaches this port can spend the keys in $ENV_FILE. Set
+# LITELLM_MASTER_KEY in that file (and in each client config) to require a key.
 docker run -d --name "$LITELLM_CONTAINER" \
-    -p "$LITELLM_PORT:$LITELLM_PORT" \
+    --network host \
     --restart unless-stopped \
-    --add-host host.docker.internal:host-gateway \
     --env-file "$ENV_FILE" \
     -v "$CONFIG_FILE:/app/config.yaml" \
     "$LITELLM_IMAGE" \
@@ -284,7 +289,7 @@ docker run -d --name "$LITELLM_CONTAINER" \
 log "Done"
 cat <<EOF
 
-  Ollama:  http://0.0.0.0:11434   (model: $MODEL)
+  Ollama:  http://127.0.0.1:11434   (model: $MODEL)
   GPU:     $GPU_VENDOR${HSA_OVERRIDE_GFX_VERSION:+ (HSA_OVERRIDE_GFX_VERSION=$HSA_OVERRIDE_GFX_VERSION)}
   LiteLLM: http://0.0.0.0:$LITELLM_PORT   (container: $LITELLM_CONTAINER)
   Config:  $CONFIG_FILE
