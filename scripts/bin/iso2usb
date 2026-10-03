@@ -1,0 +1,89 @@
+#!/usr/bin/env bash
+# Write an ISO image to a USB drive as a raw, bootable copy (Balena Etcher, CLI-style).
+# Writes the whole image to the whole device, shows progress, then verifies by
+# reading the bytes back and comparing SHA-256. Modern distro ISOs are hybrid
+# images that carry their own boot sectors, so a raw copy is bootable as-is.
+
+set -euo pipefail
+
+ISO="${1:-}"
+DEVICE="${2:-}"
+
+if [[ -z "$ISO" || -z "$DEVICE" ]]; then
+    echo "Usage: $0 <iso-path> <usb-device>   (e.g. ubuntu.iso /dev/sdb)"
+    echo "  Writes the whole device, not a partition. Pass /dev/sdb, not /dev/sdb1."
+    exit 1
+fi
+
+if [[ ! -f "$ISO" ]]; then
+    echo "Error: ISO file not found: $ISO"
+    exit 1
+fi
+
+if [[ ! -b "$DEVICE" ]]; then
+    echo "Error: $DEVICE is not a block device"
+    exit 1
+fi
+
+# Refuse a partition (trailing digit, or 'p<digit>' for nvme/mmc). Etcher writes whole disks.
+if [[ "$DEVICE" =~ [0-9]$ ]]; then
+    echo "Error: $DEVICE looks like a partition. Pass the whole disk (e.g. /dev/sdb)."
+    exit 1
+fi
+
+# Guard against writing the disk that holds the running system.
+ROOT_SRC="$(findmnt -no SOURCE / 2>/dev/null || true)"
+ROOT_DISK="$(lsblk -no PKNAME "$ROOT_SRC" 2>/dev/null | head -1 || true)"
+if [[ -n "$ROOT_DISK" && "/dev/$ROOT_DISK" == "$DEVICE" ]]; then
+    echo "Error: $DEVICE is the system disk. Refusing to write."
+    exit 1
+fi
+
+ISO_BYTES="$(stat -c %s "$ISO")"
+DEV_BYTES="$(sudo blockdev --getsize64 "$DEVICE")"
+
+if (( ISO_BYTES > DEV_BYTES )); then
+    echo "Error: ISO ($ISO_BYTES bytes) is larger than $DEVICE ($DEV_BYTES bytes)."
+    exit 1
+fi
+
+echo "==> Target device:"
+lsblk -o NAME,SIZE,MODEL,TRAN,MOUNTPOINTS "$DEVICE"
+echo
+echo "    ISO:    $ISO ($(numfmt --to=iec "$ISO_BYTES"))"
+echo "    Device: $DEVICE ($(numfmt --to=iec "$DEV_BYTES"))"
+echo
+echo "WARNING: This will PERMANENTLY ERASE all data on $DEVICE"
+read -rp "Type YES to continue: " confirm
+[[ "$confirm" == "YES" ]] || { echo "Aborted."; exit 1; }
+
+echo "==> Unmounting any mounted partitions on $DEVICE..."
+while IFS= read -r mp; do
+    [[ -n "$mp" ]] && sudo umount "$mp" && echo "    unmounted $mp"
+done < <(lsblk -lno MOUNTPOINT "$DEVICE" | grep -v '^$' || true)
+
+echo "==> Writing image to $DEVICE..."
+if command -v pv >/dev/null 2>&1; then
+    pv -s "$ISO_BYTES" "$ISO" | sudo dd of="$DEVICE" bs=4M conv=fsync iflag=fullblock 2>/dev/null
+else
+    sudo dd if="$ISO" of="$DEVICE" bs=4M conv=fsync status=progress
+fi
+
+echo "==> Flushing buffers..."
+sync
+sudo blockdev --flushbufs "$DEVICE"
+
+echo "==> Verifying written data..."
+ISO_HASH="$(sha256sum "$ISO" | awk '{print $1}')"
+DEV_HASH="$(sudo dd if="$DEVICE" bs=4M iflag=count_bytes count="$ISO_BYTES" status=none | sha256sum | awk '{print $1}')"
+
+echo "    ISO    SHA-256: $ISO_HASH"
+echo "    Device SHA-256: $DEV_HASH"
+
+if [[ "$ISO_HASH" == "$DEV_HASH" ]]; then
+    echo "==> SUCCESS: $DEVICE is a verified, bootable copy of $ISO"
+    sudo eject "$DEVICE" 2>/dev/null && echo "    ejected $DEVICE"
+else
+    echo "==> FAILURE: verification mismatch. The drive may be faulty or the write was interrupted."
+    exit 1
+fi

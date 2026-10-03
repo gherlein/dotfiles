@@ -1,0 +1,192 @@
+#!/bin/bash
+
+set -euo pipefail
+
+RELEASE_BASE_URL="https://codeberg.org/GramEditor/gram/releases/download"
+DEFAULT_SSH_PORT=22
+REMOTE_SERVER_DIR=".gram_server"
+
+usage() {
+    cat >&2 <<'EOF'
+Usage: grams [options] <hostname> <path-relative-to-home> [port]
+       grams --bootstrap <hostname> [port]
+
+Opens a path on a remote host in Gram over SSH. Gram requires a remote server
+binary on the host whose version exactly matches the local client, and it does
+not upload one itself, so this installs the matching binary when it is missing.
+
+Options:
+      --bootstrap   Install/verify the remote server, then exit without opening.
+      --force       Reinstall the remote server even when already present.
+      --no-create   Fail when the path does not exist, instead of creating it.
+  -h, --help        Show this help.
+
+Environment:
+  GRAM_CHANNEL      Release channel of the remote server binary. Default: stable.
+EOF
+    exit 1
+}
+
+BOOTSTRAP_ONLY=false
+FORCE_INSTALL=false
+CREATE_MISSING_PATH=true
+
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --bootstrap) BOOTSTRAP_ONLY=true; shift ;;
+        --force) FORCE_INSTALL=true; shift ;;
+        --no-create) CREATE_MISSING_PATH=false; shift ;;
+        -h|--help) usage ;;
+        --) shift; break ;;
+        -*) echo "grams: unknown option: $1" >&2; usage ;;
+        *) break ;;
+    esac
+done
+
+if [[ "$BOOTSTRAP_ONLY" == true ]]; then
+    [[ $# -ge 1 && $# -le 2 ]] || usage
+    HOST="$1"
+    INPUT_PATH=""
+    PORT="${2:-$DEFAULT_SSH_PORT}"
+else
+    [[ $# -ge 2 && $# -le 3 ]] || usage
+    HOST="$1"
+    INPUT_PATH="$2"
+    PORT="${3:-$DEFAULT_SSH_PORT}"
+fi
+
+REMOTE_USER=$(id -un)
+CHANNEL="${GRAM_CHANNEL:-stable}"
+SSH_TARGET="$REMOTE_USER@$HOST"
+
+# Remote commands embed paths inside single quotes, which a quote in the path
+# would break out of.
+assert_quote_safe() {
+    local value="$1" description="$2"
+    if [[ "$value" == *"'"* ]]; then
+        echo "grams: $description must not contain a single quote: $value" >&2
+        exit 1
+    fi
+}
+
+# `gram --version` prints e.g. "Gram 3.2.0 (f919fd7...) - /usr/libexec/gram-editor"
+local_gram_version() {
+    local version
+    version=$(gram --version | awk '{print $2}')
+    if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+ ]]; then
+        echo "grams: could not parse a version from 'gram --version'" >&2
+        exit 1
+    fi
+    printf '%s' "$version"
+}
+
+# The macOS asset is published as "remote_server" while Linux uses
+# "remote-server"; this mismatch is upstream, not a typo here.
+remote_server_asset() {
+    local operating_system="$1" architecture="$2" version="$3"
+    case "$operating_system" in
+        Linux) printf 'gram-remote-server-linux-%s-%s.gz' "$architecture" "$version" ;;
+        Darwin) printf 'gram-remote_server-macos-%s-%s.gz' "$architecture" "$version" ;;
+        *) echo "grams: unsupported remote operating system: $operating_system" >&2; exit 1 ;;
+    esac
+}
+
+run_ssh() {
+    ssh -p "$PORT" "$SSH_TARGET" "$@"
+}
+
+VERSION=$(local_gram_version)
+REMOTE_SERVER_BINARY="$REMOTE_SERVER_DIR/gram-remote-server-$CHANNEL-$VERSION"
+assert_quote_safe "$REMOTE_SERVER_BINARY" "remote server path"
+
+if [[ -n "$INPUT_PATH" ]]; then
+    # Accept an absolute home path or a ~/ prefix as well as a bare relative path.
+    SUBPATH="${INPUT_PATH/#\~\//}"
+    SUBPATH="${SUBPATH/#\/home\/$REMOTE_USER\//}"
+    SUBPATH="${SUBPATH/#\/Users\/$REMOTE_USER\//}"
+    REMOTE_PATH="/home/$REMOTE_USER/$SUBPATH"
+    assert_quote_safe "$REMOTE_PATH" "remote path"
+else
+    REMOTE_PATH=""
+fi
+
+probe_remote() {
+    local path_probe="echo path-skipped"
+    if [[ -n "$REMOTE_PATH" ]]; then
+        path_probe="if [ -e '$REMOTE_PATH' ]; then echo path-present; else echo path-missing; fi"
+    fi
+    run_ssh "uname -s
+             uname -m
+             if [ -x \"\$HOME/$REMOTE_SERVER_BINARY\" ]; then echo server-present; else echo server-missing; fi
+             $path_probe"
+}
+
+install_remote_server() {
+    local url="$1"
+    local remote_install="
+        set -eu
+        mkdir -p \"\$HOME/$REMOTE_SERVER_DIR\"
+        curl -fsSL '$url' | gunzip > \"\$HOME/$REMOTE_SERVER_BINARY.part\"
+        chmod +x \"\$HOME/$REMOTE_SERVER_BINARY.part\"
+        mv \"\$HOME/$REMOTE_SERVER_BINARY.part\" \"\$HOME/$REMOTE_SERVER_BINARY\"
+    "
+
+    echo "grams: installing remote server $CHANNEL-$VERSION on $HOST" >&2
+    if run_ssh "$remote_install"; then
+        return 0
+    fi
+
+    # The host may have no route to the internet; relay the download instead.
+    echo "grams: remote download failed, relaying through this machine" >&2
+    local relay_install="
+        set -eu
+        mkdir -p \"\$HOME/$REMOTE_SERVER_DIR\"
+        gunzip > \"\$HOME/$REMOTE_SERVER_BINARY.part\"
+        chmod +x \"\$HOME/$REMOTE_SERVER_BINARY.part\"
+        mv \"\$HOME/$REMOTE_SERVER_BINARY.part\" \"\$HOME/$REMOTE_SERVER_BINARY\"
+    "
+    curl -fL --progress-bar "$url" | run_ssh "$relay_install"
+}
+
+# Gram opens a remote path as a worktree root, which requires the path to already
+# exist; unlike a local path it does not fall back to an unsaved buffer.
+create_remote_path() {
+    if [[ "$CREATE_MISSING_PATH" != true ]]; then
+        echo "grams: $REMOTE_PATH does not exist on $HOST" >&2
+        exit 1
+    fi
+    echo "grams: creating $REMOTE_PATH on $HOST" >&2
+    case "$REMOTE_PATH" in
+        */) run_ssh "mkdir -p '$REMOTE_PATH'" ;;
+        *) run_ssh "mkdir -p \"\$(dirname '$REMOTE_PATH')\" && touch '$REMOTE_PATH'" ;;
+    esac
+}
+
+mapfile -t PROBE < <(probe_remote)
+if [[ ${#PROBE[@]} -ne 4 ]]; then
+    echo "grams: unexpected probe response from $HOST: ${PROBE[*]-}" >&2
+    exit 1
+fi
+REMOTE_OS="${PROBE[0]}"
+REMOTE_ARCH="${PROBE[1]}"
+SERVER_STATE="${PROBE[2]}"
+PATH_STATE="${PROBE[3]}"
+
+if [[ "$SERVER_STATE" == "server-missing" || "$FORCE_INSTALL" == true ]]; then
+    ASSET=$(remote_server_asset "$REMOTE_OS" "$REMOTE_ARCH" "$VERSION")
+    install_remote_server "$RELEASE_BASE_URL/$VERSION/$ASSET"
+fi
+
+if [[ "$BOOTSTRAP_ONLY" == true ]]; then
+    echo "grams: $HOST has remote server $CHANNEL-$VERSION"
+    exit 0
+fi
+
+if [[ "$PATH_STATE" == "path-missing" ]]; then
+    create_remote_path
+fi
+
+CONNECTION="ssh://$SSH_TARGET:$PORT$REMOTE_PATH"
+
+echo "Running: gram $CONNECTION"
+gram "$CONNECTION"

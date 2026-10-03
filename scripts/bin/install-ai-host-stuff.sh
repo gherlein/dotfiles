@@ -1,0 +1,298 @@
+#!/usr/bin/env bash
+#
+# install-ai-host-stuff.sh
+# Installs and configures the AI-host stack (Ollama + LiteLLM) to match dgx.
+#
+#   - Ollama via the official installer, with a systemd override tuned for
+#     large-context single-model serving on 0.0.0.0:11434
+#   - GPU enablement, detected per host: NVIDIA (CUDA, auto-detected by ollama)
+#     or AMD (ROCm; pins HSA_OVERRIDE_GFX_VERSION so ollama's bundled ROCm
+#     recognizes newer targets such as gfx1151 / Strix Halo)
+#   - The qwen3-coder-next:q4_K_M model (pulled from the public registry)
+#   - LiteLLM as a Docker container on :4000, proxying local Ollama plus
+#     Anthropic and ollama.com cloud models
+#
+# Usage: sudo ./install-ai-host-stuff.sh
+#
+# The AMD gfx override is auto-derived from rocminfo; force a value by exporting
+# HSA_OVERRIDE_GFX_VERSION before running (e.g. HSA_OVERRIDE_GFX_VERSION=11.0.0).
+#
+# Secrets are never baked in: ~/litellm/.env is created as an empty template
+# if missing. Fill in the keys, then restart the container (see final notes).
+
+set -euo pipefail
+
+MODEL="qwen3-coder-next:q4_K_M"
+LITELLM_IMAGE="ghcr.io/berriai/litellm:main-stable"
+LITELLM_PORT="4000"
+LITELLM_CONTAINER="litellm"
+
+REAL_USER="${SUDO_USER:-$USER}"
+REAL_HOME="$(getent passwd "$REAL_USER" | cut -d: -f6)"
+LITELLM_DIR="$REAL_HOME/litellm"
+CONFIG_FILE="$LITELLM_DIR/config.yaml"
+ENV_FILE="$LITELLM_DIR/.env"
+
+# For AMD/ROCm hosts, ollama's bundled ROCm may not recognize the exact gfx
+# target, so HSA_OVERRIDE_GFX_VERSION pins it to a value ROCm understands.
+# Empty means auto-derive from rocminfo; export a value to force it.
+HSA_OVERRIDE_GFX_VERSION="${HSA_OVERRIDE_GFX_VERSION:-}"
+
+# Populated by detect_gpu: "nvidia", "amd", or "none".
+GPU_VENDOR="none"
+
+log()  { printf '\n\033[1;32m==> %s\033[0m\n' "$1"; }
+warn() { printf '\033[1;33mWARN: %s\033[0m\n' "$1" >&2; }
+fail() { printf '\033[1;31mERROR: %s\033[0m\n' "$1" >&2; exit 1; }
+
+# gfx target -> HSA_OVERRIDE_GFX_VERSION: last hex char is the step, the next is
+# the minor, the rest is the major (gfx1151 -> 11.5.1, gfx1030 -> 10.3.0).
+gfx_to_hsa_version() {
+    local gfx="${1#gfx}"
+    [[ ${#gfx} -ge 3 ]] || return 1
+    printf '%s.%s.%s' "${gfx:0:${#gfx}-2}" "${gfx: -2:1}" "${gfx: -1}"
+}
+
+# Detect the accelerator so the override and later checks can be GPU-aware.
+# Detection uses sysfs/dev paths and absolute binaries rather than tools on
+# PATH, because sudo's restricted secure_path often omits /usr/sbin (lsmod) and
+# /opt/rocm/bin (rocminfo), which would otherwise hide the GPU.
+detect_gpu() {
+    if [[ -e /proc/driver/nvidia/version ]] || command -v nvidia-smi >/dev/null 2>&1; then
+        GPU_VENDOR="nvidia"
+        log "Detected NVIDIA GPU (ollama auto-detects CUDA; no extra env needed)"
+        return
+    fi
+
+    # amdgpu kernel module plus a ROCm compute node (/dev/kfd) or userspace.
+    if [[ -d /sys/module/amdgpu ]] && { [[ -e /dev/kfd ]] || [[ -d /opt/rocm ]]; }; then
+        GPU_VENDOR="amd"
+        if [[ -z "$HSA_OVERRIDE_GFX_VERSION" ]]; then
+            local rocminfo_bin="" gfx=""
+            rocminfo_bin="$(command -v rocminfo 2>/dev/null || true)"
+            [[ -z "$rocminfo_bin" && -x /opt/rocm/bin/rocminfo ]] && rocminfo_bin="/opt/rocm/bin/rocminfo"
+            if [[ -n "$rocminfo_bin" ]]; then
+                gfx="$("$rocminfo_bin" 2>/dev/null | grep -oE 'gfx[0-9a-f]+' | head -1)"
+                [[ -n "$gfx" ]] && HSA_OVERRIDE_GFX_VERSION="$(gfx_to_hsa_version "$gfx" || true)"
+            fi
+        fi
+        if [[ -n "$HSA_OVERRIDE_GFX_VERSION" ]]; then
+            log "Detected AMD ROCm GPU; using HSA_OVERRIDE_GFX_VERSION=$HSA_OVERRIDE_GFX_VERSION"
+        else
+            warn "AMD ROCm GPU detected but could not derive HSA_OVERRIDE_GFX_VERSION; ollama may fall back to CPU"
+        fi
+        return
+    fi
+
+    warn "No NVIDIA or AMD/ROCm GPU detected; ollama will run CPU-only (slow for large models)"
+}
+
+[[ $EUID -eq 0 ]] || fail "Run this script with sudo/root."
+command -v apt-get >/dev/null || fail "This script is for Ubuntu/Debian (apt-get not found)."
+command -v systemctl >/dev/null || fail "This script requires systemd."
+[[ -n "$REAL_HOME" ]] || fail "Could not resolve home directory for user '$REAL_USER'."
+
+# ---------------------------------------------------------------------------
+# GPU
+# ---------------------------------------------------------------------------
+detect_gpu
+
+# ---------------------------------------------------------------------------
+# Ollama
+# ---------------------------------------------------------------------------
+if command -v ollama >/dev/null 2>&1; then
+    log "Ollama already installed ($(ollama --version 2>/dev/null | head -1)); skipping install"
+else
+    log "Installing Ollama via official installer"
+    curl -fsSL https://ollama.com/install.sh | sh
+fi
+
+# The tuning override is the only custom part of the unit; the main
+# ollama.service is generated by the installer and left untouched. The AMD gfx
+# override is appended only on ROCm hosts.
+log "Writing systemd override for ollama.service"
+OVERRIDE_DIR="/etc/systemd/system/ollama.service.d"
+install -d -m 0755 "$OVERRIDE_DIR"
+{
+    printf '[Service]\n'
+    printf 'Environment="OLLAMA_KEEP_ALIVE=-1"\n'
+    printf 'Environment="OLLAMA_FLASH_ATTENTION=1"\n'
+    printf 'Environment="OLLAMA_KV_CACHE_TYPE=q8_0"\n'
+    printf 'Environment="OLLAMA_NUM_PARALLEL=1"\n'
+    printf 'Environment="OLLAMA_MAX_LOADED_MODELS=1"\n'
+    printf 'Environment="OLLAMA_CONTEXT_LENGTH=262144"\n'
+    printf 'Environment="OLLAMA_HOST=0.0.0.0:11434"\n'
+    if [[ "$GPU_VENDOR" == "amd" && -n "$HSA_OVERRIDE_GFX_VERSION" ]]; then
+        printf 'Environment="HSA_OVERRIDE_GFX_VERSION=%s"\n' "$HSA_OVERRIDE_GFX_VERSION"
+    fi
+} > "$OVERRIDE_DIR/override.conf"
+
+# On AMD hosts the ollama service user needs render/video access to reach the
+# GPU device nodes. The installer usually adds these, but ensure it idempotently.
+if [[ "$GPU_VENDOR" == "amd" ]] && id ollama >/dev/null 2>&1; then
+    for grp in render video; do
+        if getent group "$grp" >/dev/null 2>&1 && ! id -nG ollama 2>/dev/null | grep -qw "$grp"; then
+            log "Adding ollama user to '$grp' group"
+            usermod -aG "$grp" ollama
+        fi
+    done
+fi
+
+log "Reloading systemd and (re)starting ollama"
+systemctl daemon-reload
+systemctl enable ollama
+systemctl restart ollama
+
+# Wait for the daemon to answer before pulling.
+for _ in $(seq 1 30); do
+    if curl -fsS "http://127.0.0.1:11434/api/version" >/dev/null 2>&1; then
+        break
+    fi
+    sleep 1
+done
+curl -fsS "http://127.0.0.1:11434/api/version" >/dev/null 2>&1 \
+    || fail "Ollama did not come up on 127.0.0.1:11434"
+
+# A silent CPU fallback (missing/incompatible GPU libraries) is easy to miss,
+# so surface it. Absence of the negative signals is treated as GPU OK.
+if [[ "$GPU_VENDOR" != "none" ]]; then
+    if journalctl -u ollama --since "2 min ago" --no-pager 2>/dev/null \
+        | grep -qiE 'no compatible gpus|no gpu detected|falling back to cpu|unsupported gfx|library .*(rocm|cuda).* not found'; then
+        warn "Ollama appears to have fallen back to CPU. Check: journalctl -u ollama | grep -iE 'gpu|rocm|cuda'"
+        if [[ "$GPU_VENDOR" == "amd" ]]; then
+            warn "If the gfx target is unsupported, try re-running with HSA_OVERRIDE_GFX_VERSION=11.0.0"
+        fi
+    else
+        log "Ollama started with $GPU_VENDOR GPU support (no CPU-fallback warnings in journal)"
+    fi
+fi
+
+# ---------------------------------------------------------------------------
+# Model
+# ---------------------------------------------------------------------------
+if ollama list 2>/dev/null | grep -q "^${MODEL%%:*}"; then
+    log "Model $MODEL already present; skipping pull"
+else
+    log "Pulling $MODEL (~48 GiB, this takes a while)"
+    ollama pull "$MODEL"
+fi
+
+# ---------------------------------------------------------------------------
+# Docker
+# ---------------------------------------------------------------------------
+if command -v docker >/dev/null 2>&1; then
+    log "Docker already installed ($(docker --version)); skipping install"
+else
+    log "Installing prerequisites"
+    apt-get update
+    apt-get install -y ca-certificates curl gnupg
+
+    log "Adding Docker's official GPG key and apt repo"
+    install -m 0755 -d /etc/apt/keyrings
+    if [[ ! -f /etc/apt/keyrings/docker.gpg ]]; then
+        curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+        chmod a+r /etc/apt/keyrings/docker.gpg
+    fi
+    echo \
+        "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu \
+        $(. /etc/os-release && echo "$VERSION_CODENAME") stable" \
+        > /etc/apt/sources.list.d/docker.list
+
+    log "Installing Docker CE"
+    apt-get update
+    apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+fi
+
+log "Enabling and starting docker service"
+systemctl enable --now docker
+
+# ---------------------------------------------------------------------------
+# LiteLLM config + secrets
+# ---------------------------------------------------------------------------
+log "Preparing $LITELLM_DIR"
+install -d -o "$REAL_USER" -g "$REAL_USER" -m 0755 "$LITELLM_DIR"
+
+# config.yaml is declarative and owned by this script. Back up any existing
+# copy (matching dgx's own config.yaml.bak-TIMESTAMP convention) before writing.
+if [[ -f "$CONFIG_FILE" ]]; then
+    BACKUP="$CONFIG_FILE.bak-$(date +%Y%m%d-%H%M%S)"
+    cp -a "$CONFIG_FILE" "$BACKUP"
+    log "Backed up existing config to $BACKUP"
+fi
+
+log "Writing $CONFIG_FILE"
+cat > "$CONFIG_FILE" <<'EOF'
+model_list:
+  - model_name: local-qwen
+    litellm_params:
+      model: ollama_chat/qwen3-coder-next:q4_K_M
+      api_base: http://host.docker.internal:11434
+      num_ctx: 262144
+  - model_name: claude-sonnet
+    litellm_params:
+      model: anthropic/claude-sonnet-5
+      api_key: os.environ/ANTHROPIC_API_KEY
+  - model_name: gpt-oss-120b-cloud
+    litellm_params:
+      model: openai/gpt-oss:120b
+      api_base: https://ollama.com/v1
+      api_key: os.environ/OLLAMA_API_KEY
+
+litellm_settings:
+  callbacks: ["prometheus"]
+EOF
+chown "$REAL_USER:$REAL_USER" "$CONFIG_FILE"
+
+# .env holds secrets and is NEVER overwritten. Create an empty template only
+# when it is missing, so a fresh host has the right shape to fill in.
+if [[ -f "$ENV_FILE" ]]; then
+    log ".env already present; leaving it untouched"
+else
+    log "Creating $ENV_FILE template (fill in your keys)"
+    cat > "$ENV_FILE" <<'EOF'
+ANTHROPIC_API_KEY=
+OLLAMA_API_KEY=
+EOF
+    chown "$REAL_USER:$REAL_USER" "$ENV_FILE"
+    chmod 0600 "$ENV_FILE"
+fi
+
+# ---------------------------------------------------------------------------
+# LiteLLM container
+# ---------------------------------------------------------------------------
+log "Pulling $LITELLM_IMAGE"
+docker pull "$LITELLM_IMAGE"
+
+if docker ps -a --format '{{.Names}}' | grep -qx "$LITELLM_CONTAINER"; then
+    log "Removing existing '$LITELLM_CONTAINER' container to relaunch with current config"
+    docker rm -f "$LITELLM_CONTAINER" >/dev/null
+fi
+
+log "Launching LiteLLM container on :$LITELLM_PORT"
+docker run -d --name "$LITELLM_CONTAINER" \
+    -p "$LITELLM_PORT:$LITELLM_PORT" \
+    --restart unless-stopped \
+    --add-host host.docker.internal:host-gateway \
+    --env-file "$ENV_FILE" \
+    -v "$CONFIG_FILE:/app/config.yaml" \
+    "$LITELLM_IMAGE" \
+    --config /app/config.yaml --port "$LITELLM_PORT"
+
+# ---------------------------------------------------------------------------
+# Summary
+# ---------------------------------------------------------------------------
+log "Done"
+cat <<EOF
+
+  Ollama:  http://0.0.0.0:11434   (model: $MODEL)
+  GPU:     $GPU_VENDOR${HSA_OVERRIDE_GFX_VERSION:+ (HSA_OVERRIDE_GFX_VERSION=$HSA_OVERRIDE_GFX_VERSION)}
+  LiteLLM: http://0.0.0.0:$LITELLM_PORT   (container: $LITELLM_CONTAINER)
+  Config:  $CONFIG_FILE
+  Secrets: $ENV_FILE
+
+EOF
+
+if ! grep -q '^ANTHROPIC_API_KEY=.\+' "$ENV_FILE" 2>/dev/null; then
+    warn "$ENV_FILE has empty keys. Fill them in, then restart the container:"
+    printf '      docker restart %s\n' "$LITELLM_CONTAINER" >&2
+fi

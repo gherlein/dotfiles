@@ -1,0 +1,96 @@
+#!/usr/bin/env bash
+#
+# claude-plugin-reinstall — force a clean reinstall of one Claude Code plugin
+# (Option 2: uninstall + reinstall), so its cached content is re-cloned fresh
+# from its marketplace.
+#
+# Usage:
+#   claude-plugin-reinstall <plugin[@marketplace]> [-s|--scope user|project|local]
+#
+# The plugin may be given bare (e.g. "brightsign-dev") or fully qualified
+# ("brightsign-dev@brightsign-dev"). A bare name is resolved against the
+# installed set; if it is ambiguous the script errors and lists the matches.
+# Scope defaults to whatever scope the plugin is currently installed at.
+
+set -euo pipefail
+
+die() { echo "error: $*" >&2; exit 1; }
+
+command -v claude >/dev/null 2>&1 || die "'claude' CLI not found on PATH"
+
+query=""
+scope_override=""
+while [ $# -gt 0 ]; do
+  case "$1" in
+    -s|--scope) scope_override="${2:-}"; shift 2 ;;
+    -h|--help)  sed -n '3,13p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    -*)         die "unknown option: $1" ;;
+    *)
+      [ -z "$query" ] || die "give exactly one plugin name (got '$query' and '$1')"
+      query="$1"; shift ;;
+  esac
+done
+[ -n "$query" ] || die "no plugin name given (try --help)"
+
+# Snapshot the installed set, then resolve the bare/qualified name to a single
+# id + its scope. The JSON is passed to python via an env var (not stdin) so it
+# does not collide with the heredoc that supplies python's program on stdin.
+list_json="$(claude plugin list --json 2>/dev/null)" || die "'claude plugin list' failed"
+
+resolved="$(QUERY="$query" PLUGINS_JSON="$list_json" python3 <<'PY'
+import json, os, sys
+
+def fail(msg):
+    print(msg)          # to stdout so the shell captures it for the error message
+    sys.exit(1)
+
+query = os.environ["QUERY"]
+try:
+    plugins = json.loads(os.environ["PLUGINS_JSON"])
+except Exception:
+    fail("could not parse 'claude plugin list --json'")
+
+if "@" in query:
+    matches = [p for p in plugins if p.get("id") == query]
+else:
+    matches = [p for p in plugins if p.get("id", "").split("@", 1)[0] == query]
+
+if not matches:
+    fail(f"'{query}' is not an installed plugin")
+if len(matches) > 1:
+    fail(f"'{query}' is ambiguous; qualify as plugin@marketplace: "
+         + ", ".join(p["id"] for p in matches))
+
+p = matches[0]
+print(f'{p["id"]}\t{p.get("scope", "user")}\t{str(p.get("enabled", True)).lower()}')
+PY
+)" || die "$resolved"
+
+IFS=$'\t' read -r plugin_id installed_scope was_enabled <<<"$resolved"
+scope="${scope_override:-$installed_scope}"
+
+# The marketplace is the part after the '@' in the fully-qualified id, which
+# 'claude plugin list --json' always emits. Refreshing it first ensures the
+# reinstall re-clones from the latest marketplace state rather than a stale
+# cached copy.
+marketplace="${plugin_id##*@}"
+
+echo ">> reinstalling ${plugin_id} (scope: ${scope}, was enabled: ${was_enabled})"
+
+echo "+ claude plugin marketplace update ${marketplace}"
+claude plugin marketplace update "$marketplace"
+
+echo "+ claude plugin uninstall ${plugin_id} -y --scope ${scope}"
+claude plugin uninstall "$plugin_id" -y --scope "$scope"
+
+echo "+ claude plugin install ${plugin_id} --scope ${scope}"
+claude plugin install "$plugin_id" --scope "$scope"
+
+# 'install' re-enables the plugin; if it had been disabled, restore that state
+# so a reinstall doesn't silently turn it back on.
+if [ "$was_enabled" = "false" ]; then
+  echo "+ claude plugin disable ${plugin_id} --scope ${scope}  (restoring prior disabled state)"
+  claude plugin disable "$plugin_id" --scope "$scope"
+fi
+
+echo ">> done. Restart Claude Code (or /reload-plugins) to load the fresh copy."

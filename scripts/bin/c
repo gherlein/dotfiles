@@ -1,0 +1,2 @@
+#!/usr/bin/env bash
+printf '\e[3J\e[H\e[2J'

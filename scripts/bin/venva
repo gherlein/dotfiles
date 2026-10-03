@@ -1,0 +1,8 @@
+#!/bin/bash
+# Activate the default Python venv
+
+if [[ -f "$HOME/.venv/bin/activate" ]]; then
+    source "$HOME/.venv/bin/activate"
+else
+    echo "No venv found at ~/.venv" >&2
+fi

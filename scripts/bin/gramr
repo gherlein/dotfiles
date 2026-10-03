@@ -1,0 +1,54 @@
+#!/bin/bash
+
+set -euo pipefail
+
+DEFAULT_SSH_PORT=22
+
+usage() {
+    cat >&2 <<'EOF'
+Usage: gramr <hostname> [port]
+
+Resets a wedged Gram remote session on <hostname>. Run it when Gram's SSH
+remoting gets stuck in a reconnect loop -- symptoms in Gram's log are
+"remote client did not become ready within the timeout" and the proxy
+terminating with exit 255, over and over.
+
+It kills the host's Gram remote-server and proxy processes and clears the
+per-workspace server_state cache, so the next connect re-provisions cleanly.
+Your files are untouched and server_state is regenerable; the installed remote
+server binary in ~/.gram_server is left in place.
+
+This drops EVERY live Gram remote session to that host, not just one project,
+and deleting server_state under an actively-editing session can interrupt an
+in-flight save. Run it when nothing is actively connected to the host.
+EOF
+    exit 1
+}
+
+case "${1-}" in
+    -h|--help|"") usage ;;
+esac
+
+[[ $# -ge 1 && $# -le 2 ]] || usage
+
+HOST="$1"
+PORT="${2:-$DEFAULT_SSH_PORT}"
+REMOTE_USER=$(id -un)
+SSH_TARGET="$REMOTE_USER@$HOST"
+
+# The [0-9] class is deliberate: this pattern is sent inside the remote command
+# line, and a plain "gram-remote-server-stable-3.2.0" would make pkill match the
+# very shell running it (self-signal -> connection drops before rm runs). The
+# class matches the digit after "stable-" in real processes but not the literal
+# "[0-9]" in this command, and stays correct across Gram version bumps.
+REMOTE_RESET='
+    set -u
+    pattern="gram-remote-server-stable-[0-9]"
+    count=$(pgrep -f "$pattern" 2>/dev/null | wc -l | tr -d " ")
+    pkill -f "$pattern" 2>/dev/null || true
+    rm -rf "$HOME/.local/share/gram/server_state" 2>/dev/null || true
+    echo "gramr: killed $count remote-server/proxy process(es) and cleared server_state"
+'
+
+echo "gramr: resetting Gram remote state on $HOST" >&2
+ssh -p "$PORT" "$SSH_TARGET" "$REMOTE_RESET"

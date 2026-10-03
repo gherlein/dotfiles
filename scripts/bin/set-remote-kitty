@@ -1,0 +1,49 @@
+#!/usr/bin/env bash
+#
+# set-remote-kitty - Install kitty terminfo on a remote host
+#
+# Copies the local xterm-kitty terminfo entry to a remote machine via SSH,
+# so terminal features (color, keys, graphics) work correctly over SSH.
+# Normally unnecessary if you use `kitten ssh`, which does this automatically.
+#
+# Usage: set-remote-kitty <user@host>
+#
+# Requirements:
+#   - infocmp available locally (part of ncurses)
+#   - ssh access to the remote host
+#   - tic available on the remote host (part of ncurses)
+
+set -euo pipefail
+
+usage() {
+    echo "Usage: $(basename "$0") <user@host>" >&2
+    echo "" >&2
+    echo "  Installs the xterm-kitty terminfo entry on a remote host." >&2
+    echo "  Requires SSH access and tic installed on the remote host." >&2
+    exit 1
+}
+
+if [[ $# -ne 1 ]]; then
+    usage
+fi
+
+target="$1"
+
+if ! command -v infocmp &>/dev/null; then
+    echo "error: infocmp not found — install ncurses" >&2
+    exit 1
+fi
+
+if ! infocmp -x xterm-kitty &>/dev/null; then
+    echo "error: no local xterm-kitty terminfo entry — is kitty installed?" >&2
+    exit 1
+fi
+
+echo "Installing xterm-kitty terminfo on ${target}..."
+
+if infocmp -x xterm-kitty | ssh "$target" -- tic -x -; then
+    echo "Done. You can now SSH to ${target} with TERM=xterm-kitty."
+else
+    echo "error: failed to install terminfo on ${target}" >&2
+    exit 1
+fi

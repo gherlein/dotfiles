@@ -1,0 +1,90 @@
+#!/usr/bin/env bash
+#
+# skill-nuke — uninstall one Claude Code plugin (and delete its persistent data),
+# leaving its marketplace registered so it can be reinstalled later.
+#
+# Usage:
+#   skill-nuke <plugin[@marketplace]> [-s|--scope user|project|local] [-y|--yes]
+#
+# The plugin may be given bare (e.g. "brightsign-dev") or fully qualified
+# ("brightsign-dev@brightsign-dev"). A bare name is resolved against the
+# installed set; if it is ambiguous the script errors and lists the matches.
+# Scope defaults to whatever scope the plugin is currently installed at.
+# The marketplace is NOT removed (use `claude plugin marketplace remove` for that).
+
+set -euo pipefail
+
+die() { echo "error: $*" >&2; exit 1; }
+
+command -v claude >/dev/null 2>&1 || die "'claude' CLI not found on PATH"
+
+query=""
+scope_override=""
+assume_yes=""
+while [ $# -gt 0 ]; do
+  case "$1" in
+    -s|--scope) scope_override="${2:-}"; shift 2 ;;
+    -y|--yes)   assume_yes="1"; shift ;;
+    -h|--help)  sed -n '3,14p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    -*)         die "unknown option: $1" ;;
+    *)
+      [ -z "$query" ] || die "give exactly one plugin name (got '$query' and '$1')"
+      query="$1"; shift ;;
+  esac
+done
+[ -n "$query" ] || die "no plugin name given (try --help)"
+
+# Resolve the bare/qualified name to a single installed id + its scope. JSON is
+# passed to python via an env var (not stdin) so it doesn't collide with the
+# heredoc that supplies python's program on stdin.
+list_json="$(claude plugin list --json 2>/dev/null)" || die "'claude plugin list' failed"
+
+resolved="$(QUERY="$query" PLUGINS_JSON="$list_json" python3 <<'PY'
+import json, os, sys
+
+def fail(msg):
+    print(msg)          # to stdout so the shell captures it for the error message
+    sys.exit(1)
+
+query = os.environ["QUERY"]
+try:
+    plugins = json.loads(os.environ["PLUGINS_JSON"])
+except Exception:
+    fail("could not parse 'claude plugin list --json'")
+
+if "@" in query:
+    matches = [p for p in plugins if p.get("id") == query]
+else:
+    matches = [p for p in plugins if p.get("id", "").split("@", 1)[0] == query]
+
+if not matches:
+    fail(f"'{query}' is not an installed plugin")
+if len(matches) > 1:
+    fail(f"'{query}' is ambiguous; qualify as plugin@marketplace: "
+         + ", ".join(p["id"] for p in matches))
+
+p = matches[0]
+print(f'{p["id"]}\t{p.get("scope", "user")}')
+PY
+)" || die "$resolved"
+
+IFS=$'\t' read -r plugin_id installed_scope <<<"$resolved"
+scope="${scope_override:-$installed_scope}"
+marketplace="${plugin_id##*@}"
+
+# Destructive: confirm unless -y. Refuse to guess when there's no TTY to ask.
+if [ "$assume_yes" != "1" ]; then
+  if [ -t 0 ]; then
+    read -r -p ">> uninstall ${plugin_id} (scope ${scope})? Its data is deleted; marketplace '${marketplace}' is kept. [y/N] " ans
+    case "$ans" in y|Y|yes|YES) ;; *) die "aborted" ;; esac
+  else
+    die "refusing to uninstall without -y (no TTY to confirm)"
+  fi
+fi
+
+echo "+ claude plugin uninstall ${plugin_id} -y --scope ${scope}"
+claude plugin uninstall "$plugin_id" -y --scope "$scope"
+
+echo ">> nuked ${plugin_id}. Marketplace '${marketplace}' left registered — reinstall with:"
+echo "     claude plugin install ${plugin_id} --scope ${scope}"
+echo ">> Restart Claude Code (or /reload-plugins) to unload it."

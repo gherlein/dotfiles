@@ -1,0 +1,8 @@
+#!/bin/bash
+input="$1"
+output="${input%.pdf}.md"
+exec ~/.local/share/pdf2md/bin/python -c "
+import pymupdf4llm, sys
+with open(sys.argv[2], 'w') as f:
+    f.write(pymupdf4llm.to_markdown(sys.argv[1]))
+" "$input" "$output"

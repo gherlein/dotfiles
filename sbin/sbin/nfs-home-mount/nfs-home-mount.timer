@@ -1,0 +1,14 @@
+[Unit]
+Description=Periodically reconcile the home NFS mount
+
+[Timer]
+# First check shortly after boot, then every 30s. OnUnitActiveSec measures from
+# the previous run's completion, so with a oneshot service the checks never overlap.
+OnBootSec=30s
+OnUnitActiveSec=30s
+# Let systemd batch wakeups to save power on a laptop; exactness is not needed.
+AccuracySec=10s
+Persistent=false
+
+[Install]
+WantedBy=timers.target

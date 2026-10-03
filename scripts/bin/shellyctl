@@ -1,0 +1,51 @@
+#!/usr/bin/env bash
+#
+# shellyctl - control a Shelly Plug (Gen2+ RPC) over local HTTP.
+#
+#   shellyctl <host> power on|off        switch the outlet relay
+#   shellyctl <host> led power|switch|off  set the status-LED mode
+#
+set -euo pipefail
+
+usage() {
+  cat >&2 <<'EOF'
+usage:
+  shellyctl <host> power on|off          switch the outlet relay
+  shellyctl <host> led power|switch|off  set the status-LED mode
+EOF
+  exit 1
+}
+
+rpc() {
+  local host="$1" payload="$2"
+  curl -sS -X POST "http://$host/rpc" \
+    -H "Content-Type: application/json" \
+    -d "$payload"
+  echo
+}
+
+[ "$#" -ge 3 ] || usage
+host="$1"
+cmd="$2"
+
+case "$cmd" in
+  power)
+    case "${3,,}" in
+      on)  on=true  ;;
+      off) on=false ;;
+      *)   usage    ;;
+    esac
+    rpc "$host" "{\"id\":1,\"method\":\"Switch.Set\",\"params\":{\"id\":0,\"on\":$on}}"
+    ;;
+  led)
+    mode="${3,,}"
+    case "$mode" in
+      power|switch|off) ;;
+      *) usage ;;
+    esac
+    rpc "$host" "{\"id\":1,\"method\":\"PLUGS_UI.SetConfig\",\"params\":{\"config\":{\"leds\":{\"mode\":\"$mode\"}}}}"
+    ;;
+  *)
+    usage
+    ;;
+esac

@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+usage() {
+    echo "Usage: $0 <input.md> [output.pdf]"
+    exit 1
+}
+
+[[ $# -lt 1 ]] && usage
+
+INPUT="$1"
+OUTPUT="${2:-${INPUT%.md}.pdf}"
+
+if [[ ! -f "$INPUT" ]]; then
+    echo "Error: file not found: $INPUT" >&2
+    exit 1
+fi
+
+pandoc "$INPUT" \
+    -o "$OUTPUT" \
+    --pdf-engine=xelatex \
+    -V mainfont="DejaVu Sans" \
+    -V sansfont="DejaVu Sans" \
+    -V monofont="DejaVu Sans Mono" \
+    -V fontsize=11pt \
+    -V geometry:margin=1in \
+    -V colorlinks=true
+
+echo "Written: $OUTPUT"

@@ -1,0 +1,30 @@
+#!/bin/bash
+# Name: zeds
+
+set -e
+
+usage() {
+    echo "Usage: $0 <hostname> <path-relative-to-home> [port]"
+    exit 1
+}
+
+if [[ $# -lt 2 ]]; then
+    usage
+fi
+
+HOST="$1"
+INPUT_PATH="$2"
+PORT="${3:-22}"
+USER=$(id -un)
+
+# Remove any leading ~/ or /home/<user>/ or /Users/<user>/
+SUBPATH="${INPUT_PATH/#\~\//}"
+SUBPATH="${SUBPATH/#\/home\/$USER\//}"
+SUBPATH="${SUBPATH/#\/Users\/$USER\//}"
+
+REMOTE_PATH="/home/$USER/$SUBPATH"
+
+CONNECTION="ssh://$USER@$HOST:$PORT$REMOTE_PATH"
+
+echo "Running: zed $CONNECTION"
+zed "$CONNECTION"

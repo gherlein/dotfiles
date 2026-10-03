@@ -1,0 +1,29 @@
+[user]
+	email = gherlein@herlein.com
+	name = Greg Herlein
+[core]
+	editor = mg
+[alias]
+	squash-all = "!f(){ git reset $(git commit-tree HEAD^{tree} -m \"${1:-Initial commit}\");};f"
+[filter "lfs"]
+	process = git-lfs filter-process
+	required = true
+	clean = git-lfs clean -- %f
+	smudge = git-lfs smudge -- %f
+
+[url "ssh://git@github.com/"]
+    insteadOf = https://github.com/
+
+[include]
+	path = ~/.gitconfig.local
+	path = ~/.gitconfig.host
+[init]
+	defaultBranch = main
+[credential "https://github.com"]
+	helper = 
+	helper = !/usr/bin/gh auth git-credential
+[credential "https://gist.github.com"]
+	helper = 
+	helper = !/usr/bin/gh auth git-credential
+[pull]
+	rebase = false

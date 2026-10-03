@@ -1,0 +1,1 @@
+ffplay -rtsp_transport udp -fflags nobuffer -analyzeduration 0 -probesize 32 -sync video -flags low_delay -framedrop -an $1

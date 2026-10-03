@@ -1,0 +1,398 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# genimg-remote - generate an image via Replicate's flux-schnell model
+# Usage: genimg-remote [options] "your prompt" [output_file]
+#
+# This is the remote/API-based generator. `genimg` defaults to a local,
+# free, GPU-accelerated pipeline (OpenVINO on the Intel iGPU) - use this
+# script directly, or `genimg -r`, when you want flux-schnell's higher
+# quality and don't mind the per-image API cost.
+#
+# ---------------------------------------------------------------------------
+# GETTING A REPLICATE ACCOUNT AND API TOKEN
+# ---------------------------------------------------------------------------
+# This script requires a Replicate API token in the REPLICATE_API_TOKEN
+# environment variable. To get one:
+#
+#   1. Go to https://replicate.com and click "Sign in".
+#      You can sign up with a GitHub account (fastest) or with an email.
+#
+#   2. Verify your email if you signed up that way, then complete the
+#      onboarding (a few profile questions; "personal use" is fine).
+#
+#   3. Add a billing method. Replicate is pay-as-you-go - there is no
+#      monthly fee, but you must have a card on file to run paid models.
+#      Go to https://replicate.com/account/billing and add a card.
+#      New accounts typically get a small free credit; flux-schnell costs
+#      roughly $0.003 per image so the free credit lasts a long time.
+#
+#   4. Create an API token at https://replicate.com/account/api-tokens
+#      Click "Create token", give it a name (e.g. "blog-genimg"), and
+#      copy the token immediately - it is shown only once.
+#
+#   5. Export it in your shell. For persistent use, add to ~/.bashrc or
+#      ~/.zshrc (or a sourced ~/.envrc if you use direnv):
+#
+#        export REPLICATE_API_TOKEN="r8_..."
+#
+#      Then reload your shell or `source` the file.
+#
+#   6. Verify it works:
+#
+#        curl -s -H "Authorization: Bearer $REPLICATE_API_TOKEN" \
+#          https://api.replicate.com/v1/account | jq
+#
+#      You should see your account JSON. If you get an auth error, the
+#      token is wrong or was not exported into this shell.
+#
+# Models and pricing: https://replicate.com/explore
+# Default model is black-forest-labs/flux-schnell - fast, cheap, good
+# quality. Use -m nano-banana for google/nano-banana (Gemini 2.5 Flash
+# Image) instead, or -m owner/model-name for anything else on Replicate.
+# ---------------------------------------------------------------------------
+
+POLL_INTERVAL=2
+MAX_WAIT=120
+MODEL="flux-schnell"
+
+die() {
+  echo "error: $*" >&2
+  exit 1
+}
+
+# translate a curl exit code into a human-readable network error
+curl_error_message() {
+  case "$1" in
+    6)  echo "couldn't resolve api.replicate.com (DNS failure / no network)" ;;
+    7)  echo "couldn't connect to Replicate (network down or host unreachable)" ;;
+    28) echo "connection to Replicate timed out" ;;
+    35) echo "TLS handshake with Replicate failed" ;;
+    52) echo "Replicate closed the connection with an empty reply" ;;
+    56) echo "network error receiving data from Replicate" ;;
+    *)  echo "network error talking to Replicate (curl exit code $1)" ;;
+  esac
+}
+
+# translate an HTTP status code from the Replicate API into a human-readable error
+http_error_message() {
+  case "$1" in
+    401) echo "authentication failed - REPLICATE_API_TOKEN is missing or invalid" ;;
+    402) echo "payment required - add a card/credit at https://replicate.com/account/billing" ;;
+    403) echo "forbidden - your token doesn't have permission for this model" ;;
+    404) echo "model not found - check the -m model name (owner/model-name)" ;;
+    422) echo "the request was rejected as invalid (bad input parameters)" ;;
+    429) echo "rate limited by Replicate - wait a bit and retry, or add credit to raise your limit" ;;
+    500|502|503|504) echo "Replicate/model server error (HTTP $1) - usually transient, safe to retry" ;;
+    *)   echo "unexpected HTTP status $1 from Replicate" ;;
+  esac
+}
+
+# translate a model-reported error string into a human-readable explanation,
+# falling back to the raw string for anything not recognized
+model_error_message() {
+  local err="$1"
+  case "$err" in
+    *"(E006)"*|*"(E005)"*|*"input was invalid"*)
+      echo "the model rejected the input - unsupported/corrupt reference image, an aspect ratio the image can't satisfy, or a content-safety flag. Often transient: retrying the same command frequently succeeds. Raw: $err" ;;
+    *[Nn][Ss][Ff][Ww]*|*"flagged"*|*"safety"*)
+      echo "the prompt or reference image was flagged by content-safety filtering. Raw: $err" ;;
+    *"timed out"*|*timeout*)
+      echo "the model timed out while generating the image. Raw: $err" ;;
+    *)
+      echo "$err" ;;
+  esac
+}
+
+usage() {
+  cat >&2 <<EOF
+usage: genimg-remote [options] <prompt> [output_file]
+
+  prompt       Text description of the image to generate
+  output_file  Where to save the image (default: prompted interactively)
+               Format is inferred from extension (.webp, .jpg, .png)
+
+options:
+  -m MODEL     Replicate model: flux-schnell (default) or nano-banana,
+               or any owner/model-name hosted on Replicate
+  -f FORMAT    Output format: webp, jpg, or png (default: webp; nano-banana
+               only supports jpg/png, webp falls back to jpg)
+               Overrides format inferred from output_file extension
+  -q QUALITY   Output quality 0-100 for webp/jpg (default: 80, ignored for
+               png and by nano-banana, which has no quality param)
+  -a ASPECT    Aspect ratio for nano-banana only (default: 1:1). One of:
+               1:1 2:3 3:2 3:4 4:3 4:5 5:4 9:16 16:9 21:9
+  -i FILE      Reference image to pass as input (nano-banana only). Repeat
+               for multiple images (style transfer, composition, editing).
+               Sent inline as a data URI, no hosting needed.
+  -h           Show this help
+
+environment:
+  REPLICATE_API_TOKEN  Required. Get yours at https://replicate.com/account
+
+examples:
+  genimg-remote "a rainbow corgi"
+  genimg-remote "a rainbow corgi" corgi.png
+  genimg-remote -f png "a rainbow corgi" corgi
+  genimg-remote -f jpg -q 95 "a rainbow corgi" corgi.jpg
+  genimg-remote -m nano-banana "a rainbow corgi" corgi.png
+  genimg-remote -m nano-banana -a 16:9 "a rainbow corgi" corgi.png
+  genimg-remote -m nano-banana -i ref.png "make it a watercolor" out.png
+  genimg-remote -m nano-banana -i a.png -i b.png "combine these two styles" out.png
+EOF
+  exit 1
+}
+
+# --- check dependencies ---
+for cmd in curl jq; do
+  command -v "$cmd" &>/dev/null || die "'$cmd' is required but not installed"
+done
+
+# --- check auth ---
+[[ -z "${REPLICATE_API_TOKEN:-}" ]] && die "REPLICATE_API_TOKEN is not set"
+
+# --- parse options ---
+FORMAT=""
+QUALITY=80
+ASPECT="1:1"
+IMAGES=()
+
+while getopts ":m:f:q:a:i:h" opt; do
+  case $opt in
+    m) MODEL="$OPTARG" ;;
+    f) FORMAT="$OPTARG" ;;
+    q) QUALITY="$OPTARG" ;;
+    a) ASPECT="$OPTARG" ;;
+    i) IMAGES+=("$OPTARG") ;;
+    h) usage ;;
+    :) die "option -$OPTARG requires an argument" ;;
+    \?) die "unknown option: -$OPTARG" ;;
+  esac
+done
+shift $((OPTIND - 1))
+
+if [[ ${#IMAGES[@]} -gt 0 && "$MODEL" != "nano-banana" ]]; then
+  die "-i reference images are only supported with -m nano-banana"
+fi
+
+for img in "${IMAGES[@]+"${IMAGES[@]}"}"; do
+  [[ -f "$img" ]] || die "reference image not found: $img"
+done
+
+# resolve model shorthand to the Replicate owner/model path and its
+# supported output formats
+case "$MODEL" in
+  flux-schnell)
+    REPLICATE_MODEL_PATH="black-forest-labs/flux-schnell"
+    VALID_FORMATS="webp jpg png"
+    ;;
+  nano-banana)
+    REPLICATE_MODEL_PATH="google/nano-banana"
+    VALID_FORMATS="jpg png"
+    ;;
+  */*)
+    REPLICATE_MODEL_PATH="$MODEL"
+    VALID_FORMATS="webp jpg png"
+    ;;
+  *)
+    die "unknown model shorthand '$MODEL'. use flux-schnell, nano-banana, or an owner/model-name"
+    ;;
+esac
+REPLICATE_MODEL="https://api.replicate.com/v1/models/${REPLICATE_MODEL_PATH}/predictions"
+
+# validate format if explicitly set
+if [[ -n "$FORMAT" ]]; then
+  valid=0
+  for f in $VALID_FORMATS; do
+    [[ "$f" == "$FORMAT" ]] && valid=1 && break
+  done
+  [[ $valid -eq 0 ]] && die "invalid format '$FORMAT' for model '$MODEL'. must be one of: $VALID_FORMATS"
+fi
+
+# validate quality
+[[ "$QUALITY" =~ ^[0-9]+$ ]] || die "quality must be a number 0-100"
+[[ "$QUALITY" -ge 0 && "$QUALITY" -le 100 ]] || die "quality must be between 0 and 100"
+
+# --- parse args ---
+if [[ $# -eq 0 ]]; then
+  usage
+fi
+
+PROMPT="$1"
+[[ -z "$PROMPT" ]] && die "prompt cannot be empty"
+
+# first format in VALID_FORMATS is this model's default
+DEFAULT_FORMAT=$(set -- $VALID_FORMATS; echo "$1")
+
+if [[ $# -ge 2 ]]; then
+  OUTFILE="$2"
+else
+  read -r -p "output filename [out.${DEFAULT_FORMAT}]: " OUTFILE
+  OUTFILE="${OUTFILE:-out.${DEFAULT_FORMAT}}"
+fi
+
+# infer format from extension if not set via -f
+ext="${OUTFILE##*.}"
+if [[ -z "$FORMAT" ]]; then
+  if [[ "$ext" == "$OUTFILE" ]]; then
+    # no extension — default to this model's default format
+    FORMAT="$DEFAULT_FORMAT"
+    OUTFILE="${OUTFILE}.${DEFAULT_FORMAT}"
+  else
+    ext_lower=$(printf '%s' "$ext" | tr '[:upper:]' '[:lower:]')
+    valid=0
+    for f in $VALID_FORMATS; do
+      [[ "$f" == "$ext_lower" ]] && valid=1 && FORMAT="$ext_lower" && break
+    done
+    [[ $valid -eq 0 ]] && die "unrecognised extension '.$ext'. use one of: $VALID_FORMATS — or set format with -f"
+  fi
+else
+  # -f was set: fix extension to match if they conflict
+  current_ext=$(printf '%s' "${OUTFILE##*.}" | tr '[:upper:]' '[:lower:]')
+  if [[ "$current_ext" == "$OUTFILE" ]]; then
+    # no extension at all
+    OUTFILE="${OUTFILE}.${FORMAT}"
+  elif [[ "$current_ext" != "$FORMAT" ]]; then
+    base="${OUTFILE%.*}"
+    echo "warning: extension .${current_ext} does not match -f ${FORMAT}, saving as ${base}.${FORMAT}" >&2
+    OUTFILE="${base}.${FORMAT}"
+  fi
+fi
+
+# warn if file already exists
+if [[ -e "$OUTFILE" ]]; then
+  read -r -p "file '$OUTFILE' already exists. overwrite? [y/N] " confirm
+  [[ "$confirm" =~ ^[Yy]$ ]] || { echo "aborted." >&2; exit 1; }
+fi
+
+# --- create prediction ---
+if [[ "$MODEL" == "nano-banana" ]]; then
+  echo "creating prediction (model: $MODEL, format: $FORMAT, aspect: $ASPECT, refs: ${#IMAGES[@]})..." >&2
+
+  # base64-encoded reference images can be large; keep them out of argv
+  # (ARG_MAX) by routing everything through temp files instead of -arg/-argjson.
+  images_file=$(mktemp)
+  trap 'rm -f "$images_file" "${uri_file:-}"' EXIT
+  echo "[]" > "$images_file"
+  for img in "${IMAGES[@]+"${IMAGES[@]}"}"; do
+    mime=$(file -b --mime-type "$img")
+    uri_file=$(mktemp)
+    printf 'data:%s;base64,' "$mime" > "$uri_file"
+    base64 -w0 "$img" >> "$uri_file"
+    jq --rawfile uri "$uri_file" '. + [$uri]' "$images_file" > "${images_file}.new"
+    mv "${images_file}.new" "$images_file"
+    rm -f "$uri_file"
+  done
+
+  payload=$(jq -n \
+    --arg prompt "$PROMPT" \
+    --arg fmt "$FORMAT" \
+    --arg aspect "$ASPECT" \
+    --slurpfile images "$images_file" \
+    '{"input":{"prompt":$prompt,"output_format":$fmt,"aspect_ratio":$aspect,"image_input":$images[0]}}')
+  rm -f "$images_file"
+  trap - EXIT
+else
+  echo "creating prediction (model: $MODEL, format: $FORMAT, quality: $QUALITY)..." >&2
+  payload=$(jq -n \
+    --arg prompt "$PROMPT" \
+    --arg fmt "$FORMAT" \
+    --argjson quality "$QUALITY" \
+    '{"input":{"prompt":$prompt,"output_format":$fmt,"output_quality":$quality}}')
+fi
+
+payload_file=$(mktemp)
+printf '%s' "$payload" > "$payload_file"
+raw=$(curl -sS -w $'\n%{http_code}' -X POST \
+  -H "Authorization: Bearer $REPLICATE_API_TOKEN" \
+  -H "Content-Type: application/json" \
+  --data-binary "@${payload_file}" \
+  "$REPLICATE_MODEL")
+curl_rc=$?
+rm -f "$payload_file"
+[[ $curl_rc -ne 0 ]] && die "failed to create prediction: $(curl_error_message "$curl_rc")"
+
+http_code=$(tail -n1 <<< "$raw")
+response=$(sed '$d' <<< "$raw")
+
+if [[ "$http_code" -ge 400 ]]; then
+  msg=$(echo "$response" | jq -r '.detail // .title // empty' 2>/dev/null)
+  friendly=$(http_error_message "$http_code")
+  [[ -n "$msg" ]] && die "$friendly: $msg" || die "$friendly"
+fi
+
+ID=$(echo "$response" | jq -r '.id')
+[[ -z "$ID" || "$ID" == "null" ]] && die "no prediction ID returned: $response"
+
+echo "prediction id: $ID" >&2
+
+# --- poll for completion ---
+elapsed=0
+consecutive_errors=0
+MAX_CONSECUTIVE_ERRORS=5
+while true; do
+  raw=$(curl -sS -w $'\n%{http_code}' \
+    -H "Authorization: Bearer $REPLICATE_API_TOKEN" \
+    "https://api.replicate.com/v1/predictions/$ID")
+  curl_rc=$?
+  [[ $curl_rc -ne 0 ]] && die "failed to poll prediction status: $(curl_error_message "$curl_rc")"
+
+  poll_http_code=$(tail -n1 <<< "$raw")
+  result=$(sed '$d' <<< "$raw")
+
+  # 401/403/404/422 are permanent - no point retrying. 429/5xx are usually
+  # transient (rate limits, gateway hiccups) - retry a few times, since the
+  # prediction itself may still complete successfully in the background.
+  if [[ "$poll_http_code" -ge 400 ]]; then
+    case "$poll_http_code" in
+      429|500|502|503|504)
+        consecutive_errors=$((consecutive_errors + 1))
+        [[ $consecutive_errors -ge $MAX_CONSECUTIVE_ERRORS ]] && die "$(http_error_message "$poll_http_code") (gave up after ${consecutive_errors} attempts)"
+        printf "x" >&2
+        sleep "$POLL_INTERVAL"
+        elapsed=$((elapsed + POLL_INTERVAL))
+        [[ $elapsed -ge $MAX_WAIT ]] && die "timed out after ${MAX_WAIT}s waiting for prediction $ID"
+        continue
+        ;;
+      *)
+        die "$(http_error_message "$poll_http_code")"
+        ;;
+    esac
+  fi
+  consecutive_errors=0
+
+  status=$(echo "$result" | jq -r '.status')
+
+  case "$status" in
+    succeeded)
+      break
+      ;;
+    failed|canceled)
+      err=$(echo "$result" | jq -r '.error // "unknown error"')
+      die "prediction $status: $(model_error_message "$err")"
+      ;;
+    starting|processing)
+      printf "." >&2
+      sleep "$POLL_INTERVAL"
+      elapsed=$((elapsed + POLL_INTERVAL))
+      [[ $elapsed -ge $MAX_WAIT ]] && die "timed out after ${MAX_WAIT}s waiting for prediction $ID"
+      ;;
+    *)
+      die "unexpected status '$status'"
+      ;;
+  esac
+done
+
+echo "" >&2
+
+# --- download output ---
+# .output is an array for most models but a plain string for nano-banana
+url=$(echo "$result" | jq -r 'if (.output | type) == "array" then .output[0] else .output end // empty')
+[[ -z "$url" ]] && die "no output URL in response: $result"
+
+echo "downloading..." >&2
+curl -sS -L -o "$OUTFILE" "$url"
+curl_rc=$?
+[[ $curl_rc -ne 0 ]] && die "failed to download generated image: $(curl_error_message "$curl_rc")"
+
+echo "saved: $OUTFILE" >&2
