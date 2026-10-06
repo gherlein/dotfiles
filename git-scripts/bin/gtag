@@ -1,0 +1,61 @@
+#!/bin/bash
+
+# gtag - Git tagging script
+# Usage: gtag <short-tag> <long-description>
+
+set -e
+
+# Function to display usage
+usage() {
+    echo "Usage: $0 <short-tag> <long-description>"
+    echo ""
+    echo "Examples:"
+    echo "  $0 v1.0.0 'Initial release'"
+    echo "  $0 v1.2.3 'Bug fixes and performance improvements'"
+    exit 1
+}
+
+# Check if exactly 2 arguments are provided
+if [ $# -ne 2 ]; then
+    echo "Error: Expected 2 arguments, got $#"
+    usage
+fi
+
+SHORT_TAG="$1"
+LONG_DESC="$2"
+
+# Validate that arguments are not empty
+if [ -z "$SHORT_TAG" ]; then
+    echo "Error: Short tag cannot be empty"
+    usage
+fi
+
+if [ -z "$LONG_DESC" ]; then
+    echo "Error: Long description cannot be empty"
+    usage
+fi
+
+# Check if we're in a git repository
+if ! git rev-parse --git-dir > /dev/null 2>&1; then
+    echo "Error: Not in a git repository"
+    exit 1
+fi
+
+# Check if tag already exists
+if git tag -l | grep -q "^$SHORT_TAG$"; then
+    echo "Error: Tag '$SHORT_TAG' already exists"
+    exit 1
+fi
+
+echo "Creating annotated tag: $SHORT_TAG"
+echo "Description: $LONG_DESC"
+
+# Create the annotated tag
+git tag -a "$SHORT_TAG" -m "$LONG_DESC"
+
+echo "Pushing tags to origin..."
+
+# Push tags to origin
+git push origin --tags
+
+echo "Successfully created and pushed tag: $SHORT_TAG"

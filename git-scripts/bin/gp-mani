@@ -1,0 +1,34 @@
+#!/usr/bin/env bash
+# gp-mani - run 'gp' in every repo listed in the nearest mani.yaml, via
+# 'mani exec --all gp'. Searches the CWD, then each parent directory up to /.
+set -uo pipefail
+
+# Walk up from the CWD to the filesystem root, printing the first directory
+# that contains a mani.yaml. Returns non-zero if none is found.
+find_config_dir() {
+    local dir="$PWD"
+    while :; do
+        if [ -f "$dir/mani.yaml" ]; then
+            printf '%s\n' "$dir"
+            return 0
+        fi
+        [ "$dir" = "/" ] && return 1
+        dir="$(dirname "$dir")"
+    done
+}
+
+config_dir="$(find_config_dir)" || {
+    echo "Error: no mani.yaml found in $PWD or any parent directory." >&2
+    exit 1
+}
+
+# When the config lives above the CWD the target repo set may not be what the
+# user expects, so confirm before acting. Default is yes.
+if [ "$config_dir" != "$PWD" ]; then
+    read -rp "About to use $config_dir/mani.yaml, is that OK? [Y/n] " answer
+    case "$answer" in
+        [Nn]*) echo "Aborted."; exit 1 ;;
+    esac
+fi
+
+cd "$config_dir" && mani exec --all gp

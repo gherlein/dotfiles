@@ -1,0 +1,73 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+usage() {
+  echo "Usage: $0 <org> <repo-name>"
+  echo ""
+  echo "  org        GitHub organization name"
+  echo "  repo-name  Name of the new repository"
+  exit 1
+}
+
+if [[ $# -ne 2 ]]; then
+  usage
+fi
+
+ORG="$1"
+REPO="$2"
+
+if ! gh auth status &>/dev/null; then
+  # gh's "web browser" method is GitHub's device-code flow; its verification
+  # URL is always the one below. On a headless/SSH host no browser opens, so
+  # print it explicitly: copy the one-time code gh shows, then open this URL on
+  # any other device to authorize.
+  echo "GitHub CLI is not authenticated."
+  echo "If no browser opens (headless/SSH), go to this URL on any device:"
+  echo "    https://github.com/login/device"
+  echo "and enter the one-time code shown below."
+  echo ""
+  gh auth login --hostname github.com --web
+fi
+
+if ! gh api "orgs/${ORG}" &>/dev/null; then
+  echo "Error: GitHub org '${ORG}' not found or you do not have access"
+  exit 1
+fi
+
+gh repo create "${ORG}/${REPO}" --private
+
+git init
+
+git add .
+
+# Guarantee an initial commit so the branch is born and pushable. On a fresh
+# repo HEAD is unborn; an empty working dir stages nothing. Either case must
+# still produce a commit -- otherwise the branch detection and push below fail
+# on an unborn HEAD (fatal: ambiguous argument 'HEAD'). --allow-empty makes the
+# commit succeed with nothing staged instead of aborting under `set -e`.
+if ! git rev-parse --verify --quiet HEAD >/dev/null; then
+  git commit -m "Initial commit" --allow-empty
+elif ! git diff --cached --quiet; then
+  git commit -m "Initial commit"
+fi
+
+# Push the branch we are actually on rather than forcing a rename to main,
+# which would clobber an existing feature branch. `branch --show-current`
+# survives an unborn branch, unlike `rev-parse --abbrev-ref HEAD`.
+BRANCH="$(git branch --show-current)"
+if [[ "${BRANCH}" == "master" ]]; then
+  git branch -M main
+  BRANCH="main"
+fi
+
+# Add the remote idempotently: gpnew may run in a repo that already has one.
+REMOTE_URL="git@github.com:${ORG}/${REPO}.git"
+if git remote get-url origin &>/dev/null; then
+  git remote set-url origin "${REMOTE_URL}"
+else
+  git remote add origin "${REMOTE_URL}"
+fi
+
+git push -u origin "${BRANCH}"
+
+gh repo edit "${ORG}/${REPO}" --default-branch "${BRANCH}"

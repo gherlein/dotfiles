@@ -1,0 +1,63 @@
+#!/bin/bash
+
+# grelease - Create a git tag and GitHub release
+# Usage: grelease <version> <description>
+
+set -e
+
+usage() {
+    echo "Usage: $0 <version> <description>"
+    echo ""
+    echo "Creates a git tag and GitHub release."
+    echo ""
+    echo "Examples:"
+    echo "  $0 v1.0.0 'Initial release'"
+    echo "  $0 v1.2.3 'Bug fixes and performance improvements'"
+    exit 1
+}
+
+if [ $# -ne 2 ]; then
+    echo "Error: Expected 2 arguments, got $#"
+    usage
+fi
+
+VERSION="$1"
+DESCRIPTION="$2"
+
+if [ -z "$VERSION" ]; then
+    echo "Error: Version cannot be empty"
+    usage
+fi
+
+if [ -z "$DESCRIPTION" ]; then
+    echo "Error: Description cannot be empty"
+    usage
+fi
+
+if ! git rev-parse --git-dir > /dev/null 2>&1; then
+    echo "Error: Not in a git repository"
+    exit 1
+fi
+
+if ! command -v gh > /dev/null 2>&1; then
+    echo "Error: GitHub CLI (gh) is not installed"
+    exit 1
+fi
+
+if git tag -l | grep -q "^${VERSION}$"; then
+    echo "Error: Tag '${VERSION}' already exists"
+    exit 1
+fi
+
+echo "Creating annotated tag: ${VERSION}"
+echo "Description: ${DESCRIPTION}"
+
+git tag -a "${VERSION}" -m "${DESCRIPTION}"
+
+echo "Pushing tag to origin..."
+git push origin "${VERSION}"
+
+echo "Creating GitHub release..."
+gh release create "${VERSION}" --title "${VERSION}" --notes "${DESCRIPTION}"
+
+echo "Successfully created tag and release: ${VERSION}"

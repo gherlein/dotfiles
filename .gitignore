@@ -89,5 +89,6 @@ bin/
 # repo's own scripts/bin dir (real tracked scripts). The dir-only negation lets
 # *~ backups and **/.claude/settings.local.json stay ignored inside it.
 !scripts/bin/
+!git-scripts/bin/
 # Captured ONVIF response — contains camera UsernameToken/PasswordDigest.
 scripts/bin/reo1-eventprops.xml
