@@ -2,9 +2,9 @@
 set -euo pipefail
 
 usage() {
-  echo "Usage: $0 <org> <repo-name>"
+  echo "Usage: $0 <owner> <repo-name>"
   echo ""
-  echo "  org        GitHub organization name"
+  echo "  owner      GitHub owner: your own account, or an organization"
   echo "  repo-name  Name of the new repository"
   exit 1
 }
@@ -29,8 +29,12 @@ if ! gh auth status &>/dev/null; then
   gh auth login --hostname github.com --web
 fi
 
-if ! gh api "orgs/${ORG}" &>/dev/null; then
-  echo "Error: GitHub org '${ORG}' not found or you do not have access"
+# The owner may be your own account or an organization. GitHub only lets you
+# create a repo under your own login or an org you belong to, so accept the
+# authenticated user directly and otherwise require an accessible org.
+CURRENT_USER="$(gh api user --jq .login)"
+if [[ "${ORG}" != "${CURRENT_USER}" ]] && ! gh api "orgs/${ORG}" &>/dev/null; then
+  echo "Error: '${ORG}' is neither your GitHub account nor an organization you can access"
   exit 1
 fi
 

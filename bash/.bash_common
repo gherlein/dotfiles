@@ -21,6 +21,7 @@ export PATH="$HOME/.claude/local:$PATH"
 export CLAUDE_CODE_THEME=light
 alias claude='claude --model claude-opus-4-8'
 alias clauded='claude --dangerously-skip-permissions'
+alias herdrk='herdr session stop $HERDR_SESSION'
 
 # omp — per-host model routing. The shared config.yml is stowed and `omp config
 # set` writes straight through the symlink to it, so a host that serves its own
