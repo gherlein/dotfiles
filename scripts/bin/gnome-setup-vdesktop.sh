@@ -10,10 +10,29 @@ die()   { echo "[ERROR] $*" >&2; exit 1; }
 
 command -v gsettings &>/dev/null || die "gsettings not found. Is GNOME installed?"
 
+readonly NUM_WORKSPACES=9
+readonly WORKSPACE_INDICATOR_UUID="workspace-indicator@gnome-shell-extensions.gcampax.github.com"
+
+# gnome-extensions enable only works once the running shell has scanned the
+# extension, which it has not on a fresh install, so add the UUID to the
+# enabled-extensions list directly; it activates on next login.
+enable_extension() {
+    local uuid="$1"
+    local cur
+    cur=$(gsettings get org.gnome.shell enabled-extensions)
+    if printf '%s' "$cur" | grep -qF "$uuid"; then
+        info "Extension already enabled: $uuid"
+        return
+    fi
+    if [[ "$cur" == "@as []" || "$cur" == "[]" ]]; then
+        gsettings set org.gnome.shell enabled-extensions "['$uuid']"
+    else
+        gsettings set org.gnome.shell enabled-extensions "${cur%]}, '$uuid']"
+    fi
+}
+
 info "Disabling dynamic workspaces..."
 gsettings set org.gnome.mutter dynamic-workspaces false
-
-readonly NUM_WORKSPACES=9
 
 info "Setting ${NUM_WORKSPACES} static workspaces..."
 gsettings set org.gnome.desktop.wm.preferences num-workspaces "$NUM_WORKSPACES"
@@ -31,9 +50,19 @@ for n in $(seq 1 "$NUM_WORKSPACES"); do
     gsettings set org.gnome.desktop.wm.keybindings "switch-to-workspace-$n" "['<Control><Shift>KP_$n']"
 done
 
+if ! dpkg -s gnome-shell-extensions &>/dev/null; then
+    info "Installing gnome-shell-extensions package..."
+    sudo apt-get install -y gnome-shell-extensions
+fi
+
+info "Enabling the workspace indicator (persistent workspace display)..."
+enable_extension "$WORKSPACE_INDICATOR_UUID"
+
 ok "Virtual desktop configuration complete."
 echo ""
 echo "  Workspaces:         ${NUM_WORKSPACES} (static)"
 echo "  Ctrl+Left:          switch to workspace left"
 echo "  Ctrl+Right:         switch to workspace right"
 echo "  Ctrl+Shift+KP_1..${NUM_WORKSPACES}: jump directly to workspace (Num Lock on)"
+echo ""
+echo "  Log out and back in for the workspace indicator to appear."

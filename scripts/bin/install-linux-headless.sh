@@ -20,21 +20,36 @@ ARCH="$(dpkg --print-architecture)"
 info "Detected architecture: $ARCH"
 
 # ---------------------------------------------------------------------------
-# Platform detection (Raspberry Pi)
+# Single-board-computer detection (Raspberry Pi / Orange Pi)
 # ---------------------------------------------------------------------------
 
-# A Pi cannot be identified by arch alone (a cloud ARM VM is also arm64), so
-# key off the board model. Device-tree is authoritative on modern Pi OS; the
-# cpuinfo grep is a fallback for older/32-bit images.
+# An SBC cannot be identified by arch alone (a cloud ARM VM is also arm64), so
+# key off the board model. /proc/device-tree/model is authoritative on modern
+# images (Pi OS, Armbian); the cpuinfo grep is a fallback for older/32-bit
+# images.
+board_model() {
+    [[ -r /proc/device-tree/model ]] && tr -d '\0' < /proc/device-tree/model
+}
+
 is_raspberry_pi() {
-    if [[ -r /proc/device-tree/model ]] \
-        && tr -d '\0' < /proc/device-tree/model | grep -qi "raspberry pi"; then
-        return 0
-    fi
+    board_model | grep -qi "raspberry pi" && return 0
     grep -qi "raspberry pi" /proc/cpuinfo 2>/dev/null
 }
 
-if is_raspberry_pi; then IS_RPI=true; info "Raspberry Pi detected."; else IS_RPI=false; fi
+# Orange Pi reports its model with or without a space ("Orange Pi 5",
+# "OrangePi 5 Plus"), so match both.
+is_orange_pi() {
+    board_model | grep -qiE "orange ?pi" && return 0
+    grep -qiE "orange ?pi" /proc/cpuinfo 2>/dev/null
+}
+
+if is_raspberry_pi; then
+    IS_SBC=true; BOARD="Raspberry Pi"; info "Raspberry Pi detected."
+elif is_orange_pi; then
+    IS_SBC=true; BOARD="Orange Pi"; info "Orange Pi detected."
+else
+    IS_SBC=false; BOARD=""
+fi
 
 # ---------------------------------------------------------------------------
 # REMOVE SNAP COMPLETELY - Do this FIRST before installing anything
@@ -126,15 +141,15 @@ echo ""
 
 resolve INSTALL_DEV "Development toolchains (Go, TinyGo, Rust, protoc-gen-go, Node/npm, pnpm, mani, AWS CLI)?"
 
-if [[ "$IS_RPI" == "true" ]]; then
-    warn "Python/ML stack is heavy and CPU-only on a Pi (torch, transformers, jupyter) — say no unless you really need it."
+if [[ "$IS_SBC" == "true" ]]; then
+    warn "Python/ML stack is heavy and CPU-only on $BOARD (torch, transformers, jupyter) — say no unless you really need it."
 fi
 resolve INSTALL_PYTHON "Python/ML stack (uv, torch/transformers/jupyter venv, pdf2md)?"
 
-# AMD GPU tools have no meaning on a Pi (Broadcom VideoCore, no AMD hardware).
-if [[ "$IS_RPI" == "true" ]]; then
+# AMD GPU tools have no meaning on these SBCs (ARM SoC graphics, no AMD hardware).
+if [[ "$IS_SBC" == "true" ]]; then
     INSTALL_AMD=false
-    info "Raspberry Pi — skipping AMD GPU tools (no AMD hardware)."
+    info "$BOARD — skipping AMD GPU tools (no AMD hardware)."
 else
     resolve INSTALL_AMD "AMD GPU tools (amdgpu_top, ROCm drivers)?"
 fi
@@ -143,8 +158,8 @@ resolve INSTALL_CONTAINERS "Container tooling (Docker, localdev/podman)?"
 resolve INSTALL_NETWORK "Networking/VPN (Tailscale, ZeroTier)?"
 resolve INSTALL_MONITORING "Monitoring stack (Prometheus, node_exporter, Grafana)?"
 
-if [[ "$IS_RPI" == "true" ]]; then
-    warn "Ollama models generally exceed a Pi's memory — expect it to be slow or OOM."
+if [[ "$IS_SBC" == "true" ]]; then
+    warn "Ollama models generally exceed $BOARD memory — expect it to be slow or OOM."
 fi
 resolve INSTALL_AI "AI tools (Ollama)?"
 
