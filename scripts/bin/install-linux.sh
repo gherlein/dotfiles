@@ -351,7 +351,7 @@ fi
 
 if [[ "$INSTALL_DEV" == "true" ]]; then
 
-GO_VERSION="1.25.4"
+GO_VERSION="1.27.3"
 TINYGO_VERSION="0.33.0"
 
 info "Installing Go $GO_VERSION..."
