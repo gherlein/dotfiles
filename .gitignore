@@ -92,3 +92,12 @@ bin/
 !git-scripts/bin/
 # Captured ONVIF response — contains camera UsernameToken/PasswordDigest.
 scripts/bin/reo1-eventprops.xml
+
+# sm (skills-mapper) places store skills into pi-go's skills dir as
+# machine-specific absolute symlinks and recreates them on every `sm sync`.
+# They are sm-managed, not dotfiles-managed, so keep them out of the repo.
+pi-go/.pi-go/skills/brightsign-kb
+pi-go/.pi-go/skills/release-go-homebrew
+pi-go/.pi-go/skills/using-gogl
+pi-go/.pi-go/skills/using-skills-mapper
+pi-go/.pi-go/skills/write-blog-post
