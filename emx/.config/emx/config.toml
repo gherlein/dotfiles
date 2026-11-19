@@ -18,12 +18,17 @@
 # terminal's own selection. M-x xterm-mouse-mode toggles it per session.
 # Default is false because it takes over the terminal's drag-to-select.
 mouse = true
+# Emacs mouse-drag-copy-region: releasing a drag (or a double/triple
+# click) copies the selection to the kill ring and clipboard.
+mouse_drag_copy_region = true
 # mouse_wheel_lines = 5            # 1..1000
 
 # Kills and copies (C-w, M-w, C-k) go to the system clipboard via OSC 52.
 # Inside tmux: set -g set-clipboard on
 # osc52_clipboard = true
 # osc52_max_bytes = 74994          # larger kills are not sent
+# How long "Copied to clipboard" flashes (success face); 0 = until next key.
+# clipboard_notice_ms = 1500
 
 # ---------------------------------------------------------------------------
 # Appearance
@@ -96,7 +101,7 @@ mouse = true
 # Faces: face = SGR parameters (digits and ';'), over the theme's colors.
 # Faces: default mode_line mode_line_inactive header_line region
 #   isearch_match lazy_highlight minibuffer_prompt escape_glyph error
-#   warning changed_marker completion_selected panel_directory git_modified
+#   warning success changed_marker completion_selected panel_directory git_modified
 #   git_added git_untracked git_ignored comment string keyword type function
 #   variable constant builtin preprocessor show_paren_match
 #   show_paren_mismatch
