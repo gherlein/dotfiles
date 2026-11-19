@@ -31,6 +31,26 @@ alias herdrk='herdr session stop $HERDR_SESSION'
 [[ -f "$HOME/.omp/agent/config.local.yml" ]] && \
     alias omp='omp --config "$HOME/.omp/agent/config.local.yml"'
 
+# pctl — each site's devices live in their own unstowed folder, so point pctl
+# at the one for the LAN this host is on: 192.168.2.x is sf, 192.168.4.x is mx.
+# Off both, pctl falls back to its default ~/.config/pctl. Decided once per
+# shell, so open a new shell after moving between sites.
+_pctl_addresses() {
+    case "$(uname -s)" in
+        Darwin) ifconfig | awk '/inet /{print $2}' ;;
+        *) hostname -I ;;
+    esac
+}
+case " $(_pctl_addresses) " in
+    *" 192.168.2."*) _pctl_site=sf ;;
+    *" 192.168.4."*) _pctl_site=mx ;;
+    *) _pctl_site="" ;;
+esac
+[[ -n "$_pctl_site" ]] && \
+    alias pctl="pctl --config \"\$HOME/dotfiles-private/pctl-$_pctl_site/config.yaml\" --groups \"\$HOME/dotfiles-private/pctl-$_pctl_site/groups.yaml\""
+unset -f _pctl_addresses
+unset _pctl_site
+
 # OS-specific
 case "$(uname -s)" in
     Darwin)

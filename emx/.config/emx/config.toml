@@ -1,0 +1,150 @@
+# emx configuration -- ~/.config/emx/config.toml
+#
+# Every key is optional; unset keys use the built-in default shown in the
+# commented line. Unknown keys are rejected at startup, so a typo is an
+# error rather than a silently ignored setting.
+
+# ---------------------------------------------------------------------------
+# Terminal
+# ---------------------------------------------------------------------------
+
+# "auto" asks the terminal at startup (waits up to 1s for an answer).
+# "kitty" or "legacy" skips the question. EMX_KEYBOARD overrides this.
+# keyboard_encoding = "auto"
+
+# Mouse reporting (Emacs xterm-mouse-mode): click moves the cursor, drag
+# selects, double/triple click selects word/line, right button extends,
+# wheel scrolls, modelines and borders resize. Hold Shift for the
+# terminal's own selection. M-x xterm-mouse-mode toggles it per session.
+# Default is false because it takes over the terminal's drag-to-select.
+mouse = true
+# mouse_wheel_lines = 5            # 1..1000
+
+# Kills and copies (C-w, M-w, C-k) go to the system clipboard via OSC 52.
+# Inside tmux: set -g set-clipboard on
+# osc52_clipboard = true
+# osc52_max_bytes = 74994          # larger kills are not sent
+
+# ---------------------------------------------------------------------------
+# Appearance
+# ---------------------------------------------------------------------------
+
+# theme = "dark"                   # "dark" or "light"
+# show_paren_mode = true
+# show_paren_max_distance = 102400 # bytes searched for the matching paren
+# completion_rows = 10             # 1..1000 candidates above a prompt
+# panel_width = 30                 # file panel width incl. border, 11..1000
+# echo_keystrokes_ms = 1000        # 0 disables echoing unfinished keys
+# highlight_max_file = 50000000    # no highlighting above this file size
+# highlight_max_line = 10000       # ...or this line length
+
+# ---------------------------------------------------------------------------
+# Editing
+# ---------------------------------------------------------------------------
+
+# tab_width = 8                    # 1..16
+# indent_tabs_mode = true
+# require_final_newline = false    # applied on save; C-/ undoes it
+# delete_trailing_whitespace = false
+# next_screen_context_lines = 2    # overlap when paging; 0 allowed
+# kill_ring_max = 120
+# mark_ring_max = 16
+# quick_open_max_files = 100000    # project-find-file limit
+
+# ---------------------------------------------------------------------------
+# Undo (Emacs 29 limits; strong >= limit, outer >= strong)
+# ---------------------------------------------------------------------------
+
+# undo_limit = 160000
+# undo_strong_limit = 240000
+# undo_outer_limit = 24000000
+# amalgamation_limit = 20
+
+# ---------------------------------------------------------------------------
+# Auto-save, external changes, daemon
+# ---------------------------------------------------------------------------
+
+# auto_save_interval_keys = 300
+# auto_save_timeout_s = 30
+# settle_window_ms = 200           # wait for an external writer to settle
+# poll_interval_ms = 2000
+# journal_fsync_ms = 200
+# journal_snapshot_max = 67108864  # 64 MiB
+# daemon_grace_ms = 3000
+# cursor_event_interval_ms = 50    # emx events cursor report rate
+
+# ---------------------------------------------------------------------------
+# Large files (bytes)
+# ---------------------------------------------------------------------------
+
+# in_memory_max = 16777216         # 16 MiB; larger files are block-backed
+# block_cache_bytes = 67108864     # 64 MiB; at least one block
+# large_save_warn = 536870912      # 512 MiB
+# search_match_cap = 65536
+# append_tail_hash_bytes = 65536
+# column_checkpoint_interval = 4096
+# long_line_threshold = 4096
+
+# ---------------------------------------------------------------------------
+# Key bindings: key sequence (Emacs kbd syntax) = command name
+# ---------------------------------------------------------------------------
+
+[keys]
+# "C-c f" = "project-find-file"
+
+# ---------------------------------------------------------------------------
+# Faces: face = SGR parameters (digits and ';'), over the theme's colors.
+# Faces: default mode_line mode_line_inactive header_line region
+#   isearch_match lazy_highlight minibuffer_prompt escape_glyph error
+#   warning changed_marker completion_selected panel_directory git_modified
+#   git_added git_untracked git_ignored comment string keyword type function
+#   variable constant builtin preprocessor show_paren_match
+#   show_paren_mismatch
+# ---------------------------------------------------------------------------
+
+[faces]
+# keyword = "1;34"
+# comment = "2;37"
+
+# ---------------------------------------------------------------------------
+# Per file type: by whole file name first, else by extension.
+# Keys: tab_width, indent_tabs_mode, require_final_newline,
+#       delete_trailing_whitespace
+# ---------------------------------------------------------------------------
+
+[file_types.go]
+tab_width = 4
+indent_tabs_mode = true
+
+[file_types.Makefile]
+indent_tabs_mode = true
+
+[file_types.md]
+tab_width = 4
+indent_tabs_mode = false
+require_final_newline = true
+delete_trailing_whitespace = true
+
+[file_types.rs]
+tab_width = 4
+indent_tabs_mode = false
+
+[file_types.ts]
+tab_width = 2
+indent_tabs_mode = false
+
+[file_types.js]
+tab_width = 2
+indent_tabs_mode = false
+
+[file_types.json]
+tab_width = 2
+indent_tabs_mode = false
+
+[file_types.yaml]
+tab_width = 2
+indent_tabs_mode = false
+
+[file_types.toml]
+tab_width = 2
+indent_tabs_mode = false

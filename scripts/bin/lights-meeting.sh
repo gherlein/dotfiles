@@ -11,4 +11,7 @@ if [ "$#" -ne 1 ]; then
     exit 1
 fi
 
+# gocamdet runs hooks with no environment, and pctl refuses to start without $HOME.
+export HOME=/home/gherlein
+
 exec /home/gherlein/bin/pctl --quiet --config /home/gherlein/.config/pctl/config.yaml meeting-status "$1"
