@@ -15,6 +15,9 @@ export GOPATH=$HOME/go
 export GOBIN=$HOME/go/bin
 export PATH=$PATH:/usr/local/go/bin:$GOBIN
 
+# emx
+alias emacs='emx'
+
 # claude
 export CLAUDE_BASH_MAINTAIN_WORKING_DIR=1
 export PATH="$HOME/.claude/local:$PATH"
