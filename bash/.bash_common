@@ -10,6 +10,15 @@ _BASH_COMMON_LOADED=1
 # PATH (common)
 export PATH="$HOME/bin:/usr/local/bin:$PATH:$HOME/.local/bin:~/bin:~/.local/zed.app/bin"
 
+is_kitty() {
+    [[ -n "$KITTY_WINDOW_ID" || "$TERM" == "xterm-kitty" || "$TERM_PROGRAM" == "kitty" ]]
+}
+
+if is_kitty; then
+    alias ssh='command ssh'
+fi
+
+
 # golang
 export GOPATH=$HOME/go
 export GOBIN=$HOME/go/bin
