@@ -90,3 +90,12 @@ export NVM_DIR="$HOME/.nvm"
 # rhun
 case ":$PATH:" in *":/home/gherlein/.local/bin:"*) ;; *) export PATH="/home/gherlein/.local/bin:$PATH" ;; esac
 # rhun end
+
+# direnv
+eval "$(direnv hook bash)"
+
+# litellm on dgx1 (used by codex, llm, etc.)
+[ -r ~/.config/litellm/key ] && export LITELLM_API_KEY="$(cat ~/.config/litellm/key)"
+
+# opencode
+export PATH=/home/gherlein/.opencode/bin:$PATH
