@@ -1,6 +1,0 @@
-{
-  "defaultProvider": "litellm",
-  "defaultModel": "qwen3.8-27b",
-  "lastChangelogVersion": "0.84.3",
-  "theme": "dark"
-}
