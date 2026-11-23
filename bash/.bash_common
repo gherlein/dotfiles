@@ -45,7 +45,8 @@ alias herdrk='herdr session stop $HERDR_SESSION'
 
 # pctl — each site's devices live in their own unstowed folder, so point pctl
 # at the one for the LAN this host is on: 192.168.2.x is sf, 192.168.4.x is mx.
-# Off both, pctl falls back to its default ~/.config/pctl. Decided once per
+# Off both, or if that site's folder is missing, pctl falls back to its default
+# ~/.config/pctl. Decided once per
 # shell, so open a new shell after moving between sites.
 _pctl_addresses() {
     case "$(uname -s)" in
@@ -58,7 +59,7 @@ case " $(_pctl_addresses) " in
     *" 192.168.4."*) _pctl_site=mx ;;
     *) _pctl_site="" ;;
 esac
-[[ -n "$_pctl_site" ]] && \
+[[ -n "$_pctl_site" && -f "$HOME/dotfiles-private/pctl-$_pctl_site/config.yaml" ]] && \
     alias pctl="pctl --config \"\$HOME/dotfiles-private/pctl-$_pctl_site/config.yaml\" --groups \"\$HOME/dotfiles-private/pctl-$_pctl_site/groups.yaml\""
 unset -f _pctl_addresses
 unset _pctl_site
@@ -125,7 +126,7 @@ alias pip="pip3"
 alias python=python3
 
 # editor
-export EDITOR="${EDITOR:-mg}"
+export EDITOR="/bin/emx"
 
 # gerrit — set GERRIT_HOST in ~/.config/work.env
 [[ -n "$GERRIT_HOST" ]] && alias gerrit="ssh -p 29418 $USER@$GERRIT_HOST gerrit"
