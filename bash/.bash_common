@@ -14,9 +14,6 @@ is_kitty() {
     [[ -n "$KITTY_WINDOW_ID" || "$TERM" == "xterm-kitty" || "$TERM_PROGRAM" == "kitty" ]]
 }
 
-if is_kitty; then
-    alias ssh='command ssh'
-fi
 
 
 # golang
